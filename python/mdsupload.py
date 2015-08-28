@@ -6,11 +6,13 @@ codac.MDSupload
 data rooturl database view    project strgrp stream idx    channel
 lev  0       1        2       3       4      5      6      7
 """
-import MDSplus
-from base import Unit,Time,Path
-from support import error,cp,ndims
-from interface import write_logurl,write_data,write_image
-import re
+from .base import Unit,Time,Path
+from .support import error,cp,ndims
+from .interface import write_logurl,write_data,write_image
+import MDSplus,re,sys
+if sys.version_info.major==3:
+    xrange=range
+
 archive = '/Test'# ArchiveDB
 
 

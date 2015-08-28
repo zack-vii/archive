@@ -6,8 +6,11 @@ codac.baseclasses
 data rooturl database view    project strgrp stream idx    channel
 lev  0       1        2       3       4      5      6      7
 """
-import re
-import numpy as np
+import re,numpy,sys
+if sys.version_info.major==3:
+    basestring=str
+    xrange=range
+    long=int
 #from support import error
 defreadpath  = '/ArchiveDB/raw/W7X/CoDaStationDesc.10251/DataModuleDesc.10193_DATASTREAM/0/AAB27CT003'
 rooturl = 'http://archive-webapi.ipp-hgw.mpg.de'
@@ -223,7 +226,7 @@ class Time():
             t=t.data()
             if t<1E10 and t>0:          t = t*1000000000          #time in 's'
             self._value = long(t)
-        elif isinstance(t, (np.ScalarType, Scalar)) and not isinstance(t,(basestring)):
+        elif isinstance(t, (numpy.ScalarType, Scalar)) and not isinstance(t,(basestring)):
             if isinstance(t,(Scalar)) : t = t.data()
             if t<1E10 and t>0:          t = t*1000000000          #time in 's'
             self._value = long(t)
@@ -254,11 +257,11 @@ class TimeInterval(list):
         if not isinstance(arg, (TimeInterval)):
             if isinstance(arg,(Array,TreeNode,VECTOR)):
                 arg = arg.data()[0:2].tolist()
-            elif isinstance(arg,(np.ndarray)):
+            elif isinstance(arg,(numpy.ndarray)):
                 arg = arg[0:2].tolist()
             elif not isinstance(arg,(list,tuple)):
                 arg = [arg,-1]
-            arg = map(Time,arg[0:2])
+            arg = list(map(Time,arg[0:2]))
         self.append(arg[0])
         if len(arg)>1:
             self.append(arg[1])

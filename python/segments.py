@@ -4,7 +4,10 @@ Created on Fri Aug 07 13:19:04 2015
 Segments
 @author: cloud
 """
-import MDSplus
+import MDSplus,sys
+if sys.version_info.major==3:
+    xrange=range
+
 def segments1D():
     import math
     chunk = 100

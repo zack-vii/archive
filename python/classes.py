@@ -6,12 +6,15 @@ codac.classes
 data rooturl database view    project strgrp stream idx    channel
 lev  0       1        2       3       4      5      6      7
 """
-import re
-from interface import post
+from .interface import post
 #from requests import post
-from interface import get_json,read_parlog,read_cfglog,read_signal,write_image,write_data
-from base import Time,TimeInterval,Unit,Path
+from .interface import get_json,read_parlog,read_cfglog,read_signal,write_image,write_data
+from .base import Time,TimeInterval,Unit,Path
 defwritepath = '/test/raw/W7X/python_interface/test'
+import re,sys
+if sys.version_info.major==3:
+    xrange=range
+    long=int
 
 
 class datastream:

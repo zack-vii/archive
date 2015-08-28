@@ -6,26 +6,21 @@ CODAC Devices
 @license: GNU GPL
 
 """
+import sys
+if sys.version_info.major<3:
+    import base
+    import interface
+    import classes
+    import cache
+    import kkseval
+    import mdsupload
+    import archiveaccess
+    import tools
+del sys
 
-import base
-from base import Time,TimeInterval,Unit,Path
-
-import interface
-from interface import read_signal,read_cfglog,read_parlog
-
-import cache
-
-import classes
-from classes import datastream,browser
-
-import kkseval
-
-import mdsupload
-from mdsupload import uploadNode
-
-from support import setTIME
-
-import archiveaccess
-from archiveaccess import *
-
-import tools
+from .base import Time,TimeInterval,Unit,Path
+from .interface import read_signal,read_cfglog,read_parlog
+from .classes import datastream,browser
+from .mdsupload import uploadNode
+from .support import setTIME
+from .archiveaccess import *

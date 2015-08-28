@@ -7,16 +7,20 @@ data rooturl database view    project strgrp stream idx    channel
 lev  0       1        2       3       4      5      6      7
 """
 from re import compile
-from support import error,setTIME
-from base import Path
-from classes import browser
+from .support import error,setTIME
+from .base import Path
+from .classes import browser
 re = compile('[A-Z]+[0-9]+')
+import sys
+if sys.version_info.major==3:
+    xrange=range
+    long=int
 
 def addW7X(time=['2015/07/01-12:00:00.000000000','2015/07/01-12:30:00.000000000']):
     from MDSplus import Tree
     name = "raw"
     path = Path("/ArchiveDB/raw/W7X").url()
-    with Tree('archivesb',-1,'New') as tree:
+    with Tree('test',-1,'New') as tree:
         try:
             timeNode=tree.addNode('TIMING','NUMERIC')
             timeNode.addTag('TIME')
@@ -121,12 +125,12 @@ def addParlog(node):
                 k = fixname12(k)
                 if isinstance(v,(str)):
                     parNode.addNode(k,'TEXT').putData(v)
-                elif isinstance(v,(unicode)):
-                    parNode.addNode(k,'TEXT').putData(v.encode('CP1252','backslashreplace'))
                 elif isinstance(v,(int, float)):
                     parNode.addNode(k,'NUMERIC').putData(v)
                 elif isinstance(v,(list)) and isinstance(v[0],(int, float)):
                     parNode.addNode(k,'NUMERIC').putData(v)
+                elif isinstance(v,(unicode)):
+                    parNode.addNode(k,'TEXT').putData(v.encode('CP1252','backslashreplace'))
             except:
                 print(node.MinPath)
                 print(k)
@@ -151,17 +155,20 @@ def addChannel(node,nname,idx,chan={},url=[]):
                 v = int(v)
                 node.setOn(v!=0)
             elif k=='name':
-                if isinstance(v,(unicode)):
-                    v = v.encode('CP1252','backslashreplace')
+                try:
+                    if isinstance(v,(unicode)):
+                        v = v.encode('CP1252','backslashreplace')
+                except:
+                    pass               
                 nameNode.putData(v)
             else:
                 k = fixname12(k)
                 if isinstance(v,(str)):
                     node.addNode(k,'TEXT').putData(v)
-                elif isinstance(v,(unicode)):
-                    node.addNode(k,'TEXT').putData(v.encode('CP1252','backslashreplace'))
                 elif isinstance(v,(int, float, list)):
                     node.addNode(k,'NUMERIC').putData(v)
+                elif isinstance(v,(unicode)):
+                    node.addNode(k,'TEXT').putData(v.encode('CP1252','backslashreplace'))
         except:
             print(k)
             print(v)

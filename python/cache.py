@@ -16,7 +16,7 @@ except:
 if sys.version_info.major==3:
     buffer = memoryview
 
-class SqliteCache():
+class cache():
 
     _create_sql = (
             'CREATE TABLE IF NOT EXISTS bucket '

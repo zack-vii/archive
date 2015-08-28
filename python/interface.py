@@ -6,15 +6,22 @@ codac.interface
 data rooturl database view    project strgrp stream idx    channel
 lev  0       1        2       3       4      5      6      7
 """
-from base import TimeInterval,Path,createSignal
-import tempfile,os,cache
+from .base import TimeInterval,Path,createSignal
+from .cache import cache
+import tempfile,os,sys
+if sys.version_info.major==3:
+    xrange=range
+    import urllib.request as urllib
+else:
+    import urllib2 as urllib
+
 filebase = 'codac_cache'
 isunix = os.name=='posix'
 if isunix:
     filebase = "/tmp/"+filebase
 else:
     filebase = os.getenv('TEMP')+'\\'+filebase
-SQCache = cache.SqliteCache(filebase)
+SQCache = cache(filebase)
 
 def write_logurl(url, parms, time):
     log = {
@@ -75,12 +82,11 @@ def post(url,headers={},data=None,json=None):
     return(get(url,headers,data,'POST'))
     
 def get(url,headers={},data=None,method='GET'):
-    import urllib2
-    req = urllib2.Request(url)
+    req = urllib.Request(url)
     for k,v in headers.items():
         req.add_header(k, v)
     req.get_method = lambda: method
-    handler = urllib2.urlopen(req)
+    handler = urllib.urlopen(req)
     return(handler)
 
 def parseXML(toparse):
@@ -173,7 +179,6 @@ def read_raw_url( url, time, skip=0 ):
     r = get(link)
     return r
 def _debug(msg):
-    return
     import inspect
     try:
         print(inspect.stack()[1][3] + ': ' + str(msg))
