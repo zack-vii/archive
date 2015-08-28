@@ -72,7 +72,7 @@ def get_json(url, *arg):
         raise Exception('request failed: code '+str(handler.getcode()))
     if handler.headers.get('content-type') != 'application/json':
         raise Exception('requested content-type mismatch: '+ handler.headers.get('content-type'))
-    return json.loads(handler.read(), strict=False)
+    return json.loads(handler.read().decode(), strict=False)
 
 def post(url,headers={},data=None,json=None):
     if json is not None:
@@ -114,7 +114,7 @@ def parseXML(toparse):
     tree = ET.fromstring(toparse.encode('utf-8'))
     return xmltodict(tree)
 
-def read_parlog(path, time=TimeInterval(['',-1])):
+def read_parlog(path, time=TimeInterval(['',-1]), *args):
     def rmfield(dic,field):
         if dic.has_key(field):
             del(dic[field])
@@ -139,8 +139,8 @@ def read_parlog(path, time=TimeInterval(['',-1])):
             chans[i] = ch
         return chans
 
-    url = Path(path).url_parlog()
-    par = get_json(url,time)
+    url = Path(path).url_parlog(time, *args)
+    par = get_json(url)
     if type(par) is not dict:
         raise Exception('parlog not found:\n'+url)
     par = par['values'][-1]

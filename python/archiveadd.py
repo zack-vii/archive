@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-codac.addArchiveDB
+codac.archiveadd
 ==========
 @authors: timo.schroeder@ipp-hgw.mpg.de
 data rooturl database view    project strgrp stream idx    channel
@@ -16,11 +16,11 @@ if sys.version_info.major==3:
     xrange=range
     long=int
 
-def addW7X(time=['2015/07/01-12:00:00.000000000','2015/07/01-12:30:00.000000000']):
+def addW7X(treename='test',shotnumber=-1,time=['2015/07/01-12:00:00.000000000','2015/07/01-12:30:00.000000000']):
     from MDSplus import Tree
     name = "raw"
     path = Path("/ArchiveDB/raw/W7X").url()
-    with Tree('test',-1,'New') as tree:
+    with Tree(treename,shotnumber,'New') as tree:
         try:
             timeNode=tree.addNode('TIMING','NUMERIC')
             timeNode.addTag('TIME')
@@ -32,7 +32,6 @@ def addW7X(time=['2015/07/01-12:00:00.000000000','2015/07/01-12:30:00.000000000'
             tree.deleteNode(name)
         except:
             pass
-#        tree.getNode('\TOP').addTag('RAW')
         addProject(tree,name,'',path)
         tree.write()
         tree.close
@@ -137,8 +136,6 @@ def addParlog(node):
                 print(v)
     return chanDescs
 
-
-
 def addChannel(node,nname,idx,chan={},url=[]):
     from support import fixname12
     node = node.addNode(nname,'SIGNAL')
@@ -185,5 +182,3 @@ def codac_parlog(streamNode):
     return TdiCompile('codac_parlog($)',(streamNode,))
 def codac_cfglog(streamgroupNode):
     return TdiCompile('codac_cfglog($)',(streamgroupNode,))
-
-addW7X()

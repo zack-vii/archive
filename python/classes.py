@@ -83,7 +83,7 @@ class browser(Path):
     def read_channel(self, skip=0, nsamples=0):
         return read_signal( self.url_channel(), self.time(), 0, skip, nsamples )
     def read_parlog(self, skip=0, nsamples=0):
-        return read_parlog( self.url(4), self.time(), skip, nsamples )
+        return read_parlog( self.url(5), self.time(), skip, nsamples )
     def read_cfglog(self,time=TimeInterval()):
         return read_cfglog(self.url_cfglog(),time)
     # get lists
@@ -101,7 +101,7 @@ class browser(Path):
         try:
             return list_children(self._path, 6)
         except:
-            params = self.read_param(0,1)[0]
+            params = self.read_parlog(0,1)[0]
             if 'chanDescs' in params.keys():
                 cD = params['chanDescs']
                 return [(cD[i]["name"], str(i)) for i in xrange(len(cD))]
