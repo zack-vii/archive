@@ -110,11 +110,11 @@ def addStream(node,nname,name='',url=[]):
         
 def addParlog(node):
     try:
-        time = node.getNode('\TIME')
+#        time = node.getNode('\TIME')
         url = node.getNode('$URL').data().tostring()
         if not isinstance(url,(str,)):
             url = url.decode()
-        dist = read_parlog(url,time)
+        dist = read_parlog(url,[-1,-1])
     except:
         print(error())
         node.addNode('$PARLOG','ANY').putData(codac_parlog(node))
@@ -135,14 +135,15 @@ def addParlog(node):
                 elif isinstance(v,(list)) and isinstance(v[0],(int, float)):
                     parNode.addNode(k,'NUMERIC').putData(v)
                 elif isinstance(v,(dict,)):
-                    if '['+str(len(v)-1)+']' in v.keys():
+                    pn = parNode.addNode(k,'ANY')
+                    if not '['+str(len(v)-1)+']' in v.keys():
+                        pn.putData(v.__str__())
+                    else:
                         v = [v['['+str(i)+']'] for i in xrange(len(v))]
-                        pn = parNode.addNode(k,'ANY')
-                    try:
-                        pn.putData(v)
-                    except:
-                        print(error(1))
-                        pn.putData([i.__str__() for i in v])
+                        try:
+                            pn.putData(v)
+                        except:
+                            pn.putData([i.__str__() for i in v])
                 elif isinstance(v,(unicode)):
                     parNode.addNode(k,'TEXT').putData(v.encode('CP1252','backslashreplace'))
             except:
@@ -194,10 +195,10 @@ from MDSplus import TdiCompile
 def codac_url(node):
     return TdiCompile('codac_url($)',(node,))
 def codac_channel(channelNode):
-    return TdiCompile('codac_signal($)',(channelNode,))
+    return TdiCompile('codac_signal($,IFERROR(_time,*))',(channelNode,))
 def codac_stream(streamNode):
-    return TdiCompile('codac_signal($)',(streamNode,))
+    return TdiCompile('codac_signal($,IFERROR(_time,*))',(streamNode,))
 def codac_parlog(streamNode):
-    return TdiCompile('codac_parlog($)',(streamNode,))
+    return TdiCompile('codac_parlog($,IFERROR(_time,*))',(streamNode,))
 def codac_cfglog(streamgroupNode):
-    return TdiCompile('codac_cfglog($)',(streamgroupNode,))
+    return TdiCompile('codac_cfglog($,IFERROR(_time,*))',(streamgroupNode,))
