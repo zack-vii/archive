@@ -6,9 +6,9 @@ data rooturl database view    project strgrp stream idx    channel
 lev  0       1        2       3       4      5      6      7
 """
 
-from .base import TimeInterval,createSignal
-from .support import error
-from .interface import read_signal,read_cfglog,read_parlog
+from codac.base import TimeInterval,createSignal#,Path
+from codac.support import error
+from codac.interface import read_signal,read_cfglog,read_parlog
         
 def mds_channel(streamURL, time, channelNr, e=None):
     try:
@@ -37,14 +37,16 @@ def mds_stream(streamURL, time, help=None, e=None):
     except:
         return error(e)
 
-def mds_parlog(streamURL, time):
+def mds_parlog(streamURL, time, e=None):
     try:
-        return read_parlog( streamURL, time )
+        return(str(read_parlog( streamURL, time )))
+        #return(Path(streamURL).url_parlog( time ))
     except:
-        return error()
+        return(error(e))
 
-def mds_cfglog(strgrpURL, time):
+def mds_cfglog(strgrpURL, time, e=None):
     try:
-        return read_cfglog( strgrpURL, time )
+        return(str(read_cfglog( strgrpURL, time )))
+        # return(Path(strgrpURL).url_cfglog( time ))
     except:
-        return error()
+        return(error(e))
