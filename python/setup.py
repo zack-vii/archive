@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 from setuptools import setup#, Extension
 version='0.1'
 setup(name='codac',
