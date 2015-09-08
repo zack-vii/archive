@@ -13,7 +13,7 @@ def setRecord(node,istop=True):
             elif dec.getNodeName()=='$CFGLOG':
                 dec.record=MDSplus.TdiCompile('codac_cfglog($)',(node,))
             elif dec.usage=='SIGNAL':
-                dec.record=MDSplus.TdiCompile('codac_signal($)',(dec,))
+                dec.record=MDSplus.TdiCompile('codac_signal($,IF_ERROR(_time,*))',(dec,))
             setRecord(dec,False)
 
 import MDSplus

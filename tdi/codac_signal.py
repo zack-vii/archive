@@ -1,7 +1,10 @@
-def codac_signal(node):
+def codac_signal(node,time=None):
     import codac
     try:
-        time = codac.TimeInterval(node.getNode('\TIME').data())
+        if time is None:
+            time = codac.TimeInterval(node.getNode('\TIME').data())
+        else:
+            time = codac.TimeInterval(time)
 #        try:
 #            t0 = codac.Time(node.getNode('\TIME.T1:IDEAL')).ns()
 #        except:
