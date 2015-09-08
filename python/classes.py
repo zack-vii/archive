@@ -145,11 +145,11 @@ def list_children(url, lev=-1):
     for c in children:
         m = rec.search(c['href'])
         if m!=None:
-            k,v = m.group(1).encode('ascii'),m.group(2).encode('ascii')
+            k,v = m.group(1),m.group(2)
             if lev in [5,6]:
                 if lev==6:
                     NAME[v] = int(k)
-                elif NAME.has_key(k):
+                elif k in NAME.keys():
                     NAME[k].append(v)
                 else:
                     NAME[k] = [v]

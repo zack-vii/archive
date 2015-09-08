@@ -5,9 +5,10 @@ codac.baseclasses
 data rooturl database view    project strgrp stream idx    channel
 lev  0       1        2       3       4      5      6      7
 """
-import re,numpy,sys
-if sys.version_info.major==3:
-    basestring=str
+import re,numpy
+from codac import PY3
+if PY3:
+    basestring=(str,bytes)
     xrange=range
     long=int
 #from support import error
@@ -24,7 +25,7 @@ class Path():
             self._path = path._path
             self._lev  = path._lev
         else:
-            self.set_path(path)
+            self.set_path(str(path))
     def __str__(self):
         return self.path()
     def set_path(self,*path):
@@ -39,7 +40,7 @@ class Path():
                 _path = 'ArchiveDB/' + _path
         _path = _path.strip('/').split('/')
         if len(_path)>4:
-            if not ( _path[4].endswith('_DATASTREAM') or _path[4].endswith('_PARLOG') ):
+            if not ( _path[4].endswith('_DATASTREAM') or _path[4].endswith('_PARLOG') or _path[4].endswith('_CFGLOG') ):
                 _path[4] = _path[4] + '_DATASTREAM'
         if lev==-2:
             return ['/' + '/'.join(_path), len(_path)]

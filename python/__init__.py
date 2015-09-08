@@ -16,6 +16,7 @@ if PY3:
     from .mdsupload import uploadNode
     from .support import setTIME
     from .archiveaccess import *
+    from .archiveadd import addW7X
 else:
     from base import Time,TimeInterval,Unit,Path
     from interface import read_signal,read_cfglog,read_parlog
@@ -23,3 +24,4 @@ else:
     from mdsupload import uploadNode
     from support import setTIME
     from archiveaccess import *
+    from archiveadd import addW7X

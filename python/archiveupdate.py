@@ -9,9 +9,9 @@ def setRecord(node,istop=True):
             if dec.getNodeName()=='$URL' and ~istop:
                 dec.record=MDSplus.TdiCompile('codac_url($)',(node,))
             elif dec.usage=='ANY' and dec.getNodeName()=='$PARLOG':
-                dec.record=MDSplus.TdiCompile('codac_parlog($)',(node,))
+                dec.record=MDSplus.TdiCompile('codac_parlog($,IF_ERROR(_time,*))',(node,))
             elif dec.getNodeName()=='$CFGLOG':
-                dec.record=MDSplus.TdiCompile('codac_cfglog($)',(node,))
+                dec.record=MDSplus.TdiCompile('codac_cfglog($,IF_ERROR(_time,*))',(node,))
             elif dec.usage=='SIGNAL':
                 dec.record=MDSplus.TdiCompile('codac_signal($,IF_ERROR(_time,*))',(dec,))
             setRecord(dec,False)

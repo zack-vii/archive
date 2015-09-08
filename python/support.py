@@ -5,6 +5,12 @@ codac.support
 data rooturl database view    project strgrp stream idx    channel
 lev  0       1        2       3       4      5      6      7
 """
+from codac import PY3
+if PY3:
+    xrange=range
+    from urllib.request import unquote
+else:
+    from urllib2 import unquote
 def version():
     return '2015.08.08.12.00'
 
@@ -31,15 +37,16 @@ class remoteTree(Tree):
 
 
 def fixname(name):
-    import urllib2
-    name = name.encode('ascii')
-    name = urllib2.unquote(name)
+    if not isinstance(name,(str)):
+        if PY3:
+            name = name.decode()
+        else:
+            name = name.encode('ascii')
+    name = unquote(name)
     return name
 
 def fixname12(name):
-    import urllib2
-    name = name.encode('ascii')
-    name = urllib2.unquote(name)
+    name = fixname(name)
     if name.lower().startswith('starttrigger'):
         name = 'startTrg' + name[12:]
     return name[:12]

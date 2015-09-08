@@ -5,10 +5,11 @@ codac.interface
 data rooturl database view    project strgrp stream idx    channel
 lev  0       1        2       3       4      5      6      7
 """
-from .base import TimeInterval,Path,createSignal
-from .cache import cache
-import tempfile,os,sys
-if sys.version_info.major==3:
+import tempfile,os
+from codac.base import TimeInterval,Path,createSignal
+from codac.cache import cache
+from codac import PY3
+if PY3:
     xrange=range
     import urllib.request as urllib
 else:
@@ -64,14 +65,15 @@ def read_signal(path,time,t0=0, *arg):
 def get_json(url, *arg):
     url = Path(url).url(-1, *arg)
     _debug(url)
-    import json
+    import json,codecs
+    reader = codecs.getreader("utf-8")
     headers={'Accept': 'application/json'}
     handler = get(url,headers)
     if handler.getcode()!=200:
         raise Exception('request failed: code '+str(handler.getcode()))
     if handler.headers.get('content-type') != 'application/json':
         raise Exception('requested content-type mismatch: '+ handler.headers.get('content-type'))
-    return json.loads(handler.read().decode(), strict=False)
+    return json.load(reader(handler), strict=False)
 
 def post(url,headers={},data=None,json=None):
     if json is not None:
@@ -93,7 +95,7 @@ def parseXML(toparse):
     from re import compile as recmp
     re = recmp('(?:\{[^\}]*\}|)(.*)')
     def addvalue(res, name, value):
-        if res.has_key(name):
+        if name in res.keys():
             if type(res[name]) is list:
                 res[name].append(value)
             else:
@@ -115,7 +117,7 @@ def parseXML(toparse):
 
 def read_parlog(path, time=TimeInterval(['',-1]), *args):
     def rmfield(dic,field):
-        if dic.has_key(field):
+        if field in dic.keys():
             del(dic[field])
     def dict2list(d):
         l = len(d.keys())*[None]
@@ -126,34 +128,32 @@ def read_parlog(path, time=TimeInterval(['',-1]), *args):
         chtmp = parseXML(chans['xmlDescription'])['channel']
         active = chans.get('active',None)
         pQ = chans.get('physicalQuantity',None)
-        chans = len(chtmp)*[None]
+        chans = len(chtmp)*[{}]
         for ch in chtmp:
             ch['active'] = active
             ch['physicalQuantity'] = pQ
             i = int(ch['channelNumber'])
             rmfield(ch,'channelNumber')
             for k,v in ch.items():
-                if v is None:
-                    del(ch[k])
-            chans[i] = ch
+                if not v is None:
+                    chans[i][k] = v
         return chans
-
     url = Path(path).url_parlog(time, *args)
     par = get_json(url)
     if type(par) is not dict:
         raise Exception('parlog not found:\n'+url)
     par = par['values'][-1]
-    if par.has_key('chanDescs'):
+    if 'chanDescs' in par.keys():
         cD = par['chanDescs']
         if type(cD) is dict:
             cD = dict2list(cD)
-        if cD and len(cD)==1 and cD[0].has_key('xmlDescription'):
+        if cD and len(cD)==1 and 'xmlDescription' in cD[0].keys():
             cD = integrateChLst(cD[0])
         par['chanDescs'] = cD
     return par
 
-def read_cfglog(path, time=[None,-1]):
-    url = Path(path).url_cfglog(time)
+def read_cfglog(path, time=[None,-1], *args):
+    url = Path(path).url_cfglog(time, *args)
     par = get_json(url)
     if type(par) is not dict:
         raise Exception('cfglog not found:\n'+url)
