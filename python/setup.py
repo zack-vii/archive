@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 from setuptools import setup#, Extension
 version='0.1'
-setup(name='codac',
+setup(name='archive',
      version=version,
      description='WebAPI Device support',
      long_description = """
@@ -10,8 +10,8 @@ setup(name='codac',
      author='Timo Schroeder',
      author_email='timo.schroeder@ipp-hgw.mpg.de',
      url='http://archive-webapi.ipp-hgw.mpg.de',
-     package_dir = {'codac':'.',},
-     packages = ['codac',],
+     package_dir = {'archive':'.',},
+     packages = ['archive','h5py','MDSplus'],
      platforms = ('Any',),
      classifiers = [ 'Development Status :: 4 - Beta',
      'Programming Language :: Python',
@@ -19,6 +19,6 @@ setup(name='codac',
      'Environment :: Console',
      'Topic :: Scientific/Engineering',
      ],
-     keywords = ('physics','mdsplus','archive-webapi','codac'),
+     keywords = ('physics','mdsplus','archive-webapi','archive','codac'),
      zip_safe = False,
     )

@@ -2,7 +2,7 @@
 returns the url determined recursively by the name and parent url
 if $IDX exists the leaf if a Channel and we add the _DATASTREAM suffix and index
 */
-fun public codac_url ( as_is _node )
+fun public archive_url ( as_is _node )
 {
 /*    _node = GETNCI(_node, "MINPATH");*/
     _prnt = GETNCI(_node, "PARENT");

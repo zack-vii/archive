@@ -1,20 +1,15 @@
 """
-codac.classes
+archive.classes
 ==========
 @authors: timo.schroeder@ipp-hgw.mpg.de
 data rooturl database view    project strgrp stream idx    channel
 lev  0       1        2       3       4      5      6      7
 """
-from .interface import post
-#from requests import post
-from .interface import get_json,read_parlog,read_cfglog,read_signal,write_image,write_data
-from .base import Time,TimeInterval,Unit,Path
+from archive.interface import post
+from archive.interface import get_json,read_parlog,read_cfglog,read_signal,write_image,write_data
+from archive.base import Time,TimeInterval,Unit,Path
+import archive.version as _ver
 defwritepath = '/test/raw/W7X/python_interface/test'
-import re,sys
-if sys.version_info.major==3:
-    xrange=range
-    long=int
-
 
 class datastream:
     def __init__(self, path=defwritepath):
@@ -30,7 +25,7 @@ class datastream:
         if self._path._lev!=5:
             Warning('url does no seem to be a datastream path')
     def set_dimensions(self, dimensions):
-        self._dimensions = [long(t) for t in dimensions]
+        self._dimensions = [_ver.long(t) for t in dimensions]
     def add_channel(self, name, data, unit='unknown', description=''):
         from support import ndims
         isImg = ndims(data)>1
@@ -103,7 +98,7 @@ class browser(Path):
             params = self.read_parlog(0,1)[0]
             if 'chanDescs' in params.keys():
                 cD = params['chanDescs']
-                return [(cD[i]["name"], str(i)) for i in xrange(len(cD))]
+                return [(cD[i]["name"], str(i)) for i in _ver.xrange(len(cD))]
     def list_chnames(self):
         return list_children(self._path,7)
     # print lists
@@ -121,11 +116,11 @@ class browser(Path):
         self._print_list( self.list_chnames() )
     def _print_list( self, lst ):
         from support import fixname
-        for i in xrange(len(lst)):
+        for i in _ver.xrange(len(lst)):
             print( "%3d %s" % ( i, fixname(lst[i][0] if type(lst[i]) is tuple else lst[i]) ) )
 
 def list_children(url, lev=-1):
-    from re import compile
+    from re import compile,escape,I
     if lev<0:
         [url, lev] = Path(url).url(-2)
     else:
@@ -133,13 +128,13 @@ def list_children(url, lev=-1):
     if lev<2: # databases
         return ['ArchiveDB','Test']
     elif lev<5: # stream group in projects in views
-        rec = compile(re.escape(url) + '/([^/]+)()', re.I);    NAME = []
+        rec = compile(escape(url) + '/([^/]+)()', I);    NAME = []
     elif  lev==5: # stream for channel in stream group
-        rec = compile(re.escape(url) + '/([^/]+)_(DATASTREAM|PARLOG|CFGLOG)(?:|/\\?filterstart)', re.I);    NAME = {}
+        rec = compile(escape(url) + '/([^/]+)_(DATASTREAM|PARLOG|CFGLOG)(?:|/\\?filterstart)', I);    NAME = {}
     elif  lev==6: # search for channel in stream
-        rec = compile(re.escape(url) + '/([^/]+)/([^\\?]+)(?:|\\?filterstart)', re.I);   NAME = {}
+        rec = compile(escape(url) + '/([^/]+)/([^\\?]+)(?:|\\?filterstart)', I);   NAME = {}
     elif lev>=7: # search for channel on index
-        rec = compile(re.escape(url) + '/([^/]+)()(?:|/\\?filterstart)', re.I);    NAME = []
+        rec = compile(escape(url) + '/([^/]+)()(?:|/\\?filterstart)', I);    NAME = []
     json = get_json(url)
     children = json['_links']['children']
     for c in children:

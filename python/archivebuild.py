@@ -1,23 +1,16 @@
 """
-codac.archiveadd
+archive.archivebuild
 ==========
 @authors: timo.schroeder@ipp-hgw.mpg.de
 data rooturl database view    project strgrp stream idx    channel
 lev  0       1        2       3       4      5      6      7
 """
-from re import compile
-from codac.support import error,setTIME,fixname12
-from codac.interface import read_parlog
-from codac.base import Path
-from codac.classes import browser
-from codac import PY3
-re = compile('[A-Z]+[0-9]+')
-import sys
-if sys.version_info.major==3:
-    xrange=range
-    long=int
-
-def addW7X(treename='test',shotnumber=-1,time=['2015/07/01-12:00:00.000000000','2015/07/01-12:30:00.000000000']):
+from archive.classes import browser
+import archive.version as _ver
+    
+def build(treename='test',shotnumber=-1,time=['2015/07/01-12:00:00.000000000','2015/07/01-12:30:00.000000000']):
+    from archive.base import Path
+    from archive.support import setTIME
     from MDSplus import Tree
     name = "raw"
     path = Path("/ArchiveDB/raw/W7X").url()
@@ -39,6 +32,8 @@ def addW7X(treename='test',shotnumber=-1,time=['2015/07/01-12:00:00.000000000','
 
 
 def addProject(node,nname,name='',url=[]):
+    from re import compile
+    re  = compile('[A-Z]+[0-9]+')
     cap = compile('[^A-Z]')
     if name!='':
         node = node.addNode(nname,'STRUCTURE')
@@ -46,7 +41,7 @@ def addProject(node,nname,name='',url=[]):
             print(nname)
             node.addTag(nname)
         node.addNode('$NAME','TEXT').putData(name)
-    if  url==[]: url = codac_url(node)
+    if  url==[]: url = archive_url(node)
     urlNode = node.addNode('$URL','TEXT');urlNode.putData(url)
     url = urlNode.data().tostring()
     if not isinstance(url,(str,)):
@@ -59,6 +54,8 @@ def addProject(node,nname,name='',url=[]):
         addStreamgroup(node,''.join(cnname),s)
 
 def addStreamgroup(node,nname,name='',url=[]):
+    from re import compile
+    re  = compile('[A-Z]+[0-9]+')
     cap = compile('[^A-Z]')
     if name!='':
         node = node.addNode(nname,'STRUCTURE')
@@ -67,9 +64,9 @@ def addStreamgroup(node,nname,name='',url=[]):
             print(nname)
             node.addTag(nname)
         node.addNode('$NAME','TEXT').putData(name)
-    if  url==[]: url = codac_url(node)
+    if  url==[]: url = archive_url(node)
     urlNode = node.addNode('$URL','TEXT');urlNode.putData(url)
-    node.addNode('$CFGLOG','ANY').putData(codac_cfglog(node))
+    node.addNode('$CFGLOG','ANY').putData(archive_cfglog(node))
     url = urlNode.data().tostring()
     if not isinstance(url,(str,)):
         url = url.decode()
@@ -89,26 +86,29 @@ def addStreamgroup(node,nname,name='',url=[]):
                     plogNode.addTag(cnname)
                 except:
                     print(cnname)
-            plogNode.addNode('$URL','TEXT').putData(codac_url(plogNode))
+            plogNode.addNode('$URL','TEXT').putData(archive_url(plogNode))
             plogNode.addNode('$NAME','TEXT').putData(stream)
             addParlog(plogNode)
 
-
 def addStream(node,nname,name='',url=[]):
+    from re import compile
+    re  = compile('[A-Z]+[0-9]+')
     if name!='':
         node = node.addNode(nname,'SIGNAL')
         if re.match(nname) is not None:
             print(nname)
             node.addTag(nname)
         node.addNode('$NAME','TEXT').putData(name)
-    node.putData(codac_stream(node))
-    if url==[]: url = codac_url(node)
+    node.putData(archive_stream(node))
+    if url==[]: url = archive_url(node)
     node.addNode('$URL','TEXT').putData(url)
     chanDescs = addParlog(node)
-    for i in xrange(len(chanDescs)):
+    for i in _ver.xrange(len(chanDescs)):
         addChannel(node,'CH'+str(i),i,chanDescs[i])
-        
+
 def addParlog(node):
+    from archive.interface import read_parlog
+    from archive.support import error,fixname12
     try:
 #        time = node.getNode('\TIME')
         url = node.getNode('$URL').data().tostring()
@@ -117,7 +117,7 @@ def addParlog(node):
         dist = read_parlog(url,[-1,-1])
     except:
         print(error())
-        node.addNode('$PARLOG','ANY').putData(codac_parlog(node))
+        node.addNode('$PARLOG','ANY').putData(archive_parlog(node))
         return []
     if 'chanDescs' in dist.keys(): chanDescs = dist['chanDescs']; del(dist['chanDescs'])
     else: chanDescs=[]
@@ -128,23 +128,23 @@ def addParlog(node):
                 continue
             try:
                 k = fixname12(k)
-                if isinstance(v,(str)):
+                if isinstance(v,(str,)):
                     parNode.addNode(k,'TEXT').putData(v)
                 elif isinstance(v,(int, float)):
                     parNode.addNode(k,'NUMERIC').putData(v)
-                elif isinstance(v,(list)) and isinstance(v[0],(int, float)):
+                elif isinstance(v,(list,)) and isinstance(v[0],(int, float)):
                     parNode.addNode(k,'NUMERIC').putData(v)
                 elif isinstance(v,(dict,)):
                     pn = parNode.addNode(k,'ANY')
                     if not '['+str(len(v)-1)+']' in v.keys():
                         pn.putData(v.__str__())
                     else:
-                        v = [v['['+str(i)+']'] for i in xrange(len(v))]
+                        v = [v['['+str(i)+']'] for i in _ver.xrange(len(v))]
                         try:
                             pn.putData(v)
                         except:
                             pn.putData([i.__str__() for i in v])
-                elif isinstance(v,(unicode)):
+                elif isinstance(v,(_ver.unicode,)):
                     parNode.addNode(k,'TEXT').putData(v.encode('CP1252','backslashreplace'))
             except:
                 print(node.MinPath)
@@ -154,9 +154,10 @@ def addParlog(node):
     return chanDescs
 
 def addChannel(node,nname,idx,chan={},url=[]):
+    from archive.support import error,fixname12
     node = node.addNode(nname,'SIGNAL')
-    node.putData(codac_channel(node))
-    if url==[]: url = codac_url(node)
+    node.putData(archive_channel(node))
+    if url==[]: url = archive_url(node)
     node.addNode('$URL','TEXT').putData(url)
     nameNode = node.addNode('$NAME','TEXT');
     node.addNode('$IDX','NUMERIC').putData(idx)
@@ -168,11 +169,8 @@ def addChannel(node,nname,idx,chan={},url=[]):
                 v = int(v)
                 node.setOn(v!=0)
             elif k=='name':
-                try:
-                    if isinstance(v,(unicode)):
-                        v = v.encode('CP1252','backslashreplace')
-                except:
-                    pass               
+                if _ver.has_unicode and isinstance(v,(_ver.unicode)):
+                        v = v.encode('CP1252','backslashreplace')        
                 nameNode.putData(v)
             else:
                 k = fixname12(k)
@@ -180,25 +178,27 @@ def addChannel(node,nname,idx,chan={},url=[]):
                     node.addNode(k,'TEXT').putData(v)
                 elif isinstance(v,(int, float, list)):
                     node.addNode(k,'NUMERIC').putData(v)
-                elif PY3:
-                    if isinstance(v,(bytes,)):
+                elif _ver.has_bytes and isinstance(v,(_ver.bytes,)):
                         node.addNode(k,'TEXT').putData(v.decode())
-                else:
-                    if isinstance(v,(unicode,)):
+                elif _ver.has_unicode and isinstance(v,(_ver.unicode,)):
                         node.addNode(k,'TEXT').putData(v.encode('CP1252','backslashreplace'))
         except:
             print(k)
             print(v)
             error()
 
-from MDSplus import TdiCompile
-def codac_url(node):
-    return TdiCompile('codac_url($)',(node,))
-def codac_channel(channelNode):
-    return TdiCompile('codac_signal($,IFERROR(_time,*))',(channelNode,))
-def codac_stream(streamNode):
-    return TdiCompile('codac_signal($,IFERROR(_time,*))',(streamNode,))
-def codac_parlog(streamNode):
-    return TdiCompile('codac_parlog($,IFERROR(_time,*))',(streamNode,))
-def codac_cfglog(streamgroupNode):
-    return TdiCompile('codac_cfglog($,IFERROR(_time,*))',(streamgroupNode,))
+def archive_url(node):
+    from MDSplus import TdiCompile
+    return TdiCompile('archive_url($)',(node,))
+def archive_channel(channelNode):
+    from MDSplus import TdiCompile
+    return TdiCompile('archive_signal($,IF_ERROR(_time,*))',(channelNode,))
+def archive_stream(streamNode):
+    from MDSplus import TdiCompile
+    return TdiCompile('archive_signal($,IF_ERROR(_time,*))',(streamNode,))
+def archive_parlog(streamNode):
+    from MDSplus import TdiCompile
+    return TdiCompile('archive_parlog($,IF_ERROR(_time,*))',(streamNode,))
+def archive_cfglog(streamgroupNode):
+    from MDSplus import TdiCompile
+    return TdiCompile('archive_cfglog($,IF_ERROR(_time,*))',(streamgroupNode,))

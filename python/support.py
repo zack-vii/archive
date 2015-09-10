@@ -5,12 +5,9 @@ codac.support
 data rooturl database view    project strgrp stream idx    channel
 lev  0       1        2       3       4      5      6      7
 """
-from codac import PY3
-if PY3:
-    xrange=range
-    from urllib.request import unquote
-else:
-    from urllib2 import unquote
+from MDSplus import Tree,Int64Array,TdiCompile
+from archive.base import TimeInterval
+import archive.version as _ver
 def version():
     return '2015.08.08.12.00'
 
@@ -19,7 +16,6 @@ def sampleImage(imgfile='image.jpg'):
     im = imread(imgfile).astype('int32')
     return (im[:,:,2]+im[:,:,1]*256+im[:,:,0]*65536).T.tolist()
 
-from MDSplus import Tree
 class remoteTree(Tree):
     def __init__(self,shot='-1',tree='W7X',server='mds-data-1'):
         from MDSplus import Connection
@@ -38,11 +34,11 @@ class remoteTree(Tree):
 
 def fixname(name):
     if not isinstance(name,(str)):
-        if PY3:
+        if _ver.has_bytes and isinstance(name,(_ver.bytes)):
             name = name.decode()
-        else:
+        if _ver.has_unicode and isinstance(name,(_ver.unicode)):
             name = name.encode('ascii')
-    name = unquote(name)
+    name = _ver.urllib.unquote(name)
     return name
 
 def fixname12(name):
@@ -120,8 +116,6 @@ def ndims(signal,N=0):
     return N
 
 def setTIME(time):
-    from MDSplus import Int64Array,TdiCompile
-    from codac import TimeInterval
     time = TimeInterval(time)
     data = Int64Array(time)
     data.setUnits('ns')

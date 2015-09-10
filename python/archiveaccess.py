@@ -1,14 +1,14 @@
 """
-codac.accessArchiveDB
+archive.accessArchiveDB
 ==========
 @author: Cloud
 data rooturl database view    project strgrp stream idx    channel
 lev  0       1        2       3       4      5      6      7
 """
 
-from codac.base import TimeInterval,createSignal#,Path
-from codac.support import error
-from codac.interface import read_signal,read_cfglog,read_parlog
+from archive.base import TimeInterval,createSignal#,Path
+from archive.support import error
+from archive.interface import read_signal,read_cfglog,read_parlog
         
 def mds_channel(streamURL, time, channelNr, e=None):
     try:

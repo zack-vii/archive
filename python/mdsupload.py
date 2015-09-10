@@ -1,18 +1,17 @@
 """
-codac.MDSupload
+archive.MDSupload
 ==========
 @authors: timo.schroeder@ipp-hgw.mpg.de
 data rooturl database view    project strgrp stream idx    channel
 lev  0       1        2       3       4      5      6      7
 """
-from .base import Unit,Time,Path
-from .support import error,cp,ndims
-from .interface import write_logurl,write_data,write_image
-import MDSplus,re,sys
-if sys.version_info.major==3:
-    xrange=range
+import MDSplus,re
+from archive.base import Unit,Time,Path
+from archive.support import error,cp,ndims
+from archive.interface import write_logurl,write_data,write_image
+import archive.version as _ver
 
-archive = '/Test'# ArchiveDB
+archivedb = '/Test'# ArchiveDB
 
 
 def upload(names=['QMC','QMR','QRN','QSW','QSX'],shot=0,treename='W7X'):
@@ -21,7 +20,7 @@ def upload(names=['QMC','QMR','QRN','QSW','QSX'],shot=0,treename='W7X'):
     tree = MDSplus.Tree(treename,shot)
 #    time = Time(tree.getNode('\TIME:IDEAL.T0').data()).ns()  once it is fixed
     time = Time().ns()-1000000000
-    path = Path(archive+'/raw/W7X')
+    path = Path(archivedb+'/raw/W7X')
     for name in names:
         kks = tree.getNode(name)
         cfg = getCfgLog(kks)
@@ -158,7 +157,7 @@ def write_signals(path,signals,t0):
         R=[]
         if sig.getNumSegments():
             unit = Unit(sig.getSegmentDim(0),1)
-            for seg in xrange(sig.getNumSegments()):
+            for seg in _ver.xrange(sig.getNumSegments()):
                 data = sig.getSegment(seg).data().tolist()
                 dimof= sig.getSegmentDim(seg)
                 r=writedata(data,dimof,unit)
@@ -207,7 +206,7 @@ def buildPath(node):#, subsection=None):
     else:                    view = 'raw'
     section = PathParts[-2].lower()
     groupname = PathParts[-1].lower()
-    path = Path('/'.join([archive,view,'W7X',KKS+'_'+section,groupname]))
+    path = Path('/'.join([archivedb,view,'W7X',KKS+'_'+section,groupname]))
     return(path)
 
 

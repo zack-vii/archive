@@ -1,10 +1,10 @@
-def codac_signal(node,time=None):
-    import codac
+def archive_signal(node,time=None):
+    import archive
     try:
         if time is None:
-            time = codac.TimeInterval(node.getNode('\TIME').data())
+            time = archive.TimeInterval(node.getNode('\TIME').data())
         else:
-            time = codac.TimeInterval(time)
+            time = archive.TimeInterval(time)
 #        try:
 #            t0 = codac.Time(node.getNode('\TIME.T1:IDEAL')).ns()
 #        except:
@@ -27,4 +27,4 @@ def codac_signal(node,time=None):
     except:
         import getpass
         user = getpass.getuser()
-        return user+": "+codac.support.error()
+        return user+": "+archive.support.error()

@@ -3,9 +3,8 @@ Created on Fri Aug 07 13:19:04 2015
 Segments
 @author: cloud
 """
-import MDSplus,sys
-if sys.version_info.major==3:
-    xrange=range
+import MDSplus
+import archive.version as _ver
 
 def segments1D():
     import math
@@ -13,7 +12,7 @@ def segments1D():
     samples=1000
     freq  = 100.
     t0 = 0.
-    dimT = [float(t/freq-t0) for t in xrange(samples)]
+    dimT = [float(t/freq-t0) for t in _ver.xrange(samples)]
     datT = [math.cos(t*math.pi) for t in dimT]
     # your time vector 200 frames at 100Hz starting at t=0
     # dim = MDSplus.Dimension( MDSplus.Float32Array(timevector) ).setUnits("s")
@@ -23,7 +22,7 @@ def segments1D():
     with MDSplus.Tree('KKS_EVAL',7) as tree:
         node = tree.getNode('.RESULTS.MYSECTION:MYSEGMENT')
         node.deleteData()
-        for i in xrange(samples/chunk):
+        for i in _ver.xrange(samples/chunk):
             dim = MDSplus.Dimension(dimT[i*chunk:i*chunk+chunk]).setUnits('s')
             dat = MDSplus.Float32Array(datT[i*chunk:i*chunk+chunk]).setUnits('V')
             node.makeSegment(i,i,dim,dat)
@@ -35,7 +34,7 @@ def segments2D():
     Nframes = 5
     freq = 100
     t0 = 0
-    timevector = [t/freq-t0 for t in xrange(Nframes)]
+    timevector = [t/freq-t0 for t in _ver.xrange(Nframes)]
     # your time vector 200 frames at 100Hz starting at t=0
     # dim = MDSplus.Dimension( MDSplus.Float32Array(timevector) ).setUnits("s")
     # would becomes Build_With_Units(Build_Dim(<array>), "s")
@@ -44,7 +43,7 @@ def segments2D():
     with MDSplus.Tree('KKS_EVAL',1) as tree:
         node = tree.getNode('.RESULTS.MYSECTION:MYSEGMENT2')
         node.deleteData()
-        for i in xrange(Nframes):
+        for i in _ver.xrange(Nframes):
             dim = MDSplus.Dimension(timevector[i]).setUnits('s')
             node.makeSegment(i,i,dim,img.T)
         img1 = MDSplus.Signal(img,MDSplus.TdiCompile('*'),dim)

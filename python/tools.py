@@ -6,9 +6,8 @@ data rooturl database view    project strgrp stream idx    channel
 lev  0       1        2       3       4      5      6      7
 """
 from MDSplus import Tree
-import MDSplus,sys
-if sys.version_info.major==3:
-    xrange=range
+import MDSplus
+import archive.version as _ver
 
 def funcheck(funname,*args):
     import re
@@ -19,7 +18,7 @@ def funcheck(funname,*args):
     while not (lines[0].startswith('fun') or lines[0].startswith('public fun')):        
         del(lines[0])
     r = re.findall('(as_is|in)\s+(_[a-z0-9_]+)', lines[0])
-    for i in xrange(len(args)):
+    for i in _ver.xrange(len(args)):
         if r[i][0]=="in":
             res = TdiExecute(r[i][1]+'=$', (args[i],))
         else:

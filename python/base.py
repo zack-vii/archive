@@ -6,11 +6,7 @@ data rooturl database view    project strgrp stream idx    channel
 lev  0       1        2       3       4      5      6      7
 """
 import re,numpy
-from codac import PY3
-if PY3:
-    basestring=(str,bytes)
-    xrange=range
-    long=int
+import archive.version as _ver
 #from support import error
 defreadpath  = '/ArchiveDB/raw/W7X/CoDaStationDesc.10251/DataModuleDesc.10193_DATASTREAM/0/AAB27CT003'
 rooturl = 'http://archive-webapi.ipp-hgw.mpg.de'
@@ -18,7 +14,7 @@ rooturl = 'http://archive-webapi.ipp-hgw.mpg.de'
 class InsufficientPathException(Exception):
     def __init__(self, value=''):
         self.value = 'insufficient path information'
-class Path():
+class Path(object):
     _ROOTURL = rooturl
     def __init__(self, path=defreadpath, *_argin):
         if isinstance(path,(Path)):
@@ -166,7 +162,10 @@ units = ['unknown','','none','arb.unit','kg','g','u','kg/s','g/s','m','cm','mm',
 def Unit(unit,force=False):
     import MDSplus
     if isinstance(unit, (MDSplus.treenode.TreeNode)):
-        unit = unit.getSegment(0).units if unit.getNumSegments() else unit.units
+        if unit.getNumSegments():
+           unit = unit.getSegment(0).units
+        else:
+           unit = unit.units
     elif isinstance(unit, (MDSplus.compound.Signal,MDSplus.mdsarray.Array)):
         unit = unit.units
     unit = str(unit)
@@ -177,7 +176,7 @@ def Unit(unit,force=False):
         return unit
     raise Exception("Unit must be one of '"+"', '".join(units))
 
-class Time():
+class Time(object):
     def __init__(self, t=''):
         if isinstance(t, (Time,)):
             self._value = t._value
@@ -185,8 +184,9 @@ class Time():
             self.settime(t)
     def __call__(self):
         return self._value
-    def __cmp__(self,y):
-        return self._value.__cmp__(long(y))
+    if _ver.ispy2:
+        def __cmp__(self,y):
+            return self._value.__cmp__(_ver.long(y))
     def __trunc__(self):
         return int(self._value)
     def __add__(self,y):
@@ -220,20 +220,20 @@ class Time():
     def settime(self, t=''):
         import time
         from MDSplus import Scalar,TreeNode
-        if isinstance(t,(basestring)) and t == '':                 #now
-            self._value = long(time.time()+time.timezone-time.daylight*3600)*1000000000
+        if isinstance(t,(_ver.basestring)) and t == '':                 #now
+            self._value = _ver.long(time.time()+time.timezone-time.daylight*3600)*1000000000
         elif isinstance(t, (TreeNode)):
             t=t.data()
             if t<1E10 and t>0:          t = t*1000000000          #time in 's'
-            self._value = long(t)
-        elif isinstance(t, (numpy.ScalarType, Scalar)) and not isinstance(t,(basestring)):
+            self._value = _ver.long(t)
+        elif isinstance(t, (numpy.ScalarType, Scalar)) and not isinstance(t,(_ver.basestring)):
             if isinstance(t,(Scalar)) : t = t.data()
             if t<1E10 and t>0:          t = t*1000000000          #time in 's'
-            self._value = long(t)
+            self._value = _ver.long(t)
         else:
             if isinstance(t,(str)):                #'2015/12/31-23:59:59.123456789'
                 t = re.findall('[0-9]+',t)
-                for i in xrange(min(len(t),6)):
+                for i in _ver.xrange(min(len(t),6)):
                     t[i] = int(t[i])
                 if len(t) == 7:
                     tmp = re.findall('[0-9]{3}',t.pop() + '00')
@@ -244,7 +244,7 @@ class Time():
             else:
                 print(type(t))
                 t = list(t[0:9])
-            for i in xrange(len(t),9):
+            for i in _ver.xrange(len(t),9):
                 t.append(0)
             s = int(time.mktime((t[0],t[1],t[2],t[3],t[4],t[5],0,0,0)))+time.timezone
             self._value = ((s*1000+t[6])*1000+t[7])*1000+t[8]
@@ -375,7 +375,7 @@ def createSignal(dat, dim, t0 = 0, unit=None, addim=[], units=[], help=None):
                 return MDSplus.EmptyData()
     dat = _dat(dat)
     dim = _dim(dim,t0)
-    for i in xrange(len(addim)):
+    for i in _ver.xrange(len(addim)):
         addim[i] = _addim(addim[i],units[i])
     raw = MDSplus.Data.compile('*')
     if unit is not None:

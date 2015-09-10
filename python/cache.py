@@ -1,19 +1,14 @@
 """
-codac.cache
+archive.cache
 ==========
 @source: http://flask.pocoo.org/snippets/87/
 @authors: timo.schroeder@ipp-hgw.mpg.de
 data rooturl database view    project strgrp stream idx    channel
 lev  0       1        2       3       4      5      6      7
 """
-import os, sqlite3,sys
+import os, sqlite3
 from time import time
-try:
-    from cPickle import loads, dumps
-except:
-    from pickle import loads, dumps
-if sys.version_info.major==3:
-    buffer = memoryview
+import archive.version as _ver
 
 class cache():
 
@@ -58,7 +53,7 @@ class cache():
             for row in conn.execute(self._get_sql, (key,)):
                 expire = row[1]
                 if expire > time():
-                    rv = MDSplus.Data.deserialize(loads(str(row[0])))
+                    rv = MDSplus.Data.deserialize(_ver.pickle.loads(str(row[0])))
                     print('read from cache: '+key)
                 break
         return rv
@@ -73,7 +68,7 @@ class cache():
             return(self.set(key, value.serialize().data(), timeout))
         if not timeout:
             timeout = self.default_timeout
-        value = buffer(dumps(value, 2))
+        value = _ver.buffer(_ver.pickle.dumps(value, 2))
         expire = time() + timeout
         with self._get_conn() as conn:
             conn.execute(self._set_sql, (key, value, expire))
@@ -83,7 +78,7 @@ class cache():
         if not timeout:
             timeout = self.default_timeout
         expire = time() + timeout
-        value = buffer(dumps(value, 2))
+        value = _ver.buffer(_ver.pickle.dumps(value, 2))
         with self._get_conn() as conn:
             try:
                 conn.execute(self._add_sql, (key, value, expire))
