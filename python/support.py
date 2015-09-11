@@ -6,7 +6,7 @@ data rooturl database view    project strgrp stream idx    channel
 lev  0       1        2       3       4      5      6      7
 """
 from MDSplus import Tree,Int64Array,TdiCompile
-from archive.base import TimeInterval
+from archive.base import TimeInterval,Time
 import archive.version as _ver
 def version():
     return '2015.08.08.12.00'
@@ -31,6 +31,8 @@ class remoteTree(Tree):
         finally:
             self._connection.__del__()
 
+def getTimestamp(n=1):
+    return(Time(_ver.urllib.urlopen('http://mds-data-1.ipp-hgw.mpg.de/operator/last_trigger/1').read(20)))
 
 def fixname(name):
     if not isinstance(name,(str)):
