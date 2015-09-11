@@ -212,42 +212,41 @@ class Time(object):
     def s(self):
         return self._value*1E-9
     def utc(self):
-        import time
-        return time.ctime(self.ns()/1e9)
+        import time as _time
+        return _time.asctime(_time.gmtime(self.ns()/1e9))
     def local(self):
-        import time
-        return time.ctime(self.ns()/1e9-time.timezone+time.daylight*3600)
-    def settime(self, t=''):
-        import time
+        import time as _time
+        return _time.ctime(self.ns()/1e9)
+    def settime(self, time=''):
+        import time as _time
+        def listtovalue(time):
+            time+= [0]*(9-len(time))
+            seconds = int(_time.mktime(tuple(time[0:6]+[0]*3)))-_time.timezone
+            self._value = ((seconds*1000+time[6])*1000+time[7])*1000+time[8]
         from MDSplus import Scalar,TreeNode
-        if isinstance(t,(_ver.basestring)) and t == '':                 #now
-            self._value = _ver.long(time.time()+time.timezone-time.daylight*3600)*1000000000
-        elif isinstance(t, (TreeNode)):
-            t=t.data()
-            if t<1E10 and t>0:          t = t*1000000000          #time in 's'
-            self._value = _ver.long(t)
-        elif isinstance(t, (numpy.ScalarType, Scalar)) and not isinstance(t,(_ver.basestring)):
-            if isinstance(t,(Scalar)) : t = t.data()
-            if t<1E10 and t>0:          t = t*1000000000          #time in 's'
-            self._value = _ver.long(t)
+        if isinstance(time,(_ver.basestring)):
+            if time == '':                 #now
+                self._value = _ver.long(_time.time()*1e9)
+            else:  #'2009-02-13T23:31:30.123456789Z'
+                time = re.findall('[0-9]+',time)
+                if len(time) == 7:# we have subsecond precision
+                    time = time[0:6]+re.findall('[0-9]{3}',time[6]+ '00')
+                for i in range(len(time)): time[i] = int(time[i])
+                listtovalue(time)
+        elif isinstance(time,(_time.struct_time)):
+            listtovalue(list(time)[0:6])
+        elif isinstance(time, (TreeNode)):
+            time = time.data()
+            if time<1E10 and time>0:       time = time*1000000000         #time in 's'
+            self._value = _ver.long(time)
+        elif isinstance(time, (numpy.ScalarType, Scalar)):
+            if isinstance(time,(Scalar)) : time = time.data()
+            if time<1E10 and time>0:       time = time*1000000000   #time in 's'
+            self._value = _ver.long(time)
         else:
-            if isinstance(t,(str)):                #'2015/12/31-23:59:59.123456789'
-                t = re.findall('[0-9]+',t)
-                for i in _ver.xrange(min(len(t),6)):
-                    t[i] = int(t[i])
-                if len(t) == 7:
-                    tmp = re.findall('[0-9]{3}',t.pop() + '00')
-                    for i in tmp:
-                        t.append(int(i))
-            elif isinstance(t,(time.struct_time)):
-                t = list(t)[0:6]
-            else:
-                print(type(t))
-                t = list(t[0:9])
-            for i in _ver.xrange(len(t),9):
-                t.append(0)
-            s = int(time.mktime((t[0],t[1],t[2],t[3],t[4],t[5],0,0,0)))+time.timezone
-            self._value = ((s*1000+t[6])*1000+t[7])*1000+t[8]
+            print(type(time))
+            listtovalue(list(time[0:9]))
+
 
 class TimeInterval(list):
     def __init__ (self, arg=''):
