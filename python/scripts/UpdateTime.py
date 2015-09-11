@@ -3,7 +3,7 @@ Created on Fri Jul 10 05:29:47 2015
 updateTime
 @author: Cloud
 """
-from codac import Time,setTIME
+from archive import Time,setTIME
 from MDSplus import Tree
 from time import sleep
 try:
