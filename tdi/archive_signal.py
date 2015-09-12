@@ -1,17 +1,20 @@
-import archive,MDSplus
-def archive_signal(node,time=MDSplus.EmptyData()):
+import archive
+def archive_signal(node,time=None):
     print('archive_signal')
     try:
-        time = time.data;
-        if time is None:
-            time = archive.TimeInterval(time)
+        try:
+            time = time.data();            
         except:
+            time = None
+        if time is None:
             time = archive.TimeInterval(node.getNode('\TIME').data())
+        else:
+            time = archive.TimeInterval(time.data())
 #        try:
-#            t0 = codac.Time(node.getNode('\TIME.T1:IDEAL')).ns()
+#            t0 = codac.Time(node.getNode('\TIME.T1:IDEAL')).ns
 #        except:
-        t0 = time.getFrom()
-        url  = node.getNode(':$URL').data()
+        t0 = time.fromVal
+        url= node.getNode(':$URL').data()
         signal = archive.read_signal(url,time,t0,0,0,[])
         try:
             help = node.getNode(':DESCRIPTION').data()

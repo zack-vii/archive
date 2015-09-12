@@ -192,13 +192,13 @@ def archive_url(node):
     return TdiCompile('archive_url($)',(node,))
 def archive_channel(channelNode):
     from MDSplus import TdiCompile
-    return TdiCompile('archive_signal($,IF_ERROR(_time,*))',(channelNode,))
+    return TdiCompile('archive_signal($,_time)',(channelNode,))
 def archive_stream(streamNode):
     from MDSplus import TdiCompile
-    return TdiCompile('archive_signal($,IF_ERROR(_time,*))',(streamNode,))
+    return TdiCompile('archive_signal($,_time)',(streamNode,))
 def archive_parlog(streamNode):
     from MDSplus import TdiCompile
-    return TdiCompile('archive_parlog($,IF_ERROR(_time,*))',(streamNode,))
+    return TdiCompile('archive_parlog($,_time)',(streamNode,))
 def archive_cfglog(streamgroupNode):
     from MDSplus import TdiCompile
-    return TdiCompile('archive_cfglog($,IF_ERROR(_time,*))',(streamgroupNode,))
+    return TdiCompile('archive_cfglog($,_time)',(streamgroupNode,))

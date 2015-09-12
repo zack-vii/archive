@@ -1,4 +1,4 @@
-fun public funtest( as_is _node )
+fun public funtest( in _arg )
 {
-    return(_node);
+    return(EVALUATE(_arg));
 }

@@ -9,7 +9,20 @@ lev  0       1        2       3       4      5      6      7
 from archive.base import TimeInterval,createSignal#,Path
 from archive.support import error
 from archive.interface import read_signal,read_cfglog,read_parlog
-        
+
+def mds_signal(url,time,help):
+    print('mds_signal')
+    try:
+        time = TimeInterval(time);
+        t0 = time.getFrom()
+        signal = read_signal(url,time,t0,0,0,[])
+        signal.setHelp(str(help))
+        return(signal)
+    except:
+        import getpass
+        user = getpass.getuser()
+        return user+": "+error()
+
 def mds_channel(streamURL, time, channelNr, e=None):
     try:
         time = TimeInterval(time)
