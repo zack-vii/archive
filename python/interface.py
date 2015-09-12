@@ -21,7 +21,7 @@ SQCache = cache(filebase)
 def write_logurl(url, parms, time):
     log = {
     'values': [ parms ],
-    'dimensions': TimeInterval(time).ns(),
+    'dimensions': TimeInterval(time).ns,
     'label': 'parms',
     }
     return(post(url, json=log))#,data=json.dumps(cfg)
@@ -45,7 +45,7 @@ def write_image(path, data, dimof):
             return(post(link, headers=headers, data=f))
     finally:
         os.remove(tmpfile)
-        
+
 def read_signal(path,time,t0=0, *arg):
     path = Path(path)
     key  = path.path()+'?'+str(time)
@@ -76,13 +76,13 @@ def post(url,headers={},data=None,json=None):
         data = j.dumps(json)
     headers['content-type'] = 'application/json'
     return(get(url,headers,data,'POST'))
-    
+
 def get(url,headers={},data=None,method='GET'):
     req = _ver.urllib.Request(url)
     for k,v in headers.items():
         req.add_header(k, v)
     req.get_method = lambda: method
-    handler = _ver.urllib.urlopen(req)
+    handler = _ver.urllib.urlopen(req, timeout = 3)
     return(handler)
 
 def parseXML(toparse):

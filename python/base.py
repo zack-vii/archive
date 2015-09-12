@@ -24,6 +24,7 @@ class Path(object):
             self.set_path(str(path))
     def __str__(self):
         return self.path()
+    __repr__=__str__
     def set_path(self,*path):
         [self._path,self._lev] = self.path(-2,'/'.join(path))
     def path(self, lev=-1, _path=None):
@@ -158,66 +159,13 @@ def url_parms( url, time=None, skip=0, nsamples=0, channels=[]):
     return url
 
 
-units = ['unknown','','none','arb.unit','kg','g','u','kg/s','g/s','m','cm','mm','nm','Angstrom','m^2','m^3','L','m^-1','nm^-1','m^-2','cm^-2','m^-3','cm^-3','m^3/s','m^3/h','L/s','L/min','L/h','(m.s)^-1','(cm.s)^-1','s','min','h','ms','us','ns','s^-1','Hz','kHz','MHz','GHz','Bq','A','kA','mA','uA','A/s','C','K','oC','deg.C','rad','o','r/min','sr','count','ustrain','%','dB','m/s','km/s','km/h','N','Pa','hPa','bar','mbar','ubar','bar.L','mbar.L','bar.L/s','mbar.L/s','mbar.L/min','sccm','J','kJ','MJ','eV','keV','W','mW','kW','MW','W/m^2','mW/cm^2','W/m^3','W/(m^3.sr)','W/(m^2.sr.nm)','W/(cm^2.sr.nm)','VA','MVA','V','kV','mV','uV','V/s','V.s','V^-1','Wb','Ohm','S','F','pF','H','T','Gs','T/A','T/s','Gy','Sv','uSv','rem','urem','Sv/h','1E20','%Tm/MA','bit','Byte','KiByte','MiByte']
-def Unit(unit,force=False):
-    import MDSplus
-    if isinstance(unit, (MDSplus.treenode.TreeNode)):
-        if unit.getNumSegments():
-           unit = unit.getSegment(0).units
-        else:
-           unit = unit.units
-    elif isinstance(unit, (MDSplus.compound.Signal,MDSplus.mdsarray.Array)):
-        unit = unit.units
-    unit = str(unit)
-    if unit in units:
-        return unit
-    if force:
-        print("'"+unit+"' is not a recognized unit but has been enforced!")
-        return unit
-    raise Exception("Unit must be one of '"+"', '".join(units))
-
 class Time(object):
     def __init__(self, t=''):
         if isinstance(t, (Time,)):
             self._value = t._value
         else:
-            self.settime(t)
-    def __call__(self):
-        return self._value
-    if _ver.ispy2:
-        def __cmp__(self,y):
-            return self._value.__cmp__(_ver.long(y))
-    def __trunc__(self):
-        return int(self._value)
-    def __add__(self,y):
-        return self._value+y
-    def __sub__(self,y):
-        return self._value-y
-    def __mul__(self,y):
-        return self._value*y
-    def __div__(self,y):
-        return self._value/y
-    def __radd__(self,y):
-        return y+self._value
-    def __rsub__(self,y):
-        return y-self._value
-    def __rmul__(self,y):
-        return y*self._value
-    def __rdiv__(self,y):
-        return y/self._value
-    def __str__(self):
-        return str(self._value)
-    def ns(self):
-        return self._value
-    def s(self):
-        return self._value*1E-9
-    def utc(self):
-        import time as _time
-        return _time.asctime(_time.gmtime(self.ns()/1e9))
-    def local(self):
-        import time as _time
-        return _time.ctime(self.ns()/1e9)
-    def settime(self, time=''):
+            self._settime(t)
+    def _settime(self, time=''):
         import time as _time
         def listtovalue(time):
             time+= [0]*(9-len(time))
@@ -246,6 +194,35 @@ class Time(object):
         else:
             print(type(time))
             listtovalue(list(time[0:9]))
+    if _ver.ispy2:
+        def __cmp__(self,y):    return self._value.__cmp__(_ver.long(y))
+    def __call__(self):         return self._value
+    def __trunc__(self):        return int(self._value)
+    def __add__(self,y):        return self._value+y
+    def __sub__(self,y):        return self._value-y
+    def __mul__(self,y):        return self._value*y
+    def __div__(self,y):        return self._value/y
+    def __mod__(self,y):        return self._value % y
+    def __rmod__(self,y):       return y % self._value
+    def __radd__(self,y):       return y+self._value
+    def __rsub__(self,y):       return y-self._value
+    def __rmul__(self,y):       return y*self._value
+    def __rdiv__(self,y):       return y/self._value
+    def __str__(self):          return str(self._value)
+    def __repr__(self):         return self.utc
+    def _ns(self):              return self._value
+    def _s(self):               return self._value*1E-9
+    def _utc(self):
+        import time as _time
+        timetuple = tuple(list(_time.gmtime((self._value % (1<<64))/1e9)[0:6])+[self.ns % 1000000000])
+        return  '%04d-%02d-%02dT%02d:%02d:%02d.%09dZ' % timetuple
+    def _local(self):
+        import time as _time
+        return _time.ctime((self._value % (1<<64))/1e9)
+    ns   =property(_ns,_settime)
+    s    =property(_s,_settime)
+    utc  =property(_utc,_settime)
+    local=property(_local)
 
 
 class TimeInterval(list):
@@ -266,35 +243,51 @@ class TimeInterval(list):
             self.append(arg[1])
         else:
             self.append(arg[0])
-    def __setitem__(self,i,t):
-        super(TimeInterval,self).__setitem__(i,Time(t))
-    def __str__(self):
-        return 'from=' + str(self.getFrom()-1) + '&upto=' + str(self.getUpto())
-    def setFrom(self,t):
-        self[0]  = Time(t)
-    def setUpto(self,t):
-        self[-1] = Time(t)
-    def getFrom(self):
-        return self[0]
-    def getUpto(self):
-        return self[-1]
-    def fromStr(self):
-        return self[0]
-    def uptoStr(self):
-        return str(self[0].ns())
-    def utc(self):
-        return map(Time.uts,self)
-    def local(self):
-        return map(Time.local,self)
-    def s(self):
-        return map(Time.s,self)
-    def ns(self):
-        return map(Time.ns,self)
+    def __setitem__(self,i,t):  super(TimeInterval,self).__setitem__(i,Time(t))
+    def __str__(self):    return 'from=' + str(self.fromVal-1) + '&upto=' + str(self.uptoVal)
+    def __repr__(self):   return 'UTC: [ '+self.fromVal.utc+' , '+self.uptoVal.utc+' ]'
+    def _setFrom(self,t): self[0]  = Time(t)
+    def _setUpto(self,t): self[-1] = Time(t)
+    def _getFrom(self):   return self[0]
+    def _getUpto(self):   return self[-1]
+    def _fromStr(self):   return str(self.fromVal)
+    def _uptoStr(self):   return str(self.uptoVal)
+    def _utc(self):       return map(Time._utc,self)
+    def _local(self):     return map(Time._local,self)
+    def _s(self):         return map(Time._s,self)
+    def _ns(self):        return map(Time._ns,self)
+    ns     =property(_ns)
+    s      =property(_s)
+    utc    =property(_utc)
+    local  =property(_local)
+    fromVal=property(_getFrom,_setFrom) 
+    uptoVal=property(_getUpto,_setUpto) 
+    fromStr=property(_fromStr) 
+    uptoStr=property(_uptoStr) 
+    
 
 def get_time_1h():
-    time = Time().s()
+    time = Time().s
     return TimeInterval([time-3600,time])
 defaulttime = get_time_1h()
+
+units = ['unknown','','none','arb.unit','kg','g','u','kg/s','g/s','m','cm','mm','nm','Angstrom','m^2','m^3','L','m^-1','nm^-1','m^-2','cm^-2','m^-3','cm^-3','m^3/s','m^3/h','L/s','L/min','L/h','(m.s)^-1','(cm.s)^-1','s','min','h','ms','us','ns','s^-1','Hz','kHz','MHz','GHz','Bq','A','kA','mA','uA','A/s','C','K','oC','deg.C','rad','o','r/min','sr','count','ustrain','%','dB','m/s','km/s','km/h','N','Pa','hPa','bar','mbar','ubar','bar.L','mbar.L','bar.L/s','mbar.L/s','mbar.L/min','sccm','J','kJ','MJ','eV','keV','W','mW','kW','MW','W/m^2','mW/cm^2','W/m^3','W/(m^3.sr)','W/(m^2.sr.nm)','W/(cm^2.sr.nm)','VA','MVA','V','kV','mV','uV','V/s','V.s','V^-1','Wb','Ohm','S','F','pF','H','T','Gs','T/A','T/s','Gy','Sv','uSv','rem','urem','Sv/h','1E20','%Tm/MA','bit','Byte','KiByte','MiByte']
+def Unit(unit,force=False):
+    import MDSplus
+    if isinstance(unit, (MDSplus.treenode.TreeNode)):
+        if unit.getNumSegments():
+           unit = unit.getSegment(0).units
+        else:
+           unit = unit.units
+    elif isinstance(unit, (MDSplus.compound.Signal,MDSplus.mdsarray.Array)):
+        unit = unit.units
+    unit = str(unit)
+    if unit in units:
+        return unit
+    if force:
+        print("'"+unit+"' is not a recognized unit but has been enforced!")
+        return unit
+    raise Exception("Unit must be one of '"+"', '".join(units))
 
 def createSignal(dat, dim, t0 = 0, unit=None, addim=[], units=[], help=None):
     import MDSplus
@@ -302,9 +295,9 @@ def createSignal(dat, dim, t0 = 0, unit=None, addim=[], units=[], help=None):
     if isinstance(dat,(ndarray)):
         dat = dat.tolist()
     def _dim(dim,t0):
-        t0 = Time(t0).ns()
+        t0 = Time(t0).ns
         def normt(t, t0 = t0):
-            return (Time(t).ns()-t0)/1.E9
+            return (Time(t).ns-t0)/1.E9
         if len(dim):
             wind = MDSplus.Window(dim[0]-1,dim[-1],0+t0)
             dim  = MDSplus.Float64Array(map(normt,dim))

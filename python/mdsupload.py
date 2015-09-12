@@ -15,11 +15,15 @@ archivedb = '/Test'# ArchiveDB
 
 
 def upload(names=['QMC','QMR','QRN','QSW','QSX'],shot=0,treename='W7X'):
-#e.g.: D=upload(['QSW'],2,'W7X')
+    '''
+    tracks the 
+    e.g.: D=upload(['QSW'],2,'W7X')
+    '''
     SD = []
     tree = MDSplus.Tree(treename,shot)
-#    time = Time(tree.getNode('\TIME:IDEAL.T0').data()).ns()  once it is fixed
-    time = Time().ns()-1000000000
+    t0 = Time(tree.getNode('\TIME:IDEAL.T0').data())
+#    t1 = Time(tree.getNode('\TIME:IDEAL.T1').data())
+#    time = Time().ns-1000000000
     path = Path(archivedb+'/raw/W7X')
     for name in names:
         kks = tree.getNode(name)
@@ -30,14 +34,17 @@ def upload(names=['QMC','QMR','QRN','QSW','QSX'],shot=0,treename='W7X'):
             if data.getNumDescendants():
                 for sec in data.getDescendants():
                     path.set_streamgroup(name+'_'+sec.getNodeName().lower())
-                    pcl = write_logurl(path.url_cfglog(), cfg, time)
-                    ch = SectionDict(sec,secdict,kks,time,path)
+                    pcl = write_logurl(path.url_cfglog(), cfg, t0)
+                    ch = SectionDict(sec,secdict,kks,t0,path)
                     SD.append({"ch":ch,"pcl":pcl})
         except:
             print(error())
     return(SD)
 
 def SectionDict(node,secs,kks,time,path):
+    '''
+    tracks the 
+    '''
     f = re.compile('(?<=\.HARDWARE[:\.])([^\.:]+)')
     chans = {}
     devs = {}
@@ -141,7 +148,7 @@ def treeToDict(node,Dict):
             Dict[name] = data
 
 def write_signals(path,signals,t0):
-    t0 = Time(t0).ns()
+    t0 = Time(t0).ns
     def writedata(data,dimof,unit,path=path,t0=t0):
         dimof = dimof.data().tolist()
         if unit!='ns':
