@@ -6,12 +6,13 @@ archive.cache
 data rooturl database view    project strgrp stream idx    channel
 lev  0       1        2       3       4      5      6      7
 """
-import os, sqlite3
+import os
+import sqlite3
 from time import time
-from .version import pickle,buffer
+from .version import pickle, buffer
+
 
 class cache():
-
     _create_sql = (
             'CREATE TABLE IF NOT EXISTS bucket '
             '('
@@ -40,7 +41,7 @@ class cache():
                 with conn:
                     conn.execute(self._create_sql)
                 try:
-                    os.chmod(self.path, 0b110110110)#-rx-rx-rx-
+                    os.chmod(self.path, 0b110110110)  # -rx-rx-rx-
                 except:
                     pass
             self.connection_cache = conn

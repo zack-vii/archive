@@ -6,16 +6,17 @@ data rooturl database view    project strgrp stream idx    channel
 lev  0       1        2       3       4      5      6      7
 """
 
-from .base import TimeInterval,createSignal#,Path
+from .base import TimeInterval, createSignal  # ,Path
 from .support import error
-from .interface import read_signal,read_cfglog,read_parlog
+from .interface import read_signal, read_cfglog, read_parlog
 
-def mds_signal(url,time,help):
+
+def mds_signal(url, time, help):
     print('mds_signal')
     try:
-        time = TimeInterval(time);
+        time = TimeInterval(time)
         t0 = time.getFrom()
-        signal = read_signal(url,time,t0,0,0,[])
+        signal = read_signal(url, time, t0, 0, 0, [])
         signal.setHelp(str(help))
         return(signal)
     except:
@@ -23,10 +24,12 @@ def mds_signal(url,time,help):
         user = getpass.getuser()
         return user+": "+error()
 
+
 def mds_channel(streamURL, time, channelNr, e=None):
     try:
         time = TimeInterval(time)
-        stream = read_signal( streamURL + '_DATASTREAM' , time, time[0], 0, 0, [channelNr])
+        stream = read_signal(streamURL+'_DATASTREAM', time,
+                             time.fromVal, 0, 0, [channelNr])
 #        dim  = stream['dimensions']
 #        raw  = stream["values"][0]
 #        unit = stream.get('unit','unknown')
@@ -41,25 +44,28 @@ def mds_channel(streamURL, time, channelNr, e=None):
         err = error(e)
         print(err)
         return(err)
-     
+
+
 def mds_stream(streamURL, time, help=None, e=None):
     try:
         time = TimeInterval(time)
-        stream = read_signal( streamURL + '_DATASTREAM', time, time[0] )
-        return createSignal(stream['values'], stream['dimensions'], help=help )
+        stream = read_signal(streamURL+'_DATASTREAM', time, time.fromVal)
+        return createSignal(stream['values'], stream['dimensions'], help=help)
     except:
         return error(e)
 
+
 def mds_parlog(streamURL, time, e=None):
     try:
-        return(str(read_parlog( streamURL, time )))
-        #return(Path(streamURL).url_parlog( time ))
+        return(str(read_parlog(streamURL, time)))
+        # return(Path(streamURL).url_parlog(time))
     except:
         return(error(e))
 
+
 def mds_cfglog(strgrpURL, time, e=None):
     try:
-        return(str(read_cfglog( strgrpURL, time )))
+        return(str(read_cfglog(strgrpURL, time)))
         # return(Path(strgrpURL).url_cfglog( time ))
     except:
         return(error(e))

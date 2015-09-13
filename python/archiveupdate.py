@@ -3,19 +3,22 @@ Created on Wed Aug 12 00:30:33 2015
 
 @author: Cloud
 """
-def setRecord(node,istop=True):
+from MDSplus import Tree
+
+
+def setRecord(node, istop=True):
+    from MDSplus import TdiCompile
     if node.getNumDescendants():
         for dec in node.getDescendants():
-            if dec.getNodeName()=='$URL' and ~istop:
-                dec.record=MDSplus.TdiCompile('codac_url($)',(node,))
-            elif dec.usage=='ANY' and dec.getNodeName()=='$PARLOG':
-                dec.record=MDSplus.TdiCompile('codac_parlog($,IF_ERROR(_time,*))',(node,))
-            elif dec.getNodeName()=='$CFGLOG':
-                dec.record=MDSplus.TdiCompile('codac_cfglog($,IF_ERROR(_time,*))',(node,))
-            elif dec.usage=='SIGNAL':
-                dec.record=MDSplus.TdiCompile('codac_signal($,IF_ERROR(_time,*))',(dec,))
-            setRecord(dec,False)
+            if dec.getNodeName() == '$URL' and ~istop:
+                dec.record = TdiCompile('codac_url($)', (node,))
+            elif dec.usage == 'ANY' and dec.getNodeName() == '$PARLOG':
+                dec.record = TdiCompile('archive_parlog($,_time)', (node,))
+            elif dec.getNodeName() == '$CFGLOG':
+                dec.record = TdiCompile('archive_cfglog($,_time)', (node,))
+            elif dec.usage == 'SIGNAL':
+                dec.record = TdiCompile('archive_signal($,_time)', (dec,))
+            setRecord(dec, False)
 
-import MDSplus
-tree = MDSplus.Tree('ARCHIVESB',-1)
+tree = Tree('ARCHIVESB', -1)
 setRecord(tree.getNode('\TOP'))
