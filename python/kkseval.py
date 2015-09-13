@@ -4,7 +4,7 @@ kkseval
 @author: cloud
 """
 import MDSplus
-from archive.base import createSignal
+from .base import createSignal
 
 def createSectionNode(KKS,section,shot=-1):
     try:

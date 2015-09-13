@@ -5,12 +5,12 @@ archive.archivebuild
 data rooturl database view    project strgrp stream idx    channel
 lev  0       1        2       3       4      5      6      7
 """
-from archive.classes import browser
-import archive.version as _ver
+from .classes import browser
+from .version import xrange,tostr,basestring
     
 def build(treename='test',shotnumber=-1,time=['2015/07/01-12:00:00.000000000','2015/07/01-12:30:00.000000000']):
-    from archive.base import Path
-    from archive.support import setTIME
+    from .base import Path
+    from .support import setTIME
     from MDSplus import Tree
     name = "raw"
     path = Path("/ArchiveDB/raw/W7X").url()
@@ -103,12 +103,12 @@ def addStream(node,nname,name='',url=[]):
     if url==[]: url = archive_url(node)
     node.addNode('$URL','TEXT').putData(url)
     chanDescs = addParlog(node)
-    for i in _ver.xrange(len(chanDescs)):
+    for i in xrange(len(chanDescs)):
         addChannel(node,'CH'+str(i),i,chanDescs[i])
 
 def addParlog(node):
-    from archive.interface import read_parlog
-    from archive.support import error,fixname12
+    from .interface import read_parlog
+    from .support import error,fixname12
     try:
 #        time = node.getNode('\TIME')
         url = node.getNode('$URL').data().tostring()
@@ -128,8 +128,8 @@ def addParlog(node):
                 continue
             try:
                 k = fixname12(k)
-                if isinstance(v,(str,)):
-                    parNode.addNode(k,'TEXT').putData(v)
+                if isinstance(v,(basestring,)):
+                    parNode.addNode(k,'TEXT').putData(tostr(v))
                 elif isinstance(v,(int, float)):
                     parNode.addNode(k,'NUMERIC').putData(v)
                 elif isinstance(v,(list,)) and isinstance(v[0],(int, float)):
@@ -139,13 +139,11 @@ def addParlog(node):
                     if not '['+str(len(v)-1)+']' in v.keys():
                         pn.putData(v.__str__())
                     else:
-                        v = [v['['+str(i)+']'] for i in _ver.xrange(len(v))]
+                        v = [v['['+str(i)+']'] for i in xrange(len(v))]
                         try:
                             pn.putData(v)
                         except:
                             pn.putData([i.__str__() for i in v])
-                elif isinstance(v,(_ver.unicode,)):
-                    parNode.addNode(k,'TEXT').putData(v.encode('CP1252','backslashreplace'))
             except:
                 print(node.MinPath)
                 print(k)
@@ -154,7 +152,7 @@ def addParlog(node):
     return chanDescs
 
 def addChannel(node,nname,idx,chan={},url=[]):
-    from archive.support import error,fixname12
+    from .support import error,fixname12
     node = node.addNode(nname,'SIGNAL')
     node.putData(archive_channel(node))
     if url==[]: url = archive_url(node)
@@ -169,19 +167,15 @@ def addChannel(node,nname,idx,chan={},url=[]):
                 v = int(v)
                 node.setOn(v!=0)
             elif k=='name':
-                if _ver.has_unicode and isinstance(v,(_ver.unicode)):
-                        v = v.encode('CP1252','backslashreplace')        
-                nameNode.putData(v)
+                nameNode.putData(tostr(v))
             else:
                 k = fixname12(k)
                 if isinstance(v,(str,)):
                     node.addNode(k,'TEXT').putData(v)
                 elif isinstance(v,(int, float, list)):
                     node.addNode(k,'NUMERIC').putData(v)
-                elif _ver.has_bytes and isinstance(v,(_ver.bytes,)):
-                        node.addNode(k,'TEXT').putData(v.decode())
-                elif _ver.has_unicode and isinstance(v,(_ver.unicode,)):
-                        node.addNode(k,'TEXT').putData(v.encode('CP1252','backslashreplace'))
+                else:
+                    node.addNode(k,'TEXT').putData(tostr(v))
         except:
             print(k)
             print(v)

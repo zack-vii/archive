@@ -6,8 +6,7 @@ data rooturl database view    project strgrp stream idx    channel
 lev  0       1        2       3       4      5      6      7
 """
 from MDSplus import Tree
-import MDSplus
-import archive.version as _ver
+from . import version as _ver
 
 def funcheck(funname,*args):
     import re
@@ -35,9 +34,10 @@ def funcheck(funname,*args):
         return()
 
 def plotdata(path='\\ARCHIVESB::DMD10195:CH1', treename='sandbox', shot=5, server=None):
+    from MDSplus import Connection
     from pylab import plot,title,xlabel,ylabel
     if server is not None:
-        Con = MDSplus.Connection(server)
+        Con = Connection(server)
         Con.openTree(treename,shot)
         name = Con.get('{}:$NAME'.format(path))
         data = Con.get('DATA({})'.format(path))

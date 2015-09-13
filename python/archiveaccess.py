@@ -6,9 +6,9 @@ data rooturl database view    project strgrp stream idx    channel
 lev  0       1        2       3       4      5      6      7
 """
 
-from archive.base import TimeInterval,createSignal#,Path
-from archive.support import error
-from archive.interface import read_signal,read_cfglog,read_parlog
+from .base import TimeInterval,createSignal#,Path
+from .support import error
+from .interface import read_signal,read_cfglog,read_parlog
 
 def mds_signal(url,time,help):
     print('mds_signal')

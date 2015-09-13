@@ -65,3 +65,32 @@ if has_unicode:
     varstr = unicode
 else:
     varstr = bytes
+
+def tostr(string):
+    if isinstance(string,basestring):
+        if isinstance(string,str):
+            return string
+        elif isinstance(string, unicode):
+            return string.encode('CP1252','backslashreplace')
+        else:
+            return string.decode()
+    else:
+        return str(string)
+
+def tobytes(string):
+    if isinstance(string,basestring):
+        if isinstance(string,bytes):
+            return string
+        else:
+            return string.encode('CP1252','backslashreplace')
+    else:
+        return bytes(string)
+def tounicode(string):
+    if isinstance(string,basestring):
+        if isinstance(string,unicode):
+            return string
+        else:
+            return string.encode()
+    else:
+        return unicode(string)    
+    

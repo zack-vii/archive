@@ -6,9 +6,9 @@ data rooturl database view    project strgrp stream idx    channel
 lev  0       1        2       3       4      5      6      7
 """
 import tempfile,os
-from archive.base import TimeInterval,Path,createSignal
-from archive.cache import cache
-import archive.version as _ver
+from .base import TimeInterval,Path,createSignal
+from .cache import cache
+from .version import xrange,urllib
 
 filebase = 'codac_cache'
 isunix = os.name=='posix'
@@ -30,7 +30,7 @@ def write_data(path, data, dimof):
     return(post(Path(path).url_datastream(), json=jdict))
 
 def write_image(path, data, dimof):
-    data = [[[data[t][x][y] for t in _ver.xrange(len(data))] for x in _ver.xrange(len(data[0]))] for y in _ver.xrange(len(data[0][0]))]#transpose time
+    data = [[[data[t][x][y] for t in xrange(len(data))] for x in xrange(len(data[0]))] for y in xrange(len(data[0][0]))]#transpose time
     name = path.name_datastream()
     tmpfile = tempfile.NamedTemporaryFile(prefix="codac_",suffix=".h5",delete=False).name
     try:
@@ -78,11 +78,11 @@ def post(url,headers={},data=None,json=None):
     return(get(url,headers,data,'POST'))
 
 def get(url,headers={},data=None,method='GET'):
-    req = _ver.urllib.Request(url)
+    req = urllib.Request(url)
     for k,v in headers.items():
         req.add_header(k, v)
     req.get_method = lambda: method
-    handler = _ver.urllib.urlopen(req, timeout = 3)
+    handler = urllib.urlopen(req, timeout = 3)
     return(handler)
 
 def parseXML(toparse):

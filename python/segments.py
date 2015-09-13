@@ -4,7 +4,7 @@ Segments
 @author: cloud
 """
 import MDSplus
-import archive.version as _ver
+from . import version as _ver
 
 def segments1D():
     import math

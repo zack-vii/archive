@@ -6,7 +6,7 @@ data rooturl database view    project strgrp stream idx    channel
 lev  0       1        2       3       4      5      6      7
 """
 import re,numpy
-import archive.version as _ver
+from .version import long,basestring,xrange,ispy2
 #from support import error
 defreadpath  = '/ArchiveDB/raw/W7X/CoDaStationDesc.10251/DataModuleDesc.10193_DATASTREAM/0/AAB27CT003'
 rooturl = 'http://archive-webapi.ipp-hgw.mpg.de'
@@ -172,9 +172,9 @@ class Time(object):
             seconds = int(_time.mktime(tuple(time[0:6]+[0]*3)))-_time.timezone
             self._value = ((seconds*1000+time[6])*1000+time[7])*1000+time[8]
         from MDSplus import Scalar,TreeNode
-        if isinstance(time,(_ver.basestring)):
+        if isinstance(time,(basestring)):
             if time == '':                 #now
-                self._value = _ver.long(_time.time()*1e9)
+                self._value = long(_time.time()*1e9)
             else:  #'2009-02-13T23:31:30.123456789Z'
                 time = re.findall('[0-9]+',time)
                 if len(time) == 7:# we have subsecond precision
@@ -186,16 +186,16 @@ class Time(object):
         elif isinstance(time, (TreeNode)):
             time = time.data()
             if time<1E10 and time>0:       time = time*1000000000         #time in 's'
-            self._value = _ver.long(time)
+            self._value = long(time)
         elif isinstance(time, (numpy.ScalarType, Scalar)):
             if isinstance(time,(Scalar)) : time = time.data()
             if time<1E10 and time>0:       time = time*1000000000   #time in 's'
-            self._value = _ver.long(time)
+            self._value = long(time)
         else:
             print(type(time))
             listtovalue(list(time[0:9]))
-    if _ver.ispy2:
-        def __cmp__(self,y):    return self._value.__cmp__(_ver.long(y))
+    if ispy2:
+        def __cmp__(self,y):    return self._value.__cmp__(long(y))
     def __call__(self):         return self._value
     def __trunc__(self):        return int(self._value)
     def __add__(self,y):        return self._value+y
@@ -367,7 +367,7 @@ def createSignal(dat, dim, t0 = 0, unit=None, addim=[], units=[], help=None):
                 return MDSplus.EmptyData()
     dat = _dat(dat)
     dim = _dim(dim,t0)
-    for i in _ver.xrange(len(addim)):
+    for i in xrange(len(addim)):
         addim[i] = _addim(addim[i],units[i])
     raw = MDSplus.Data.compile('*')
     if unit is not None:

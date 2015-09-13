@@ -5,9 +5,10 @@ codac.support
 data rooturl database view    project strgrp stream idx    channel
 lev  0       1        2       3       4      5      6      7
 """
+from __future__ import absolute_import
 from MDSplus import Tree,Int64Array,TdiCompile
-from archive.base import TimeInterval,Time
-import archive.version as _ver
+from .base import TimeInterval,Time
+from . import version as _ver
 def version():
     return '2015.08.08.12.00'
 

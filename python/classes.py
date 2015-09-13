@@ -5,10 +5,10 @@ archive.classes
 data rooturl database view    project strgrp stream idx    channel
 lev  0       1        2       3       4      5      6      7
 """
-from archive.interface import post
-from archive.interface import get_json,read_parlog,read_cfglog,read_signal,write_image,write_data
-from archive.base import Time,TimeInterval,Unit,Path
-import archive.version as _ver
+from .interface import post
+from .interface import get_json,read_parlog,read_cfglog,read_signal,write_image,write_data
+from .base import Time,TimeInterval,Unit,Path
+from .version import long,xrange
 defwritepath = '/test/raw/W7X/python_interface/test'
 
 class datastream:
@@ -25,7 +25,7 @@ class datastream:
         if self._path._lev!=5:
             Warning('url does no seem to be a datastream path')
     def set_dimensions(self, dimensions):
-        self._dimensions = [_ver.long(t) for t in dimensions]
+        self._dimensions = [long(t) for t in dimensions]
     def add_channel(self, name, data, unit='unknown', description=''):
         from support import ndims
         isImg = ndims(data)>1
@@ -98,7 +98,7 @@ class browser(Path):
             params = self.read_parlog(0,1)[0]
             if 'chanDescs' in params.keys():
                 cD = params['chanDescs']
-                return [(cD[i]["name"], str(i)) for i in _ver.xrange(len(cD))]
+                return [(cD[i]["name"], str(i)) for i in xrange(len(cD))]
     def list_chnames(self):
         return list_children(self._path,7)
     # print lists
@@ -116,7 +116,7 @@ class browser(Path):
         self._print_list( self.list_chnames() )
     def _print_list( self, lst ):
         from support import fixname
-        for i in _ver.xrange(len(lst)):
+        for i in xrange(len(lst)):
             print( "%3d %s" % ( i, fixname(lst[i][0] if type(lst[i]) is tuple else lst[i]) ) )
 
 def list_children(url, lev=-1):
