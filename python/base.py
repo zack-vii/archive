@@ -7,7 +7,7 @@ lev  0       1        2       3       4      5      6      7
 """
 import re
 import numpy
-from .version import long, basestring, xrange, ispy2
+from .version import long, basestring, xrange
 # from support import error
 defreadpath = ('/ArchiveDB/raw/W7X/CoDaStationDesc.10251' +
                '/DataModuleDesc.10193_DATASTREAM/0/AAB27CT003')
@@ -208,117 +208,114 @@ def url_parms(url, time=None, skip=0, nsamples=0, channels=[]):
     return url
 
 
-class Time(object):
-    def __init__(self, t=''):
-        if isinstance(t, (Time,)):
-            self._value = t._value
+class Time(long):
+    def __new__(self, time='now'):
+        if isinstance(time, Time):
+            return time
         else:
-            self._settime(t)
-
-    def _settime(self, time=''):
-        import time as _time
-
-        def listtovalue(time):
-            time += [0]*(9-len(time))
-            seconds = int(_time.mktime(tuple(time[0:6]+[0]*3)))-_time.timezone
-            self._value = ((seconds*1000+time[6])*1000+time[7])*1000+time[8]
-        from MDSplus import Scalar, TreeNode
-        if isinstance(time, (basestring,)):
-            if time == '':  # now
-                self._value = long(_time.time()*1e9)
-            else:  # '2009-02-13T23:31:30.123456789Z'
-                time = re.findall('[0-9]+', time)
-                if len(time) == 7:  # we have subsecond precision
-                    time = time[0:6] + re.findall('[0-9]{3}', time[6]+'00')
-                time = [int(t) for t in time]
-                listtovalue(time)
-        elif isinstance(time, (_time.struct_time,)):
-            listtovalue(list(time)[0:6])
-        elif isinstance(time, (TreeNode)):
-            time = time.data()
-            if time < 1E10 and time > 0:  # time in 's'
-                time = time*1000000000
-            self._value = long(time)
-        elif isinstance(time, (numpy.ScalarType, Scalar)):
-            if isinstance(time, (Scalar,)):
+            import time as _time
+            def listtovalue(time):
+                time += [0]*(9-len(time))
+                seconds = long(_time.mktime(tuple(time[0:6]+[0]*3)))-_time.timezone
+                return long.__new__(self,((seconds*1000+time[6])*1000+time[7])*1000+time[8])
+            from MDSplus import Scalar, TreeNode
+            if isinstance(time, (basestring,)):
+                if time == 'now':  # now
+                    return long.__new__(self,_time.time()*1e9)
+                else:  # '2009-02-13T23:31:30.123456789Z'
+                    time = re.findall('[0-9]+', time)
+                    if len(time) == 7:  # we have subsecond precision
+                        time = time[0:6] + re.findall('[0-9]{3}', time[6]+'00')
+                    time = [int(t) for t in time]
+                    return listtovalue(time)
+            elif isinstance(time, (_time.struct_time,)):
+                return listtovalue(list(time)[0:6])
+            elif isinstance(time, (TreeNode)):
                 time = time.data()
-            if time < 1E10 and time > 0:  # time in 's'
-                time = time*1000000000
-            self._value = long(time)
-        else:
-            print(type(time))
-            listtovalue(list(time[0:9]))
-    if ispy2:
-        def __cmp__(self, y): return self._value.__cmp__(long(y))
+                if time < 1E10 and time > 0:  # time in 's'
+                    time = time*1000000000
+                return long.__new__(self,time)
+            elif isinstance(time, (numpy.ScalarType, Scalar)):
+                if isinstance(time, (Scalar,)):
+                    time = time.data()
+                if time < 1E10 and time > 0:  # time in 's'
+                    time = time*1000000000
+                return long.__new__(self,time)
+            else:
+                print(type(time))
+                return listtovalue(list(time[0:9]))
 
-    def __call__(self): return self._value
-
-    def __trunc__(self): return int(self._value)
-
-    def __add__(self, y): return self._value + y
-
-    def __sub__(self, y): return self._value - y
-
-    def __mul__(self, y): return self._value * y
-
-    def __div__(self, y): return self._value / y
-
-    def __mod__(self, y): return self._value % y
-
-    def __rmod__(self, y): return y % self._value
-
-    def __radd__(self, y): return y+self._value
-
-    def __rsub__(self, y): return y-self._value
-
-    def __rmul__(self, y): return y*self._value
-
-    def __rdiv__(self, y): return y/self._value
-
-    def __str__(self): return str(self._value)
+    __add__ = lambda s,y: Time(long.__add__(s,y))
+    __radd__ = lambda s,y: Time(long.__radd__(s,y))
+    __sub__ = lambda s,y: Time(long.__sub__(s,y))
+    __rsub__ = lambda s,y: Time(long.__rsub__(s,y))
 
     def __repr__(self): return self.utc
 
-    def _ns(self): return self._value
+    def _ns(self): return long(self)
 
-    def _s(self): return self._value * 1E-9
+    def _s(self): return long(self) * 1E-9
+
+    def _subsec(self): return self % 1000000000
 
     def _utc(self):
         import time as _time
-        values = tuple(list(_time.gmtime((self._value % (1 << 64))/1e9)[0:6]) +
-                       [self.ns % 1000000000])
+        values = tuple(list(_time.gmtime((self % (1 << 64))/1e9)[0:6]) +
+                       [self.subsec])
         return '%04d-%02d-%02dT%02d:%02d:%02d.%09dZ' % values
 
     def _local(self):
         import time as _time
-        return _time.ctime((self._value % (1 << 64)) / 1e9)
-    ns = property(_ns, _settime)
-    s = property(_s, _settime)
-    utc = property(_utc, _settime)
+        return _time.ctime((self % (1 << 64)) / 1e9)
+    ns = property(_ns)
+    s = property(_s)
+    utc = property(_utc)
     local = property(_local)
+    subsec = property(_subsec)
 
 
 class TimeInterval(list):
-    def __init__(self, arg=''):
+    """
+    isinstance generic
+    from <=  0 : upto -|X| ns
+    from  >  0 : epoch +X ns
+    upto <  -1 : now  -|X| ns
+    upto == -1 : inf
+    upto ==  0 : now
+    upto  >  0 : epoch +X ns
+    """
+    def __init__(self, arg=[-1800000000000, 'now']):
+        if isinstance(arg, (TimeInterval)):  # short cut
+            self = arg
         from MDSplus.mdsarray import Array
         from MDSplus.treenode import TreeNode
         from MDSplus.tdibuiltins.builtins_other import VECTOR
-        if not isinstance(arg, (TimeInterval)):
-            if isinstance(arg, (Array, TreeNode, VECTOR)):
-                arg = arg.data()[0:2].tolist()
-            elif isinstance(arg, (numpy.ndarray,)):
-                arg = arg[0:2].tolist()
-            elif not isinstance(arg, (list, tuple)):
-                arg = [arg, -1]
-            arg = list(map(Time, arg[0:2]))
-        self.append(arg[0])
-        if len(arg) > 1:
-            self.append(arg[1])
-        else:
-            self.append(arg[0])
+        if isinstance(arg, (Array, TreeNode, VECTOR)):
+            arg = arg.data().tolist()
+        elif isinstance(arg, (numpy.ndarray,)):
+            arg = arg.tolist()
+        elif not isinstance(arg, (list, tuple)):
+            arg = [arg, -1]
+        super(TimeInterval, self).append(None)
+        super(TimeInterval, self).append(None)
+        self._setUpto(arg[-1])
+        self._setFrom(arg[0])
+
+    def append(self,value):
+        self._setUpto(value)
 
     def __setitem__(self, i, t):
-        super(TimeInterval, self).__setitem__(i, Time(t))
+        super(TimeInterval, self).__setitem__(i % 2, Time(t))
+
+    def __getitem__(self, i):
+        i = i % 2
+        time = super(TimeInterval, self).__getitem__(i)
+        if not i and time <= 0:
+            return self[1] + time
+        elif i and (time == 0 or time < -2):
+            return Time('now') + time
+        else:
+            return time
 
     def __str__(self):
         return 'from=' + str(self.fromVal-1) + '&upto=' + str(self.uptoVal)
@@ -326,25 +323,25 @@ class TimeInterval(list):
     def __repr__(self):
         return 'UTC: [ '+self.fromVal.utc+' , '+self.uptoVal.utc+' ]'
 
-    def _setFrom(self, t): self[0] = Time(t)
+    def _setFrom(self, time): self[0] = Time(time)
 
-    def _setUpto(self, t): self[-1] = Time(t)
+    def _setUpto(self, time): self[1] = Time(time)
 
     def _getFrom(self): return self[0]
 
-    def _getUpto(self): return self[-1]
+    def _getUpto(self): return self[1]
 
     def _fromStr(self): return str(self.fromVal)
 
     def _uptoStr(self): return str(self.uptoVal)
 
-    def _utc(self): return map(Time._utc, self)
+    def _utc(self): return [self.fromVal.utc,self.uptoVal.utc]
 
-    def _local(self): return map(Time._local, self)
+    def _local(self): return [self.fromVal.local,self.uptoVal.local]
 
-    def _s(self): return map(Time._s, self)
+    def _s(self): return [self.fromVal.s,self.uptoVal.s]
 
-    def _ns(self): return map(Time._ns, self)
+    def _ns(self): return [self.fromVal.ns,self.uptoVal.ns]
 
     ns = property(_ns)
     s = property(_s)
@@ -354,12 +351,6 @@ class TimeInterval(list):
     uptoVal = property(_getUpto, _setUpto)
     fromStr = property(_fromStr)
     uptoStr = property(_uptoStr)
-
-
-def get_time_1h():
-    time = Time().s
-    return TimeInterval([time-3600, time])
-defaulttime = get_time_1h()
 
 units = ['unknown', '', 'none', 'arb.unit', 'kg', 'g', 'u', 'kg/s', 'g/s', 'm',
          'cm', 'mm', 'nm', 'Angstrom', 'm^2', 'm^3', 'L', 'm^-1', 'nm^-1',

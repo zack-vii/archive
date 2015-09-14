@@ -17,7 +17,8 @@ archivedb = '/Test'  # ArchiveDB
 
 def upload(names=['QMC', 'QMR', 'QRN', 'QSW', 'QSX'], shot=0, treename='W7X'):
     '''
-    tracks the
+    upload(['KKS'], shot=0, treename='W7X')
+    uploads all sections of a given tree
     e.g.: D=upload(['QSW'], 2, 'W7X')
     '''
     SD = []
