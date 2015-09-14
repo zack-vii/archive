@@ -294,14 +294,10 @@ class TimeInterval(list):
     def __new__(self, arg=True):
         if type(arg) is TimeInterval:
             return arg  # short cut
-        if not arg:
-            return TimeInterval()
         return list.__new__(self)
 
     def __init__(self, arg=[-1800000000000, 'now', -1]):
         if type(arg) is TimeInterval:
-            return  # short cut
-        if not arg:
             return  # short cut
         from MDSplus.mdsarray import Array
         from MDSplus.treenode import TreeNode
@@ -314,6 +310,8 @@ class TimeInterval(list):
             arg = [arg]
         if len(arg) < 3:
             if len(arg) < 2:
+                if len(arg) == 0:
+                    arg == [-1800000000000]
                 arg += [0] if arg[0] < 0 else arg
             arg += [-1]
         super(TimeInterval, self).append(Time(arg[0]))
