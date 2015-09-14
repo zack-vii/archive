@@ -235,13 +235,13 @@ class Time(long):
                 return listtovalue(list(time)[0:6])
             elif isinstance(time, (TreeNode)):
                 time = time.data()
-                if time < 1E10 and time > 0:  # time in 's'
+                if time < 2E9 and time > 0:  # time in 's'
                     time = time*1000000000
                 return long.__new__(self, time)
             elif isinstance(time, (numpy.ScalarType, Scalar)):
                 if isinstance(time, (Scalar,)):
                     time = time.data()
-                if time < 1E10 and time > 0:  # time in 's'
+                if time < 2E9 and time > 0:  # time in 's'
                     time = time*1000000000
                 return long.__new__(self, time)
             else:
@@ -291,13 +291,17 @@ class TimeInterval(list):
     upto  >  0 : epoch +X ns
     """
 
-    def __new__(self, arg=None):
+    def __new__(self, arg=True):
         if type(arg) is TimeInterval:
             return arg  # short cut
+        if not arg:
+            return TimeInterval()
         return list.__new__(self)
 
-    def __init__(self, arg=[-1800000000000, 'now']):
+    def __init__(self, arg=[-1800000000000, 'now', -1]):
         if type(arg) is TimeInterval:
+            return  # short cut
+        if not arg:
             return  # short cut
         from MDSplus.mdsarray import Array
         from MDSplus.treenode import TreeNode
@@ -307,57 +311,71 @@ class TimeInterval(list):
         elif isinstance(arg, (numpy.ndarray,)):
             arg = arg.tolist()
         elif not isinstance(arg, (list, tuple)):
-            arg = [arg, arg]
+            arg = [arg]
+        if len(arg) < 3:
+            if len(arg) < 2:
+                arg += [0] if arg[0] < 0 else arg
+            arg += [-1]
         super(TimeInterval, self).append(Time(arg[0]))
-        super(TimeInterval, self).append(Time(arg[-1]))
+        super(TimeInterval, self).append(Time(arg[1]))
+        super(TimeInterval, self).append(Time(arg[2]))
 
-    def append(self, time): self._setUpto(time)
+    def append(self, time): self._setT0(time)
 
-    def __setitem__(self, i, time):
-        super(TimeInterval, self).__setitem__(i % 2, Time(time))
+    def __setitem__(self, idx, time):
+        super(TimeInterval, self).__setitem__(min(idx, 2), Time(time))
 
     def __getitem__(self, idx):
-        idx = idx % 2
+        idx = min(idx, 2)
         time = super(TimeInterval, self).__getitem__(idx)
-        if not idx and time <= 0:
+        if idx == 0 and time <= 0:
             return self[1] + time
-        elif idx and (time == 0 or time < -2):
+        elif idx == 1 and (time == 0 or time < -2):
             return Time('now') + time
+        elif idx == 2 and time < 0:
+            if super(TimeInterval, self).__getitem__(idx) < 0:
+                return self.uptoT
+            return self.fromT
         else:
             return time
 
     def __str__(self):
-        return 'from=' + str(self.fromVal-1) + '&upto=' + str(self.uptoVal)
+        return 'from=' + str(self.fromT-1) + '&upto=' + str(self.uptoT)
 
     def __repr__(self):
-        return 'UTC: [ '+self.fromVal.utc+' , '+self.uptoVal.utc+' ]'
+        return 'UTC: [ '+self.fromT.utc+' , '+self.uptoT.utc+' ]'
 
     def _setFrom(self, time): self[0] = Time(time)
 
     def _setUpto(self, time): self[1] = Time(time)
 
+    def _setT0(self, time): self[2] = Time(time)
+
     def _getFrom(self): return self[0]
 
     def _getUpto(self): return self[1]
 
-    def _fromStr(self): return str(self.fromVal)
+    def _getT0(self): return self[2]
 
-    def _uptoStr(self): return str(self.uptoVal)
+    def _fromStr(self): return str(self.fromT)
 
-    def _utc(self): return [self.fromVal.utc, self.uptoVal.utc]
+    def _uptoStr(self): return str(self.uptoT)
 
-    def _local(self): return [self.fromVal.local, self.uptoVal.local]
+    def _utc(self): return [self.fromT.utc, self.uptoT.utc]
 
-    def _s(self): return [self.fromVal.s, self.uptoVal.s]
+    def _local(self): return [self.fromT.local, self.uptoT.local]
 
-    def _ns(self): return [self.fromVal.ns, self.uptoVal.ns]
+    def _s(self): return [self.fromT.s, self.uptoT.s]
+
+    def _ns(self): return [self.fromT.ns, self.uptoT.ns]
 
     ns = property(_ns)
     s = property(_s)
     utc = property(_utc)
     local = property(_local)
-    fromVal = property(_getFrom, _setFrom)
-    uptoVal = property(_getUpto, _setUpto)
+    fromT = property(_getFrom, _setFrom)
+    uptoT = property(_getUpto, _setUpto)
+    t0T = property(_getT0, _setT0)
     fromStr = property(_fromStr)
     uptoStr = property(_uptoStr)
 

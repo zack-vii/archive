@@ -13,11 +13,10 @@ def archive_signal(node, time=None):
         else:
             time = archive.TimeInterval(time)
 #        try:
-#            t0 = codac.Time(node.getNode('\TIME.T1:IDEAL')).ns
+#            t0 = archive.Time(node.getNode('\TIME.T1:IDEAL')).ns
 #        except:
-        t0 = time.fromVal
         url = node.getNode(':$URL').data()
-        signal = archive.read_signal(url, time, t0, 0, 0, [])
+        signal = archive.read_signal(url, time, time.t0T, 0, 0, [])
         try:
             help = node.getNode(':DESCRIPTION').data()
         except:

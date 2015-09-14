@@ -57,7 +57,7 @@ def read_signal(path, time, t0=0, *arg):
     path = Path(path)
     time = TimeInterval(time)
     sig = None
-    if time.uptoVal >= 0:
+    if time.uptoT != -1:
         key = path.path()+'?'+str(time)
         sig = SQCache.get(key)
     if sig is None:

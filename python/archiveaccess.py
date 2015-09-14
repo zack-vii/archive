@@ -29,7 +29,7 @@ def mds_channel(streamURL, time, channelNr, e=None):
     try:
         time = TimeInterval(time)
         stream = read_signal(streamURL+'_DATASTREAM', time,
-                             time.fromVal, 0, 0, [channelNr])
+                             time.t0T, 0, 0, [channelNr])
 #        dim  = stream['dimensions']
 #        raw  = stream["values"][0]
 #        unit = stream.get('unit','unknown')
@@ -49,7 +49,7 @@ def mds_channel(streamURL, time, channelNr, e=None):
 def mds_stream(streamURL, time, help=None, e=None):
     try:
         time = TimeInterval(time)
-        stream = read_signal(streamURL+'_DATASTREAM', time, time.fromVal)
+        stream = read_signal(streamURL+'_DATASTREAM', time, time.t0T)
         return createSignal(stream['values'], stream['dimensions'], help=help)
     except:
         return error(e)
