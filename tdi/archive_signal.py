@@ -1,9 +1,11 @@
 import archive
-def archive_signal(node,time=None):
+
+
+def archive_signal(node, time=None):
     print('archive_signal')
     try:
         try:
-            time = time.data();            
+            time = time.data()
         except:
             time = None
         if time is None:
@@ -14,13 +16,13 @@ def archive_signal(node,time=None):
 #            t0 = codac.Time(node.getNode('\TIME.T1:IDEAL')).ns
 #        except:
         t0 = time.fromVal
-        url= node.getNode(':$URL').data()
-        signal = archive.read_signal(url,time,t0,0,0,[])
+        url = node.getNode(':$URL').data()
+        signal = archive.read_signal(url, time, t0, 0, 0, [])
         try:
             help = node.getNode(':DESCRIPTION').data()
         except:
             help = None
-        if help is None: 
+        if help is None:
             help = node.getNode(':$NAME').data()
         signal.setHelp(str(help))
         return(signal)
