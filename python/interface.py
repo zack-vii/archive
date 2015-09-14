@@ -55,8 +55,11 @@ def write_image(path, data, dimof):
 
 def read_signal(path, time, t0=0, *arg):
     path = Path(path)
-    key = path.path()+'?'+str(time)
-    sig = SQCache.get(key)
+    time = TimeInterval(time)
+    sig = None
+    if time.uptoVal >= 0:
+        key = path.path()+'?'+str(time)
+        sig = SQCache.get(key)
     if sig is None:
         print('get web-archive: '+key)
         stream = get_json(path.url_data(), time, *arg)
@@ -126,7 +129,7 @@ def parseXML(toparse):
     return xmltodict(tree)
 
 
-def read_parlog(path, time=TimeInterval(['', -1]), *args):
+def read_parlog(path, time=TimeInterval([0, 0]), *args):
     def rmfield(dic, field):
         if field in dic.keys():
             del(dic[field])
@@ -166,7 +169,7 @@ def read_parlog(path, time=TimeInterval(['', -1]), *args):
     return par
 
 
-def read_cfglog(path, time=[None, -1], *args):
+def read_cfglog(path, time=[0, 0], *args):
     url = Path(path).url_cfglog(time, *args)
     par = get_json(url)
     if type(par) is not dict:
