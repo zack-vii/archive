@@ -9,7 +9,7 @@ def archive_signal(node,time=None):
         if time is None:
             time = archive.TimeInterval(node.getNode('\TIME').data())
         else:
-            time = archive.TimeInterval(time.data())
+            time = archive.TimeInterval(time)
 #        try:
 #            t0 = codac.Time(node.getNode('\TIME.T1:IDEAL')).ns
 #        except:
