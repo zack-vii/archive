@@ -15,7 +15,7 @@ def mds_signal(url, time, help):
     print('mds_signal')
     try:
         time = TimeInterval(time)
-        t0 = time.getFrom()
+        t0 = time.t0T
         signal = read_signal(url, time, t0, 0, 0, [])
         signal.setHelp(str(help))
         return(signal)

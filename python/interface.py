@@ -15,7 +15,7 @@ isunix = os.name == 'posix'
 if isunix:
     tmpdir = "/tmp/"
 else:
-    tmpdir = filebase = os.getenv('TEMP')+'\\'
+    tmpdir = os.getenv('TEMP')+'\\'
 filebase = tmpdir+filebase
 SQCache = cache(filebase)
 

@@ -232,7 +232,7 @@ class Time(long):
             from MDSplus import Scalar, TreeNode
             if isinstance(time, (basestring,)):
                 if time == 'now':  # now
-                    return long.__new__(self, _time.time()*1e9)
+                    return long.__new__(self, int(_time.time()/60)*60000000000)
                 else:  # '2009-02-13T23:31:30.123456789Z'
                     time = re.findall('[0-9]+', time)
                     if len(time) == 7:  # we have subsecond precision

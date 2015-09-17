@@ -13,8 +13,7 @@ def build(treename='test', shotnumber=-1,
           time=['2015/07/01-12:00:00.000000000',
                 '2015/07/01-12:30:00.000000000']):
     from .base import Path
-    from .support import setTIME
-    from MDSplus import Tree
+    from MDSplus import Tree, Int64Array
     name = "raw"
     path = Path("/ArchiveDB/raw/W7X").url()
     with Tree(treename, shotnumber, 'New') as tree:
@@ -24,11 +23,13 @@ def build(treename='test', shotnumber=-1,
             tree.write()
         except:
             pass
-        setTIME(time)  # [\T_START, \T_END]
+        tree.getNode('\TIME').putData(Int64Array([-1800000000000,0,-1]))
+        """
         try:
             tree.deleteNode(name)
         except:
             pass
+        """
         addProject(tree, name, '', path)
         tree.write()
         tree.close
