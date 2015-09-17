@@ -6,7 +6,7 @@ data rooturl database view    project strgrp stream idx    channel
 lev  0       1        2       3       4      5      6      7
 """
 from .classes import browser
-from .version import xrange, tostr, basestring
+from .version import xrange, basestring, tobytes
 
 
 def build(treename='test', shotnumber=-1,
@@ -140,7 +140,7 @@ def addParlog(node):
             try:
                 k = fixname12(k)
                 if isinstance(v, (basestring, )):
-                    parNode.addNode(k, 'TEXT').putData(tostr(v))
+                    parNode.addNode(k, 'TEXT').putData(tobytes(v))
                 elif isinstance(v, (int, float)):
                     parNode.addNode(k, 'NUMERIC').putData(v)
                 elif isinstance(v, (list,)) and isinstance(v[0], (int, float)):
@@ -154,7 +154,7 @@ def addParlog(node):
                         try:
                             pn.putData(v)
                         except:
-                            pn.putData([i.__str__() for i in v])
+                            pn.putData([str(i) for i in v])
             except:
                 print(node.MinPath)
                 print(k)
@@ -180,15 +180,15 @@ def addChannel(node, nname, idx, chan={}, url=None):
                 v = int(v)
                 node.setOn(v != 0)
             elif k == 'name':
-                nameNode.putData(tostr(v))
+                nameNode.putData(tobytes(v))
             else:
                 k = fixname12(k)
                 if isinstance(v, (str, )):
-                    node.addNode(k, 'TEXT').putData(v)
+                    node.addNode(k, 'TEXT').putData(tobytes(v))
                 elif isinstance(v, (int, float, list)):
                     node.addNode(k, 'NUMERIC').putData(v)
                 else:
-                    node.addNode(k, 'TEXT').putData(tostr(v))
+                    node.addNode(k, 'TEXT').putData(tobytes(v))
         except:
             print(k)
             print(v)

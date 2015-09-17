@@ -87,7 +87,10 @@ def _decode(string):
 
 
 def _encode(string):
-    return string.encode('utf-8', 'backslashreplace')
+    try:
+        return string.encode('CP1252')
+    except:
+        return string.encode('utf-8', 'backslashreplace')
 
 # numpy char types
 npunicode = 'U'
@@ -122,7 +125,7 @@ def tostr(string):
 
 
 def tobytes(string):
-    return _tostring(string, bytes, npbytes, _encode)
+    return tounicode(string).encode('CP1252', 'backslashreplace')
 
 
 
