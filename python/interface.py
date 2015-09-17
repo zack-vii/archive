@@ -147,7 +147,7 @@ def read_parlog(path, time=TimeInterval([0, 0]), *args):
         chtmp = parseXML(chans['xmlDescription'])['channel']
         active = chans.get('active', None)
         pQ = chans.get('physicalQuantity', None)
-        chans = len(chtmp)*[{}]
+        chans = [{} for i in chtmp]
         for ch in chtmp:
             ch['active'] = active
             ch['physicalQuantity'] = pQ
@@ -164,9 +164,9 @@ def read_parlog(path, time=TimeInterval([0, 0]), *args):
     par = par['values'][-1]
     if 'chanDescs' in par.keys():
         cD = par['chanDescs']
-        if type(cD) is dict:
+        if isinstance(cD, dict):
             cD = dict2list(cD)
-        if cD and len(cD) == 1 and 'xmlDescription' in cD[0].keys():
+        if isinstance(cD, list) and len(cD) == 1 and 'xmlDescription' in cD[0].keys():
             cD = integrateChLst(cD[0])
         par['chanDescs'] = cD
     return par

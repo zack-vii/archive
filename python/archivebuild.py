@@ -122,7 +122,7 @@ def addParlog(node):
         url = str(node.getNode('$URL').data())
         if not isinstance(url, (str, )):
             url = url.decode()
-        dist = read_parlog(url, [-1, -1])
+        dist = read_parlog(url, [0, 0])
     except:
         print(error())
         node.addNode('$PARLOG', 'ANY').putData(archive_parlog(node))
@@ -148,7 +148,7 @@ def addParlog(node):
                 elif isinstance(v, (dict,)):
                     pn = parNode.addNode(k, 'ANY')
                     if not '['+str(len(v)-1)+']' in v.keys():
-                        pn.putData(v.__str__())
+                        pn.putData(str(v))
                     else:
                         v = [v['['+str(i)+']'] for i in xrange(len(v))]
                         try:
