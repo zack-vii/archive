@@ -34,7 +34,7 @@ def build(treename='test', shotnumber=-1,
         tree.close
 
 
-def addProject(node, nname, name='', url=[]):
+def addProject(node, nname, name='', url=None):
     from re import compile
     re = compile('[A-Z]+[0-9]+')
     cap = compile('[^A-Z]')
@@ -44,13 +44,11 @@ def addProject(node, nname, name='', url=[]):
             print(nname)
             node.addTag(nname)
         node.addNode('$NAME', 'TEXT').putData(name)
-    if url == []:
+    if url is None:
         url = archive_url(node)
     urlNode = node.addNode('$URL', 'TEXT')
     urlNode.putData(url)
-    url = urlNode.data().tostring()
-    if not isinstance(url, (str, )):
-        url = url.decode()
+    url = str(urlNode.data())
     b = browser(url)
     streamgroups = b.list_streamgroups()
     for s in streamgroups:
@@ -59,7 +57,7 @@ def addProject(node, nname, name='', url=[]):
         addStreamgroup(node, ''.join(cnname), s)
 
 
-def addStreamgroup(node, nname, name='', url=[]):
+def addStreamgroup(node, nname, name='', url=None):
     from re import compile
     re = compile('[A-Z]+[0-9]+')
     cap = compile('[^A-Z]')
@@ -70,14 +68,12 @@ def addStreamgroup(node, nname, name='', url=[]):
             print(nname)
             node.addTag(nname)
         node.addNode('$NAME', 'TEXT').putData(name)
-    if url == []:
+    if url is None:
         url = archive_url(node)
     urlNode = node.addNode('$URL', 'TEXT')
     urlNode.putData(url)
     node.addNode('$CFGLOG', 'ANY').putData(archive_cfglog(node))
-    url = urlNode.data().tostring()
-    if not isinstance(url, (str, )):
-        url = url.decode()
+    url = str(urlNode.data())
     b = browser(url)
     streams, contents = b.list_streams()
     for stream, content in zip(streams, contents):
@@ -99,7 +95,7 @@ def addStreamgroup(node, nname, name='', url=[]):
             addParlog(plogNode)
 
 
-def addStream(node, nname, name='', url=[]):
+def addStream(node, nname, name='', url=None):
     from re import compile
     re = compile('[A-Z]+[0-9]+')
     if name != '':
@@ -109,7 +105,7 @@ def addStream(node, nname, name='', url=[]):
             node.addTag(nname)
         node.addNode('$NAME', 'TEXT').putData(name)
     node.putData(archive_stream(node))
-    if url == []:
+    if url is None:
         url = archive_url(node)
     node.addNode('$URL', 'TEXT').putData(url)
     chanDescs = addParlog(node)
@@ -122,7 +118,7 @@ def addParlog(node):
     from .support import error, fixname12
     try:
         # time = node.getNode('\TIME')
-        url = node.getNode('$URL').data().tostring()
+        url = str(node.getNode('$URL').data())
         if not isinstance(url, (str, )):
             url = url.decode()
         dist = read_parlog(url, [-1, -1])
@@ -166,11 +162,11 @@ def addParlog(node):
     return chanDescs
 
 
-def addChannel(node, nname, idx, chan={}, url=[]):
+def addChannel(node, nname, idx, chan={}, url=None):
     from .support import error, fixname12
     node = node.addNode(nname, 'SIGNAL')
     node.putData(archive_channel(node))
-    if url == []:
+    if url == None:
         url = archive_url(node)
     node.addNode('$URL', 'TEXT').putData(url)
     nameNode = node.addNode('$NAME', 'TEXT')

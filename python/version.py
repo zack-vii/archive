@@ -50,7 +50,7 @@ if has_unicode:
 else:
     unicode = str
 if has_bytes:
-    bytes = bytes
+    bytes = bytes  # analysis:ignore
 else:
     bytes = str
 if has_buffer:
@@ -103,15 +103,15 @@ else:
 def _tostring(string, targ, nptarg, conv):
     if isinstance(string, targ):  # short cut
         return targ(string)
+    if isinstance(string, basestring):
+        return targ(conv(string))
     if isinstance(string, (list, tuple)):
         return type(string)(_tostring(s, targ, nptarg, conv) for s in string)
     if isinstance(string, npscalar):
         return targ(string.astype(nptarg))
-    if isinstance(string, basestring):
-        return targ(conv(string))
     if isinstance(string, nparray):
         string = string.astype(nptarg).tolist()
-    return conv(str(string))
+    return _tostring(str(string), targ, nptarg, conv)
 
 
 def tostr(string):
