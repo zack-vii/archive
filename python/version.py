@@ -3,6 +3,8 @@ This is a helper module.
 Its purpose is to supply tools that are used to generate version specific code.
 Goal is to generate code that work on both python2x and python3x.
 """
+from numpy import generic as npscalar
+from numpy import ndarray as nparray
 from sys import version_info as pyver
 from sys import platform as platform
 from os import name as osname
@@ -17,12 +19,20 @@ ispy3 = pyver > (3,)
 ispy2 = pyver < (3,)
 
 # __builtins__ is dict
-has_long = 'long' in __builtins__
-has_unicode = 'unicode' in __builtins__
-has_basestring = 'basestring' in __builtins__
-has_bytes = 'bytes' in __builtins__
-has_buffer = 'buffer' in __builtins__
-has_xrange = 'xrange' in __builtins__
+try:
+    has_long = 'long' in __builtins__#.__dict__.keys()
+    has_unicode = 'unicode' in __builtins__#.__dict__.keys()
+    has_basestring = 'basestring' in __builtins__#.__dict__.keys()
+    has_bytes = 'bytes' in __builtins__#.__dict__.keys()
+    has_buffer = 'buffer' in __builtins__#.__dict__.keys()
+    has_xrange = 'xrange' in __builtins__#.__dict__.keys()
+except:
+    has_long = 'long' in __builtins__.__dict__.keys()
+    has_unicode = 'unicode' in __builtins__.__dict__.keys()
+    has_basestring = 'basestring' in __builtins__.__dict__.keys()
+    has_bytes = 'bytes' in __builtins__.__dict__.keys()
+    has_buffer = 'buffer' in __builtins__.__dict__.keys()
+    has_xrange = 'xrange' in __builtins__.__dict__.keys()
 
 # substitute missing builtins
 if has_long:
@@ -38,11 +48,11 @@ else:
 if has_unicode:
     unicode = unicode  # analysis:ignore
 else:
-    unicode = type(None)
+    unicode = str
 if has_bytes:
     bytes = bytes
 else:
-    bytes = type(None)
+    bytes = str
 if has_buffer:
     buffer = buffer  # analysis:ignore
 else:
@@ -69,39 +79,52 @@ else:
     varstr = bytes
 
 
-def tostr(string):
+def _decode(string):
+    try:
+        return string.decode('utf-8', 'backslashreplace')
+    except:
+        return string.decode('CP1252', 'backslashreplace')
+
+
+def _encode(string):
+    return string.encode('utf-8', 'backslashreplace')
+
+# numpy char types
+npunicode = 'U'
+npbytes = 'S'
+
+
+if ispy2:
+    npstr = npbytes
+else:
+    npstr = npunicode
+
+
+def _tostring(string, targ, nptarg, conv):
+    if isinstance(string, targ):  # short cut
+        return targ(string)
+    if isinstance(string, (list, tuple)):
+        return type(string)(_tostring(s, targ, nptarg, conv) for s in string)
+    if isinstance(string, npscalar):
+        return targ(string.astype(nptarg))
     if isinstance(string, basestring):
-        if isinstance(string, str):
-            return string
-        elif isinstance(string, unicode):
-            return string.encode('utf-8', 'backslashreplace')
-        else:
-            try:
-                return string.decode('utf-8', 'backslashreplace')
-            except:
-                return string.decode('CP1252', 'backslashreplace')
+        return targ(conv(string))
+    if isinstance(string, nparray):
+        string = string.astype(nptarg).tolist()
+    return conv(str(string))
+
+
+def tostr(string):
+    if ispy2:
+        return tobytes(string)
     else:
-        return str(string)
+        return tounicode(string)
 
 
 def tobytes(string):
-    if isinstance(string, basestring):
-        if isinstance(string, bytes):
-            return string
-        else:
-            try:
-                return string.decode('utf-8', 'backslashreplace')
-            except:
-                return string.decode('CP1252', 'backslashreplace')
-    else:
-        return bytes(string)
+    return _tostring(string, bytes, npbytes, _encode)
+
 
 
 def tounicode(string):
-    if isinstance(string, basestring):
-        if isinstance(string, unicode):
-            return string
-        else:
-            return string.decode('utf-8', 'backslashreplace')
-    else:
-        return unicode(string)
+    return _tostring(string, unicode, npunicode, _decode)

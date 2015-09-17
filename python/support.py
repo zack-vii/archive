@@ -7,8 +7,8 @@ lev  0       1        2       3       4      5      6      7
 """
 from __future__ import absolute_import
 from MDSplus import Tree, Int64Array, TdiCompile
-from .base import TimeInterval, Time
-from . import version as _ver
+from archive.base import TimeInterval, Time
+from archive.version import urllib, tostr, tounicode, basestring
 
 
 def version():
@@ -39,18 +39,77 @@ class remoteTree(Tree):
             self._connection.__del__()
 
 
+class getFlags(int):
+    _STATE             =0x00000001
+    _PARENT_STATE      =0x00000002
+    _ESSENTIAL         =0x00000004
+    _CACHED            =0x00000008
+    _VERSIONS          =0x00000010
+    _SEGMENTED         =0x00000020
+    _SETUP_INFORMATION =0x00000040
+    _WRITE_ONCE        =0x00000080
+    _COMPRESSIBLE      =0x00000100
+    _DO_NOT_COMPRESS   =0x00000200
+    _COMPRESS_ON_PUT   =0x00000400
+    _NO_WRITE_MODEL    =0x00000800
+    _NO_WRITE_SHOT     =0x00001000
+    _PATH_REFERENCE    =0x00002000
+    _NID_REFERENCE     =0x00004000
+    _INCLUDE_IN_PULSE  =0x00008000
+    _COMPRESS_SEGMENTS =0x00010000
+
+    def __new__(self, flags):
+        from MDSplus import TdiExecute, TreeNode
+        if isinstance(flags, TreeNode):
+            flags = TdiExecute('GETNCI($,"GET_FLAGS")', (flags,))
+        return int.__new__(self, int(flags))
+
+    def _on(self): return not bool(self & 1<<0)
+    def _parent_on(self): return not bool(self & 1<<1)
+    def _essential(self): return bool(self & 1<<2)
+    def _cached(self): return bool(self & 1<<3)
+    def _versions(self): return bool(self & 1<<4)
+    def _segmented(self): return bool(self & 1<<5)
+    def _setup(self): return bool(self & 1<<6)
+    def _write_once(self): return bool(self & 1<<7)
+    def _compressible(self): return bool(self & 1<<8)
+    def _do_not_compress(self): return bool(self & 1<<9)
+    def _compress_on_put(self): return bool(self & 1<<10)
+    def _no_write_model(self): return bool(self & 1<<11)
+    def _no_write_shot(self): return bool(self & 1<<12)
+    def _path_reference(self): return bool(self & 1<<13)
+    def _nid_reference(self): return bool(self & 1<<14)
+    def _include_in_pulse(self): return bool(self & 1<<15)
+    def _compress_segments(self): return bool(self & 1<<16)
+
+    is_on = property(_on)
+    is_parent_on = property(_parent_on)
+    is_essential = property(_essential)
+    is_cached = property(_cached)
+    is_versions = property(_versions)
+    is_segmented = property(_segmented)
+    is_setup = property(_setup)
+    is_write_once = property(_write_once)
+    is_compressible = property(_compressible)
+    is_do_not_compress = property(_do_not_compress)
+    is_compress_on_put = property(_compress_on_put)
+    is_no_write_model = property(_no_write_model)
+    is_no_write_shot = property(_no_write_shot)
+    is_path_reference = property(_path_reference)
+    is_nid_reference = property(_nid_reference)
+    is_include_in_pulse = property(_include_in_pulse)
+    is_compress_segments = property(_compress_segments)
+
+
 def getTimestamp(n=1):
     url = 'http://mds-data-1.ipp-hgw.mpg.de/operator/last_trigger/'+str(n)
-    return(Time(_ver.urllib.urlopen(url).read(20)))
+    return(Time(urllib.urlopen(url).read(20)))
 
 
 def fixname(name):
     if not isinstance(name, (str)):
-        if _ver.has_bytes and isinstance(name, (_ver.bytes)):
-            name = name.decode()
-        if _ver.has_unicode and isinstance(name, (_ver.unicode)):
-            name = name.encode('ascii')
-    name = _ver.urllib.unquote(name)
+        name = tostr(name)
+    name = urllib.unquote(name)
     return name
 
 
@@ -101,11 +160,8 @@ def addOpenNode(tree, name, usage):
 
 def cp(arg):
     import numpy
-    if isinstance(arg, (str)):
-        try:
-            return arg.decode()
-        except:
-            return arg.decode('utf-8')
+    if isinstance(arg, (basestring)):
+        return tounicode(arg)
     if isinstance(arg, (numpy.generic, numpy.ndarray)):
         return arg.tolist()
     return arg
@@ -118,8 +174,11 @@ class obj(object):
                     [obj(x) if isinstance(x, dict) else x for x in d])
         else:
             for a, b in d.items():
-                if isinstance(b, (list, tuple)):
-                    setattr(self, a, [x for x in b])
+                if isinstance(b, dict):
+                    setattr(self, a, obj(b))
+                elif isinstance(b, (list, tuple)):
+                    setattr(self, a,
+                            [obj(x) if isinstance(x, dict) else x for x in b])
                 else:
                     setattr(self, a, b)
 

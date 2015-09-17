@@ -63,6 +63,7 @@ class Path(object):
     def url(self, lev=-1, *arg):
         return url_parms(self._ROOTURL+self.path(lev), *arg)
 
+    # set
     def set_database(self, database):
         self.set_path(database)
 
@@ -98,6 +99,32 @@ class Path(object):
         else:
             channel = channellist[[c[0] for c in channellist].index(channel)]
         self.set_path(self.path(5), channel[1], channel[0])
+
+    # get
+    def get_database(self):
+        return self.path_database().split('/')[-1]
+
+    def get_view(self):
+        return self.path_view().split('/')[-1]
+
+    def get_project(self):
+        return self.path_project().split('/')[-1]
+
+    def get_streamgroup(self):
+        return self.path_streamgroup().split('/')[-1]
+
+    def get_stream(self):
+        return self.path_datastream().split('/')[-1][:-11]
+
+    def get_channel(self):
+        return self.path_channel().split('/')[-1]
+
+    database = property(get_database, set_database)
+    view = property(get_view, set_view)
+    project = property(get_project, set_project)
+    streamgroup = property(get_streamgroup, set_streamgroup)
+    stream = property(get_stream, set_stream)
+    channel = property(get_channel, set_channel)
 
     # get path
     def path_database(self):
@@ -171,25 +198,6 @@ class Path(object):
             return self.url_channel(*arg)
         else:
             return self.url_datastream(*arg)
-
-    # get name
-    def name_database(self):
-        return self.path_database().split('/')[-1]
-
-    def name_view(self):
-        return self.path_view().split('/')[-1]
-
-    def name_project(self):
-        return self.path_project().split('/')[-1]
-
-    def name_streamgroup(self):
-        return self.path_streamgroup().split('/')[-1]
-
-    def name_datastream(self):
-        return self.path_datastream().split('/')[-1][:-11]
-
-    def name_channel(self):
-        return self.path_channel().split('/')[-1]
 
 
 def url_parms(url, time=None, skip=0, nsamples=0, channels=[]):
@@ -396,7 +404,7 @@ units = ['unknown', '', 'none', 'arb.unit', 'kg', 'g', 'u', 'kg/s', 'g/s', 'm',
 def Unit(unit, force=False):
     import MDSplus
     if isinstance(unit, (MDSplus.treenode.TreeNode)):
-        if unit.getNumSegments():
+        if unit.isSegmented():
             unit = unit.getSegment(0).units
         else:
             unit = unit.units

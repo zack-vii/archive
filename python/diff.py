@@ -1,43 +1,32 @@
 from __future__ import print_function
-from archive import deepdiff, version
-from pprint import pprint
+from archive.deepdiff import DeepDiff as diffdict
+from archive.support import getFlags, obj
+from pprint import pprint  # analysis:ignore
 
 
-def diff(treename1, shot1, treename2, shot2):
-    import MDSplus
-    tree1 = MDSplus.Tree(treename1, shot1)
-    tree2 = MDSplus.Tree(treename2, shot2)
-    return treeToDict(tree1),treeToDict(tree2)
+def difftree(treename1, shot1, treename2, shot2, exclude):
+    """
+    dd = difftree('W7X', -1, 'W7X', 100, '\ARCHIVE::TOP')
+    pprint(dd[0])
+    """
+    from MDSplus import Tree
+    treedict1 = treeToDict(Tree(treename1, shot1), exclude)
+    treedict2 = treeToDict(Tree(treename2, shot2), exclude)
+    treediff = diffdict(treedict1, treedict2)
+    return treediff, obj(treedict1), obj(treedict2)
 
-
-def treeToDict(tree):
-    global i
-    i = 0
-    def nodeToDict(node):
-        global i
-        i += 1
+def treeToDict(tree, exclude):
+    def nodeToDict(node, exclude):
         dic = {}
-        dic["usage"] = version.tostr(node.usage)
+        dic["usage"] = str(node.usage)
         try:
-            dic["record"] = node.record
+            dic["record"] = str(node.record)
         except:
-            pass  # No data stored
-        dic["state"] = node.state
-        dic["on"] = node.on
-        dic["compressible"] = node.compressible
-        dic["compress_on_put"] = node.compress_on_put
-        dic["do_not_compress"] = node.do_not_compress
-        dic["include_in_pulse"] = node.include_in_pulse
-        dic["setup_information"] = node.setup_information
-        dic["tags"] = list(map(version.tostr,node.tags.tolist()))
-        if (i % 1000) == 0: print(node.getFullPath())
-        descdic = {}
-        for desc in list(node.getDescendants()):
-            descdic[str(desc.getNodeName())] = nodeToDict(desc)
-        dic['descendants'] = descdic
+            dic["record"] = None # No data stored
+        dic["flags"] = getFlags(node)
+        dic["tags"] = list(map(str,node.tags))
+        for desc in node.getDescendants():
+            if not str(desc.getPath()) in exclude:
+                dic[str(desc.getNodeName())] = nodeToDict(desc, exclude)
         return dic
-    return nodeToDict(tree.getNode('\Top'))
-
-d = diff('w7x', 1, 'w7x', 2)
-res = deepdiff.DeepDiff(*d)
-pprint(res)
+    return nodeToDict(tree.getNode('\Top'), exclude)

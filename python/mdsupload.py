@@ -7,40 +7,42 @@ lev  0       1        2       3       4      5      6      7
 """
 import MDSplus
 import re
-from archive.base import Unit, Time, Path
+from archive.base import Unit, Time, TimeInterval, Path
 from archive.support import error, cp, ndims
 from archive.interface import write_logurl, write_data, write_image
-import archive.version as _ver
+from archive.version import xrange
 
 archivedb = '/Test'  # ArchiveDB
 
 
-def upload(names=['QMC', 'QMR', 'QRN', 'QSW', 'QSX'], shot=0, treename='W7X'):
+def upload(names=['SINWAV'], shot=0, treename='W7X'):
     '''
     upload(['KKS'], shot=0, treename='W7X')
     uploads all sections of a given tree
-    e.g.: D=upload(['QSW'], 2, 'W7X')
+    e.g.: D=upload(['QMC', 'QMR', 'QRN', 'QSW', 'QSX'], 2, 'W7X')
     '''
     SD = []
-    tree = MDSplus.Tree(treename, shot)
-    t0 = Time(tree.getNode('\TIME:IDEAL.T0').data())
-#    t1 = Time(tree.getNode('\TIME:IDEAL.T1').data())
-#    time = Time().ns-1000000000
+    w7x = MDSplus.Tree(treename, shot)
+#    time = TimeInterval([w7x.getNode('\TIME:T0:IDEAL'),
+#              w7x.getNode('\TIME:T4:IDEAL'),
+#              w7x.getNode('\TIME:T1:IDEAL')])
+    time = TimeInterval(w7x.getNode('\TIME'))
+    time = TimeInterval()  # TODO
     path = Path(archivedb+'/raw/W7X')
     for name in names:
-        kks = tree.getNode(name)
+        kks = w7x.getNode(name)
         cfg = getCfgLog(kks)
-        try:
-            data = kks.getNode('DATA')
-            secdict = {}
-            if data.getNumDescendants():
-                for sec in data.getDescendants():
-                    path.set_streamgroup(name+'_'+sec.getNodeName().lower())
-                    pcl = write_logurl(path.url_cfglog(), cfg, t0)
-                    ch = SectionDict(sec, secdict, kks, t0, path)
-                    SD.append({"ch": ch, "pcl": pcl})
-        except:
-            print(error())
+        data = kks.getNode('DATA')
+        secdict = {}
+        for sec in data.getDescendants():
+            print(sec)
+            path.set_streamgroup(name+'_'+sec.getNodeName().lower())
+            try:
+                pcl = write_logurl(path.url_cfglog(), cfg, time.fromT)
+            except:
+                pcl = error()
+            ch, secdict = SectionDict(sec, secdict, kks, time, path)
+            SD.append({"ch": ch, "pcl": pcl})
     return(SD)
 
 
@@ -53,12 +55,11 @@ def SectionDict(node, secs, kks, time, path):
     devs = {}
     CH = []
     try:
-        if node.getNumDescendants():
-            for d in node.getDescendants():
-                ChannelDescs(d, chans)
+        for d in node.getDescendants():
+            chans = ChannelDescs(d, chans)
         secs[str(node.getNodeName())] = chans
         HW = kks.getNode('HARDWARE')
-        if HW.getNumDescendants():
+        if HW.getNumDescendants()>0:
             for dev in HW.getDescendants():
                 devs[dev.Nid] = []
             for ch in chans.keys():
@@ -69,44 +70,45 @@ def SectionDict(node, secs, kks, time, path):
                 if len(devs[dev.Nid]):
                     path.set_stream(dev.getNodeName().lower())
                     par, sig = iterDevices(dev, devs[dev.Nid], chans)
-                    rpl = write_logurl(path.url_parlog(), par, time)
-                    rd = write_signals(path, sig, time)
+                    try:
+                        rpl = write_logurl(path.url_parlog(), par, time.fromT)
+                    except:
+                        rpl = error()
+                    rd = write_signals(path, sig, time.t0T)
                     CH.append({"path": path.path(),
                                "par": par, "sig": sig, "rpl": rpl, "rd": rd})
     except:
-        print(error())
-    return(CH)
+        error()
+    return(CH, secs)
 
 
 def ChannelDescs(ch, dic):
     desc = {}
     nid = ch.getData().Nid
-    if ch.getNumDescendants():
+    if ch.getNumDescendants()>0:
         treeToDict(ch, desc)
     if ch.usage == "SIGNAL":
         desc["name"] = ch.getNodeName().lower()
     dic[nid] = desc
-
+    return dic
 
 def iterDevices(node, chlist, chans):
     parms = {}
     signals = []
     descs = []
-    if node.getNumDescendants():
-        for des in node.getDescendants():
-            sig = None
-            if des.usage == "SIGNAL":
-                sig = des
-            elif des.usage == "STRUCTURE":
-                if des.getNumMembers():
-                    for m in des.getMembers():
-                        if m.usage == 'SIGNAL':
-                            sig = m
-            if sig is None:
-                treeToDict(des, parms)
-            elif sig.Nid in chlist:
-                descs.append(SignalDict(des, sig, chans))
-                signals.append(sig)
+    for des in node.getDescendants():
+        sig = None
+        if des.usage == "SIGNAL":
+            sig = des
+        elif des.usage == "STRUCTURE":
+            for m in des.getMembers():
+                if m.usage == 'SIGNAL':
+                    sig = m
+        if sig is None:
+            treeToDict(des, parms)
+        elif sig.Nid in chlist:
+            descs.append(SignalDict(des, sig, chans))
+            signals.append(sig)
     parms["chanDescs"] = descs
     return(parms, signals)
 
@@ -120,10 +122,9 @@ def SignalDict(node, sig, dic={}):
     except:
         pass
     nid = sig.Nid
-    if node.getNumDescendants():
-        for des in node.getDescendants():
-            if not des.Nid == nid:
-                treeToDict(des, desc)
+    for des in node.getDescendants():
+        if not des.Nid == nid:
+            treeToDict(des, desc)
     if nid in dic.keys():
         for k, v in dic[nid].items():
             desc[k] = v
@@ -140,11 +141,10 @@ def treeToDict(node, Dict):
                 data = str(node.getData())
             except:
                 data = None
-        if node.getNumDescendants():
+        if node.getNumDescendants()>0:
             sDict = {}
-            if node.getNumDescendants():
-                for d in node.getDescendants():
-                    treeToDict(d, sDict)
+            for d in node.getDescendants():
+                treeToDict(d, sDict)
             if len(sDict.keys()):
                 if data is not None:
                     sDict["$value"] = data
@@ -155,61 +155,67 @@ def treeToDict(node, Dict):
 
 
 def write_signals(path, signals, t0):
+    R = []
     t0 = Time(t0).ns
-
-    def writedata(data, dimof, unit, path=path, t0=t0):
-        dimof = dimof.data().tolist()
-        if unit != 'ns':
-            dimof = [int(t*1e9+t0) for t in dimof]
+    def writedata(data, dim, path=path, t0=t0):
+        if dim.dtype==float:
+            dim = (dim*1e9).astype('uint64')+t0
         if ndims(data) > 2:
-            return(write_image(path, data, dimof))
+            return(write_image(path, data, dim.tolist()))
         elif ndims(data) > 1:
-            return(write_image(path, data, dimof))
+            return(write_data(path, data, dim.tolist()))
         else:
-            return(write_data(path, [data], dimof))
+            return(write_data(path, [data], dim.tolist()))
     if len(signals) == 1:
         sig = signals[0]
-        R = []
-        if sig.getNumSegments():
-            unit = Unit(sig.getSegmentDim(0), 1)
-            for seg in _ver.xrange(sig.getNumSegments()):
-                data = sig.getSegment(seg).data().tolist()
-                dimof = sig.getSegmentDim(seg)
-                r = writedata(data, dimof, unit)
+        if sig.isSegmented():
+            for seg in xrange(sig.getNumSegments()):
+                data = sig.getSegment(seg).data()
+                dimof = sig.getSegmentDim(seg).data()
+                r = writedata(data, dimof)
                 R.append({"seg": seg, "rds": r})
                 print(seg, r)
                 if r.status_code >= 400:
                     print(r.content)
                     return(R)
+        else:
+            data = sig.data().tolist()
+            dimof = sig.dim_of()
+            R = writedata(data, dimof)
+            print(R)
+            if r.status_code >= 400:
+                print(R.content)
         return(R)
     elif len(signals) > 1:
         data = []
-        dim = None
+        dimof = []
         for sig in signals:
-            try:
-                dim = sig
-                data.append(sig.data().tolist())
-            except:
-                data.append([])
-        if dim is None:
-            dimof = t0
-        else:
-            dimof = dim.dim_of()
-        return(writedata(data, dimof, dim.dim_of().unit))
+            sig = sig.evaluate()
+            data.append(sig.data())
+            dimof.append(sig.dim_of().data())
+        wearegood = True
+        for d in dimof[1:]:
+            wearegood &= (dimof[0]==d).all()
+        if not wearegood:
+            raise(Exception('dimesions are not equal for all channels'))
+        dimof = dimof[0]
+        N = 100000
+        for i in xrange(int((len(dimof)-1)/N+1)):
+            R.append(writedata([d[i*N:(i+1)*N].tolist() for d in data], dimof[i*N:(i+1)*N]))
+        return R
 
 
 def getCfgLog(node):
     parms = {}
-    if node.getNumMembers():
-        for m in node.getMembers():
-            #  if m.usage in ("TEXT", "NUMERIC"):
-                try:
-                    k = m.getNodeName().lower()
-                    v = m.data()
-                    if v is not None:
-                        parms[k] = cp(v)
-                except:
-                    pass
+    for m in node.getMembers():
+        #  if m.usage in ("TEXT", "NUMERIC"):
+            try:
+                k = m.getNodeName().lower()
+                v = m.data()
+                if v is not None:
+                    parms[k] = cp(v)
+            except:
+                pass
     return(parms)
 
 
