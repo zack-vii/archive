@@ -28,4 +28,11 @@ def archive_signal(node, time=None):
     except:
         import getpass
         user = getpass.getuser()
-        return user+": "+archive.support.error()
+        help = user+": "+archive.support.error()
+        try:
+            from MDSplus import Signal
+            signal = Signal()
+            signal.setHelp(help.split('\n')[-1])
+            return(signal)
+        except:
+            return(help)
