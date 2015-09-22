@@ -24,27 +24,49 @@ class client(_mds.Connection):
         self.addNode()
 
     def tcl(self, command, *args):
-        cmd = 'TCL($'+'//" "//$'*len(args)+')'
+        cmd = 'TCL($'+'//" "//$'*len(args)+', _output, _error)'
         expr = str(_mds.TdiCompile(cmd, tuple([command]+list(args))))
         status = self.get(expr)
-        print(type(status))
-        if not (status & 1):
-            raise _mds._treeshr.TreeException("Error executing tcl expression: %s" % (_mds._mdsshr.MdsGetMsg(status),))
+        if (status & 1)==1:
+            return self.get('_output')
+        raise _mds._treeshr.TreeException("Error executing tcl expression: %s" % (_mds._mdsshr.MdsGetMsg(status),))
 
-    def addNode(self):
+    def addNode(self, node=None, usage='STRUCTURE'):
+        if node is None:
+            usage = 'SIGNAL'
+        else:
+            node = self.stream+'.'+node
+        result = []
         try:
-            self.tcl('EDIT', self.tree)
+            result.append(self.tcl('EDIT', self.tree))
             try:
-                self.tcl('ADD NODE', self.stream)
-                self.tcl('WRITE')
-            except:
-                pass
+                result.append(self.tcl('ADD NODE', node,'/usage='+usage))
+                result.append(self.tcl('WRITE'))
+            except Exception, exc:
+                result.append(exc)
         finally:
-            self.tcl('CLOSE')
+            result.append(self.tcl('CLOSE'))
+        return result
 
-    def dir(self):
-        self.tcl('SET TREE', self.tree)
-        return self.tcl('DIR')
+    def Dict2Tree(self, value):
+        if isinstance(value, (int, _ver.long)):
+            usage = 'NUMERIC'
+        elif isinstance(value, dict):
+            usage = 'STRUCTURE'
+        elif isinstance(value, _ver.basestring):
+            usage = 'TEXT'
+        else:
+            usage = 'ANY'
+        return usage
+
+    def dir(self, root=None, shot=-1):
+        if root is None:
+            root = '\TOP.'+self.stream
+        elif not '\\' in root:
+            root = '\TOP.'+self.stream+'.'+root
+        self.tcl('SET TREE', self.tree,'/shot='+str(shot))
+        self.tcl('SET DEFAULT', root)
+        print(self.tcl('DIR'))
 
 
 class server(object):
