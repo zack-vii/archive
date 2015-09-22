@@ -24,10 +24,7 @@ class client(_mds.Connection):
         self.addNode()
 
     def tcl(self, command, *args):
-        cmd = 'TCL($'
-        for arg in args:
-            cmd += '//" "//$'
-        cmd += ')'
+        cmd = 'TCL($'+'//" "//$'*len(args)+')'
         expr = str(_mds.TdiCompile(cmd, tuple([command]+list(args))))
         status = self.get(expr)
         print(type(status))
@@ -162,9 +159,9 @@ class server(object):
     def upload(self, node):
         if isinstance(node, str):
             node = self.Tree(self.last).getNode(node)
-        if len(self.checkconfig(node))>0:
-            self.config(node)
         if node.getNumSegments()>0:
+            if len(self.checkconfig(node))>0:
+                self.config(node)
             if self.upload_as_block:
                 self._uploadBlock(node)
             else:
