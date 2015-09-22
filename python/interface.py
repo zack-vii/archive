@@ -115,9 +115,12 @@ def get(url, headers={}, *data):
     req = _ver.urllib.Request(url)
     for k, v in headers.items():
         req.add_header(k, v)
-    if len(data) == 1:
-        req.get_method = lambda: 'POST'
-    handler = _ver.urllib.urlopen(req, *data)
+    try:
+        handler = _ver.urllib.urlopen(req, *data)
+    except _ver.urllib.HTTPError, err:
+        print(err.reason())
+        print(err.info())
+        raise(err)
     return(handler)
 
 
@@ -177,8 +180,6 @@ def read_parlog(path, time=_base.TimeInterval([0, 0]), *args):
     par = get_json(url)
     if type(par) is not dict:
         raise Exception('parlog not found:\n'+url)
-    if _ver.ispy2:
-        par = _json.JSONEncoder().encode(par)
     par = par['values'][-1]
     if 'chanDescs' in par.keys():
         cD = par['chanDescs']

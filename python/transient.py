@@ -54,6 +54,7 @@ class server(object):
     tree = 'transient'
     _path = _base.Path("/Test/raw/W7X/MDS_transient/")
     mds = _mds
+    upload_as_block = True
 
     def __init__(self):
         try:
@@ -96,28 +97,48 @@ class server(object):
             self.run()
             try:
                 timeleft = timing - (_time.time() % timing)
-                print(self.mds.Event.wfevent('transient', int(timeleft+.5)))
+                print('idle: waiting for event or timeout')
+                print('event: '+str(self.mds.Event.wfevent('transient', int(timeleft+.5))))
             except(_mds._mdsshr.MdsTimeout):
-                print('no event: run on timer')
+                print('timeout: run on timer')
 
     def getTimeInserted(self, node, shot=-1):
         if isinstance(node, str):
             node = self.Tree(shot).getNode(node)
         return _sup.getTimeInserted(node)
 
+    def getUpdateTime(self, node, shot=-1):
+        if isinstance(node, str):
+            node = self.Tree(shot).getNode(node)
+        t = 0;
+        for c in node.getChildren():
+            t = max(t, self.getUpdateTime(c))
+        for m in node.getMembers():
+            t = max(t, self.getUpdateTime(m))
+            t = max(t,self.getTimeInserted(m))
+        return t
+
     def getDict(self, node, shot=-1):
         if isinstance(node, str):
             node = self.Tree(shot).getNode(node)
         return _diff.treeToDict(node)
 
-    def configupstream(self, nodename):
+    def configUpstream(self, nodename):
         dic = _if.read_parlog(self.getDataPath(nodename),'now')
         return dic['chanDescs'][0]
 
-    def configtree(self, node):
+    def configTree(self, node):
         if isinstance(node, str):
             node = self.Tree().getNode(node)
         return _mdsup.SignalDict(node)
+
+    def checkconfig(self, node):
+        tdict = self.configTree(node)
+        try:
+            udict = self.configUpstream(node)
+        except:
+            udict = {}
+        return _diff.diffdict(udict, tdict)
 
     def getParlogPath(self, nodename):
         return self.getDataPath(nodename).parlog
@@ -127,10 +148,11 @@ class server(object):
             nodename = str(nodename.getNodeName())
         return self._path.set_stream(nodename.lower())
 
-    def config(self, node, t0='now'):
+    def config(self, node):
         if isinstance(node, str):
             node = self.Tree().getNode(node)
         chanDesc = _mdsup.SignalDict(node)
+        t0 = self.getUpdateTime(node)
         parlog = {'chanDescs': [chanDesc]}
         try:
             _if.write_logurl(self.getParlogPath(node), parlog, t0)
@@ -140,6 +162,31 @@ class server(object):
     def upload(self, node):
         if isinstance(node, str):
             node = self.Tree(self.last).getNode(node)
+        if len(self.checkconfig(node))>0:
+            self.config(node)
+        if node.getNumSegments()>0:
+            if self.upload_as_block:
+                self._uploadBlock(node)
+            else:
+                self._uploadSegmented(node)
+
+    def _uploadBlock(self, node):
+        path = self.getDataPath(node)
+        data = []
+        dimof = []
+        for i in _ver.xrange(int(node.getNumSegments())):
+            segi = node.getSegment(i)
+            data += list(segi.data().tolist())
+            dimof += list(segi.dim_of().tolist())
+        while True:
+            try:
+                #print(nodename+": ("+str(dimof.data())+", "+str(data)+")")
+                _if.write_data(path, data, dimof)
+                break
+            except:
+                _sup.error()
+
+    def _uploadSegmented(self, node):
         path = self.getDataPath(node)
         for i in _ver.xrange(int(node.getNumSegments())):
             segi = node.getSegment(i)

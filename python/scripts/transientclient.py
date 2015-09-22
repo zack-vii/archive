@@ -33,7 +33,7 @@ while True:
         node = tree.getNode(name)
         time = _archive.Time('now')
         data = _mds.Float64Array([_np.sin(time.s/30*_np.pi)])
-        dim  = _mds.Uint64Array([time.ns]).setUnits('ns')
+        dim  = _mds.Uint64Array([time.ns]).setUnits('s')
         node.makeSegment(dim[0],  dim[len(dim)-1], dim, data,-1)
         print("written: %d: %f (%d)" % (dim[0], data[0], node.getNumSegments()))
     except:

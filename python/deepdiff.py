@@ -12,7 +12,7 @@ py3 = version[0] == '3'
 
 if py3:
     from builtins import int
-    basestring = str
+    basestring = (str, bytes)
     numbers = (int, float, complex, datetime.datetime)
     from itertools import zip_longest
 else:
@@ -112,8 +112,8 @@ class DeepDiff(dict):
         >>>
         >>> print (ddiff['values_changed'][0])
         root[4]['b']:
-        --- 
-        +++ 
+        ---
+        +++
         @@ -1,5 +1,4 @@
         -world!
         -Goodbye!
@@ -276,7 +276,7 @@ class DeepDiff(dict):
     def __diff_common_children(self, t1, t2, t_keys_intersect, print_as_attribute, parents_ids, parent, parent_text):
         ''' difference between common attributes of objects or values of common keys of dictionaries '''
         for item_key in t_keys_intersect:
-            if not print_as_attribute and isinstance(item_key, (basestring, bytes)):
+            if not print_as_attribute and isinstance(item_key, basestring):
                 item_key_str = "'%s'" % item_key
             else:
                 item_key_str = item_key
@@ -356,6 +356,12 @@ class DeepDiff(dict):
     def __diff(self, t1, t2, parent="root", parents_ids=frozenset({})):
         ''' The main diff method '''
 
+        if isinstance(t1, basestring):
+            t1 = str(t1)
+
+        if isinstance(t2, basestring):
+            t2 = str(t2)
+
         if t1 is t2:
             return
 
@@ -363,7 +369,7 @@ class DeepDiff(dict):
             self["type_changes"].append(
                 "%s: %s=%s ===> %s=%s" % (parent, t1, self.__gettype(t1), t2, self.__gettype(t2)))
 
-        elif isinstance(t1, (basestring, bytes)):
+        elif isinstance(t1, basestring):
             self.__diff_str(t1, t2, parent)
 
         elif isinstance(t1, numbers):
