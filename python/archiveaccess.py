@@ -18,7 +18,7 @@ def mds_signal(url, time, help):
         t0 = time.t0T
         signal = read_signal(url, time, t0, 0, 0, [])
         signal.setHelp(str(help))
-        return(signal)
+        return signal
     except:
         import getpass
         user = getpass.getuser()

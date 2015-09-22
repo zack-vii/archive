@@ -6,7 +6,7 @@ data rooturl database view    project strgrp stream idx    channel
 lev  0       1        2       3       4      5      6      7
 """
 from .interface import get_json, read_parlog, read_cfglog, read_signal
-from .interface import post, write_image, write_data
+from .interface import post, write_data
 from .base import TimeInterval, Unit, Path
 from .version import long, xrange
 defwritepath = '/test/raw/W7X/python_interface/test'
@@ -66,11 +66,6 @@ class datastream:
     def write(self):
         r = [post(self._path.url_parlog(), json=self._parlog()),
              write_data(self._path, self._chanVals, self._dimensions)]
-        return r
-
-    def writeimg(self):
-        r = [post(self._path.url_parlog(), json=self._parlog()),
-             write_image(self._path, self._chanVals[0], self._dimensions)]
         return r
 
 

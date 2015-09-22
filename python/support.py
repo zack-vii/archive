@@ -6,9 +6,11 @@ data rooturl database view    project strgrp stream idx    channel
 lev  0       1        2       3       4      5      6      7
 """
 from __future__ import absolute_import
-from MDSplus import Tree, Int64Array, TdiCompile
-from archive.base import TimeInterval, Time
-from archive.version import urllib, tostr, tounicode, basestring
+import numpy as _np
+import re as _re
+import MDSplus as _mds
+from . import base as _base
+from . import version as _ver
 
 
 def version():
@@ -21,7 +23,7 @@ def sampleImage(imgfile='image.jpg'):
     return (im[:, :, 2]+im[:, :, 1]*256+im[:, :, 0]*65536).T.tolist()
 
 
-class remoteTree(Tree):
+class remoteTree(_mds.Tree):
     def __init__(self, shot='-1', tree='W7X', server='mds-data-1'):
         from MDSplus import Connection
         self._tree = tree
@@ -38,6 +40,17 @@ class remoteTree(Tree):
         finally:
             self._connection.__del__()
 
+
+def getDateTimeInserted(node):
+    return str(_mds.TdiExecute('DATE_TIME(GETNCI($,"TIME_INSERTED"))', (node,)))
+
+
+def getTimeInserted(node):
+    timestr = getDateTimeInserted(node)
+    time = list(_re.findall('([0-9]{2})-([A-Z]{3})-([0-9]{4}) ([0-9]{2}):([0-9]{2}):([0-9]{2}).([0-9]{2})', timestr)[0])
+    time[1] = ['JAN','FEB','MAR','APR','JUN','JUL','AUG','SEP','OCT','NOV','DEC'].index(time[1])
+    time = [int(t) for t in time]
+    return _base.Time([time[2]]+[time[1]]+[time[0]]+time[3:-1]+[time[-1]*10])
 
 class getFlags(int):
     _STATE             =0x00000001
@@ -103,13 +116,13 @@ class getFlags(int):
 
 def getTimestamp(n=1):
     url = 'http://mds-data-1.ipp-hgw.mpg.de/operator/last_trigger/'+str(n)
-    return(Time(urllib.urlopen(url).read(20)))
+    return(_base.Time(_ver.urllib.urlopen(url).read(20)))
 
 
 def fixname(name):
     if not isinstance(name, (str)):
-        name = tostr(name)
-    name = urllib.unquote(name)
+        name = _ver.tostr(name)
+    name = _ver.urllib.unquote(name)
     return name
 
 
@@ -158,13 +171,19 @@ def addOpenNode(tree, name, usage):
     return node
 
 
-def cp(arg):
-    import numpy
-    if isinstance(arg, (basestring)):
-        return tounicode(arg)
-    if isinstance(arg, (numpy.generic, numpy.ndarray)):
-        return arg.tolist()
-    return arg
+def cp(value):
+    try:
+        if isinstance(value, _np.generic):
+            return value.tolist()
+        elif isinstance(value, _ver.basestring):
+            return _ver.tounicode(value).encode('utf-8')
+        elif isinstance(value, _np.ScalarType):
+            return value
+        else:
+            return value
+    except:
+        return None
+        print(value)
 
 
 class obj(object):
@@ -195,7 +214,7 @@ def ndims(signal, N=0):
 
 
 def setTIME(time):
-    time = TimeInterval(time)
-    data = Int64Array(time)
+    time = _base.TimeInterval(time)
+    data = _mds.Int64Array(time)
     data.setUnits('ns')
-    TdiCompile('\TIME').putData(data)
+    _mds.TdiCompile('\TIME').putData(data)

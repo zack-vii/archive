@@ -5,57 +5,73 @@ archive.interface
 data rooturl database view    project strgrp stream idx    channel
 lev  0       1        2       3       4      5      6      7
 """
-import os
-from .base import TimeInterval, Path, createSignal
-from .cache import cache
-from .version import xrange, urllib, tobytes
+import os as _os
+import json as _json
+from . import base as _base
+from . import cache as _cache
+from . import support as _sup
+from . import version as _ver
 
-filebase = 'archive_cache'
-isunix = os.name == 'posix'
-if isunix:
-    tmpdir = "/tmp/"
+if _os.name == 'posix':
+    _tmpdir = "/tmp/"
 else:
-    tmpdir = os.getenv('TEMP')+'\\'
-filebase = tmpdir+filebase
-SQCache = cache(filebase)
+    _tmpdir = _os.getenv('TEMP')+'\\'
+SQCache =  _cache.cache(_tmpdir+'archive_cache')
+
+class URLException(Exception):
+    def __init__(self,value):
+        return value
 
 
 def write_logurl(url, parms, time):
-    log = {'values': [parms],
-           'dimensions': [TimeInterval(time).fromT.ns,-1],
-           'label': 'parms',
+    log = {'label' : 'parms',
+           'values': [parms],
+           'dimensions': [_base.TimeInterval(time).fromT.ns,-1]
            }
     return(post(url, json=log))  # , data=json.dumps(cfg)
 
+def write_data(path, data, dimof, t0=0):
+    # path=Path, data=array, dimof=array
+    from numpy import array
+    dimof = array(dimof)
+    data = array(data)
+    if dimof.dtype == float:
+        dimof = (dimof*1e9).astype('uint64') + t0
+    if data.ndim > 2:
+        return(_write_vector(_base.Path(path), data.tolist(), dimof.tolist()))
+    elif data.ndim > 1:
+        return(_write_scalar(_base.Path(path), data.tolist(), dimof.tolist()))
+    else:
+        return(_write_scalar(_base.Path(path), data.tolist(), dimof.tolist()))
 
-def write_data(path, data, dimof):
+
+def _write_scalar(path, data, dimof):
+    # path=Path, data=list, dimof=list
     jdict = {'values': list(data), 'dimensions': list(dimof)}
-    return(post(Path(path).url_datastream(), json=jdict))
+    return(post(path.url_datastream(), json=jdict))
 
 
-def write_image(path, data, dimof):
-    data = [[[data[t][x][y] for t in xrange(len(data))]
-            for x in xrange(len(data[0]))] for y in xrange(len(data[0][0]))]
-    name = path.stream
-    tmpfile = tmpdir+"archive_"+name+".h5"
+def _write_vector(path, data, dimof):
+    # path=Path, data=list, dimof=list
+    stream = path.stream
+    tmpfile = _tmpdir+"archive_"+stream+".h5"
     try:
         from h5py import File as h5file
         with h5file(tmpfile, 'w') as f:
-            f.create_dataset(name, data=data, compression="gzip")
-            f.create_dataset('timestamps', data=dimof, dtype='int64',
+            f.create_dataset(stream, data=list(data), compression="gzip")
+            f.create_dataset('timestamps', data=list(dimof), dtype='int64',
                              compression="gzip")
         headers = {'Content-Type': 'application/x-hdf'}
-        link = path.url_streamgroup()+'?dataPath='+name+'&timePath=timestamps'
-#        with requests_cache.disabled():
+        link = path.url_streamgroup()+'?dataPath='+stream+'&timePath=timestamps'
         with open(tmpfile, 'rb') as f:
             return(post(link, headers=headers, data=f))
     finally:
-        os.remove(tmpfile)
+        _os.remove(tmpfile)
 
 
 def read_signal(path, time, t0=0, *arg):
-    path = Path(path)
-    time = TimeInterval(time)
+    path = _base.Path(path)
+    time = _base.TimeInterval(time)
     sig = None
     if time.uptoT != -1:
         key = path.path()+'?'+str(time)
@@ -63,17 +79,17 @@ def read_signal(path, time, t0=0, *arg):
     if sig is None:
         print('get web-archive: '+key)
         stream = get_json(path.url_data(), time, *arg)
-        sig = createSignal(stream["values"], stream['dimensions'], t0,
+        sig = _base.createSignal(stream["values"], stream['dimensions'], t0,
                            str(stream.get('unit', 'unknown')))
         SQCache.set(key, sig)
     return sig
 
 
 def get_json(url, *arg):
-    url = Path(url).url(-1, *arg)
-    import json
+    url = _base.Path(url).url(-1, *arg)
     import codecs
-    reader = codecs.getreader("utf-8")
+    _debug(url)
+    reader = codecs.getreader('utf-8')
     headers = {'Accept': 'application/json'}
     handler = get(url, headers)
     if handler.getcode() != 200:
@@ -81,27 +97,27 @@ def get_json(url, *arg):
     if handler.headers.get('content-type') != 'application/json':
         raise Exception('requested content-type mismatch: ' +
                         handler.headers.get('content-type'))
-    return json.load(reader(handler), strict=False)
+    return _json.load(reader(handler), strict=False)
 
 
 def post(url, headers={}, data=None, json=None):
-    if url[-1] != '/':
-        url += '/'
+#    if url[-1] != '/':
+ #       url += '/'
     if json is not None:
-        from json import dumps
-        data = dumps(json)
+        data = _json.dumps(json)
         headers['content-type'] = 'application/json'
-    return(get(url, headers, tobytes(data)))
+    _debug(url)
+    _debug(data)
+    return(get(url, headers, _ver.tobytes(data)))
 
 
 def get(url, headers={}, *data):
-    _debug(url)
-    req = urllib.Request(url)
+    req = _ver.urllib.Request(url)
     for k, v in headers.items():
         req.add_header(k, v)
     if len(data) == 1:
         req.get_method = lambda: 'POST'
-    handler = urllib.urlopen(req, *data)
+    handler = _ver.urllib.urlopen(req, *data)
     return(handler)
 
 
@@ -132,7 +148,7 @@ def parseXML(toparse):
     return xmltodict(tree)
 
 
-def read_parlog(path, time=TimeInterval([0, 0]), *args):
+def read_parlog(path, time=_base.TimeInterval([0, 0]), *args):
     def rmfield(dic, field):
         if field in dic.keys():
             del(dic[field])
@@ -155,12 +171,14 @@ def read_parlog(path, time=TimeInterval([0, 0]), *args):
             rmfield(ch, 'channelNumber')
             for k, v in ch.items():
                 if v is not None:
-                    chans[i][k] = v
+                    chans[i][k] = _sup.cp(v)
         return chans
-    url = Path(path).url_parlog(time, *args)
+    url = _base.Path(path).url_parlog(time, *args)
     par = get_json(url)
     if type(par) is not dict:
         raise Exception('parlog not found:\n'+url)
+    if _ver.ispy2:
+        par = _json.JSONEncoder().encode(par)
     par = par['values'][-1]
     if 'chanDescs' in par.keys():
         cD = par['chanDescs']
@@ -173,7 +191,7 @@ def read_parlog(path, time=TimeInterval([0, 0]), *args):
 
 
 def read_cfglog(path, time=[0, 0], *args):
-    url = Path(path).url_cfglog(time, *args)
+    url = _base.Path(path).url_cfglog(time, *args)
     par = get_json(url)
     if type(par) is not dict:
         raise Exception('cfglog not found:\n'+url)
@@ -181,7 +199,7 @@ def read_cfglog(path, time=[0, 0], *args):
 
 
 def read_jpg_url(url, time, skip=0):
-    time = TimeInterval(time)
+    time = _base.TimeInterval(time)
     link = url + '/_signal.jpg?' + str(time) + '&skip=' + str(skip)
     _debug(link)
     r = get(link)
@@ -189,7 +207,7 @@ def read_jpg_url(url, time, skip=0):
 
 
 def read_png_url(url, time, skip=0):
-    time = TimeInterval(time)
+    time = _base.TimeInterval(time)
     link = url + '/_signal.png?' + str(time) + '&skip=' + str(skip)
     _debug(link)
     r = get(link)
@@ -197,7 +215,7 @@ def read_png_url(url, time, skip=0):
 
 
 def read_raw_url(url, time, skip=0):
-    time = TimeInterval(time)
+    time = _base.TimeInterval(time)
     link = url + '/_signal.png?' + str(time) + '&skip=' + str(skip)
     _debug(link)
     r = get(link)

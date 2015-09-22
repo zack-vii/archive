@@ -15,14 +15,15 @@ def archive_signal(node, time=None):
 #        try:
 #            t0 = archive.Time(node.getNode('\TIME.T1:IDEAL')).ns
 #        except:
-        url = node.getNode(':$URL').data()
+        url = node.getNode('$URL').data()
         signal = archive.read_signal(url, time, time.t0T, 0, 0, [])
         try:
-            help = node.getNode(':DESCRIPTION').data()
+            help = node.getNode('HELP').data()
         except:
-            help = None
-        if help is None:
-            help = node.getNode(':$NAME').data()
+            try:
+                help = node.getNode('DESCRIPTION').data()
+            except:
+                help = node.getNode('$NAME').data()
         signal.setHelp(str(help))
         return(signal)
     except:
@@ -31,7 +32,7 @@ def archive_signal(node, time=None):
         help = user+": "+archive.support.error()
         try:
             from MDSplus import Signal
-            signal = Signal()
+            signal = Signal([6,66,666])
             signal.setHelp(help.split('\n')[-1])
             return(signal)
         except:

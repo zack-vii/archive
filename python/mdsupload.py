@@ -5,12 +5,12 @@ archive.MDSupload
 data rooturl database view    project strgrp stream idx    channel
 lev  0       1        2       3       4      5      6      7
 """
-import MDSplus
-import re
-from archive.base import Unit, Time, TimeInterval, Path
-from archive.support import error, cp, ndims
-from archive.interface import write_logurl, write_data, write_image
-from archive.version import xrange
+import MDSplus as _mds
+import re as _re
+from . import base as _base
+from . import support as _sup
+from archive.interface import write_logurl, write_data
+from . import version as _ver
 
 archivedb = '/Test'  # ArchiveDB
 
@@ -22,13 +22,13 @@ def upload(names=['SINWAV'], shot=0, treename='W7X'):
     e.g.: D=upload(['QMC', 'QMR', 'QRN', 'QSW', 'QSX'], 2, 'W7X')
     '''
     SD = []
-    w7x = MDSplus.Tree(treename, shot)
-#    time = TimeInterval([w7x.getNode('\TIME:T0:IDEAL'),
+    w7x = _mds.Tree(treename, shot)
+#    time = _base.TimeInterval([w7x.getNode('\TIME:T0:IDEAL'),
 #              w7x.getNode('\TIME:T4:IDEAL'),
 #              w7x.getNode('\TIME:T1:IDEAL')])
-    time = TimeInterval(w7x.getNode('\TIME'))
-    time = TimeInterval()  # TODO
-    path = Path(archivedb+'/raw/W7X')
+    time = _base.TimeInterval(w7x.getNode('\TIME'))
+    time = _base.TimeInterval()  # TODO
+    path = _base.Path(archivedb+'/raw/W7X')
     for name in names:
         kks = w7x.getNode(name)
         cfg = getCfgLog(kks)
@@ -40,7 +40,7 @@ def upload(names=['SINWAV'], shot=0, treename='W7X'):
             try:
                 pcl = write_logurl(path.url_cfglog(), cfg, time.fromT)
             except:
-                pcl = error()
+                pcl = _sup.error(1)
             ch, secdict = SectionDict(sec, secdict, kks, time, path)
             SD.append({"ch": ch, "pcl": pcl})
     return(SD)
@@ -50,7 +50,7 @@ def SectionDict(node, secs, kks, time, path):
     '''
     tracks the
     '''
-    f = re.compile('(?<=\.HARDWARE[:\.])([^\.:]+)')
+    f = _re.compile('(?<=\.HARDWARE[:\.])([^\.:]+)')
     chans = {}
     devs = {}
     CH = []
@@ -73,12 +73,12 @@ def SectionDict(node, secs, kks, time, path):
                     try:
                         rpl = write_logurl(path.url_parlog(), par, time.fromT)
                     except:
-                        rpl = error()
+                        rpl = _sup.error()
                     rd = write_signals(path, sig, time.t0T)
                     CH.append({"path": path.path(),
                                "par": par, "sig": sig, "rpl": rpl, "rd": rd})
     except:
-        error()
+        _sup.error()
     return(CH, secs)
 
 
@@ -113,21 +113,29 @@ def iterDevices(node, chlist, chans):
     return(parms, signals)
 
 
-def SignalDict(node, sig, dic={}):
+def SignalDict(node, sig=None, dic={}):
+    if sig is None:
+        sig = node
     desc = {}
     desc['name'] = node.getNodeName().lower()
     desc["active"] = int(node.isOn())
-    try:
-        desc["physicalQuantity"] = {'type': Unit(sig, 1)}
-    except:
-        pass
+    desc["physicalQuantity"] = {'type': 'unknown'}
     nid = sig.Nid
     for des in node.getDescendants():
         if not des.Nid == nid:
-            treeToDict(des, desc)
+            desc = treeToDict(des, desc)
     if nid in dic.keys():
         for k, v in dic[nid].items():
             desc[k] = v
+    if 'units' in desc.keys():
+        desc["physicalQuantity"]['type'] = _base.Unit(desc["units"], 1)
+        del(desc["units"])
+    try:
+        units = _base.Unit(sig, 1)
+        if units != 'unknown':
+            desc["physicalQuantity"]['type'] = units
+    except:
+        pass
     return(desc)
 
 
@@ -135,44 +143,32 @@ def treeToDict(node, Dict):
     if node.usage not in ['ACTION', 'TASK', 'SIGNAL']:  # exclude by usage
         name = node.getNodeName().lower()
         try:
-            data = cp(node.data())
+            data = _sup.cp(node.data())
         except:
-            try:
-                data = str(node.getData())
-            except:
-                data = None
+            data = None
         if node.getNumDescendants()>0:
             sDict = {}
             for d in node.getDescendants():
-                treeToDict(d, sDict)
+                sDict = treeToDict(d, sDict)
             if len(sDict.keys()):
                 if data is not None:
                     sDict["$value"] = data
                 Dict[name] = sDict
-                return
+                return(Dict)
         if data is not None:
             Dict[name] = data
-
+    return(Dict)
 
 def write_signals(path, signals, t0):
     R = []
-    t0 = Time(t0).ns
-    def writedata(data, dim, path=path, t0=t0):
-        if dim.dtype==float:
-            dim = (dim*1e9).astype('uint64')+t0
-        if ndims(data) > 2:
-            return(write_image(path, data, dim.tolist()))
-        elif ndims(data) > 1:
-            return(write_data(path, data, dim.tolist()))
-        else:
-            return(write_data(path, [data], dim.tolist()))
+    t0 = _base.Time(t0).ns
     if len(signals) == 1:
         sig = signals[0]
         if sig.isSegmented():
-            for seg in xrange(sig.getNumSegments()):
+            for seg in _ver.xrange(sig.getNumSegments()):
                 data = sig.getSegment(seg).data()
                 dimof = sig.getSegmentDim(seg).data()
-                r = writedata(data, dimof)
+                r = write_data(path, data, dimof, t0)
                 R.append({"seg": seg, "rds": r})
                 print(seg, r)
                 if r.status_code >= 400:
@@ -181,7 +177,7 @@ def write_signals(path, signals, t0):
         else:
             data = sig.data().tolist()
             dimof = sig.dim_of()
-            R = writedata(data, dimof)
+            R = write_data(path, data, dimof, t0)
             print(R)
             if r.status_code >= 400:
                 print(R.content)
@@ -200,8 +196,8 @@ def write_signals(path, signals, t0):
             raise(Exception('dimesions are not equal for all channels'))
         dimof = dimof[0]
         N = 100000
-        for i in xrange(int((len(dimof)-1)/N+1)):
-            R.append(writedata([d[i*N:(i+1)*N].tolist() for d in data], dimof[i*N:(i+1)*N]))
+        for i in _ver.xrange(int((len(dimof)-1)/N+1)):
+            R.append(write_data(path, [d[i*N:(i+1)*N].tolist() for d in data], dimof[i*N:(i+1)*N]), t0)
         return R
 
 
@@ -213,7 +209,7 @@ def getCfgLog(node):
                 k = m.getNodeName().lower()
                 v = m.data()
                 if v is not None:
-                    parms[k] = cp(v)
+                    parms[k] = _sup.cp(v)
             except:
                 pass
     return(parms)
@@ -229,7 +225,7 @@ def buildPath(node):  # , subsection=None):
         view = 'raw'
     section = PathParts[-2].lower()
     groupname = PathParts[-1].lower()
-    path = Path('/'.join([archivedb, view, 'W7X', KKS+'_'+section, groupname]))
+    path = _base.Path('/'.join([archivedb, view, 'W7X', KKS+'_'+section, groupname]))
     return(path)
 
 
@@ -239,17 +235,17 @@ def uploadNode(node):  # , subsection=None):
     e.g.:
     uploadNode(("sandbox", -1, "\\KKS_EVAL::TOP.RESULTS:MYSECTION:MYIMAGE"))
     '''
-    if isinstance(node, (MDSplus.treenode.TreeNode)):
+    if isinstance(node, (_mds.treenode.TreeNode)):
         tree = node.tree
     elif isinstance(node, (tuple, list)):
-        tree = MDSplus.Tree(node[0], node[1])
+        tree = _mds.Tree(node[0], node[1])
         node = tree.getNode(node[2])
     else:
-        tree = MDSplus.Tree('W7X', 0)
+        tree = _mds.Tree('W7X', 0)
         node = tree.getNode(node)
     path = buildPath(node)  # , subsection)
-    t0 = Time(tree.getNode('\TIME.T0:IDEAL').data())
-    t1 = Time(tree.getNode('\TIME.T1:IDEAL').data())
+    t0 = _base.Time(tree.getNode('\TIME.T0:IDEAL').data())
+    t1 = _base.Time(tree.getNode('\TIME.T1:IDEAL').data())
     par, sig = iterDevices(node)
     if node.usage == "SIGNAL":
         if len(sig):  # prepend

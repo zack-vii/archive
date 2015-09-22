@@ -5,13 +5,14 @@ codac.baseclasses
 data rooturl database view    project strgrp stream idx    channel
 lev  0       1        2       3       4      5      6      7
 """
-import re
-import numpy
-from .version import long, basestring, xrange
-# from support import error
-defreadpath = ('/ArchiveDB/raw/W7X/CoDaStationDesc.10251' +
-               '/DataModuleDesc.10193_DATASTREAM/0/AAB27CT003')
-rooturl = 'http://archive-webapi.ipp-hgw.mpg.de'
+import MDSplus as _mds
+import numpy as _np
+import re as _re
+import time as _time
+from . import version as _ver
+_defreadpath = ('/ArchiveDB/raw/W7X/CoDaStationDesc.10251' +
+                '/DataModuleDesc.10193_DATASTREAM/0/AAB27CT003')
+_rooturl = 'http://archive-webapi.ipp-hgw.mpg.de'
 
 
 class InsufficientPathException(Exception):
@@ -20,9 +21,9 @@ class InsufficientPathException(Exception):
 
 
 class Path(object):
-    _ROOTURL = rooturl
+    _ROOTURL = _rooturl
 
-    def __init__(self, path=defreadpath, *_argin):
+    def __init__(self, path=_defreadpath, *_argin):
         if isinstance(path, (Path)):
             self._path = path._path
             self._lev = path._lev
@@ -66,6 +67,7 @@ class Path(object):
     # set
     def set_database(self, database):
         self.set_path(database)
+        return self
 
     def set_view(self, view):
         if type(view) is int:
@@ -76,29 +78,29 @@ class Path(object):
             else:
                 view = 'cocked'
         self.set_path(self.path(1), view)
+        return self
 
     def set_project(self, project):
         if type(project) is int:
             project = self.list_projects()[project]
         self.set_path(self.path(2), project)
+        return self
 
     def set_streamgroup(self, streamgroup):
         if type(streamgroup) is int:
             streamgroup = self.list_streamgroups()[streamgroup]
         self.set_path(self.path(3), streamgroup)
+        return self
 
     def set_stream(self, stream):
         if type(stream) is int:
             stream = self.list_streams()[stream]
         self.set_path(self.path(4), stream)
+        return self
 
-    def set_channel(self, channel):
-        channellist = self.list_channels()
-        if type(channel) is int:
-            channel = channellist[channel]
-        else:
-            channel = channellist[[c[0] for c in channellist].index(channel)]
-        self.set_path(self.path(5), channel[1], channel[0])
+    def set_channel(self, channel, index=0):
+        self.set_path(self.path(5), str(index), channel)
+        return self
 
     # get
     def get_database(self):
@@ -199,6 +201,9 @@ class Path(object):
         else:
             return self.url_datastream(*arg)
 
+    cfglog = property(url_cfglog)
+    parlog = property(url_parlog)
+
 
 def url_parms(url, time=None, skip=0, nsamples=0, channels=[]):
     if time is not None:
@@ -216,61 +221,76 @@ def url_parms(url, time=None, skip=0, nsamples=0, channels=[]):
     return url
 
 
-class Time(long):
+class Time(_ver.long):
+    """
+    Time([<ns:long>, <s:float>,'now', 'now_m'])
+    """
+    _s2ns = 1000000000
     def __new__(self, time='now'):
         if isinstance(time, Time):
             return time
         else:
-            import time as _time
-
             def listtovalue(time):
                 time += [0]*(9-len(time))
-                seconds = long(_time.mktime(tuple(time[0:6]+[0]*3)) -
+                seconds = int(_time.mktime(tuple(time[0:6]+[0]*3)) -
                                _time.timezone)
-                return long.__new__(self, ((seconds*1000+time[6])*1000 +
-                                           time[7])*1000+time[8])
-            from MDSplus import Scalar, TreeNode
-            if isinstance(time, (basestring,)):
-                if time == 'now':  # now
-                    return long.__new__(self, int(_time.time()/60)*60000000000)
+                return super(Time, self).__new__(self,
+                                                ((seconds*1000+time[6])*1000 +
+                                                time[7])*1000+time[8])
+            if isinstance(time, (_ver.basestring,)):
+                if time.startswith('now'):  # now
+                    time = time.split('_')
+                    if len(time)<2 or time[1]=='ms':
+                        return super(Time, self).__new__(self, int(_time.time()*1000)*1000000)
+                    if time[1]=='s':
+                        return super(Time, self).__new__(self, int(_time.time())*self._s2ns)
+                    if time[1]=='m':
+                        return super(Time, self).__new__(self, int(_time.time()/60)*60*self._s2ns)
+                    if time[1]=='h':
+                        return super(Time, self).__new__(self, int(_time.time()/3600)*3600*self._s2ns)
                 else:  # '2009-02-13T23:31:30.123456789Z'
-                    time = re.findall('[0-9]+', time)
+                    time = _re.findall('[0-9]+', time)
                     if len(time) == 7:  # we have subsecond precision
-                        time = time[0:6] + re.findall('[0-9]{3}', time[6]+'00')
+                        time = time[0:6] + _re.findall('[0-9]{3}', time[6]+'00')
                     time = [int(t) for t in time]
                     return listtovalue(time)
-            elif isinstance(time, (_time.struct_time,)):
+            if isinstance(time, (_time.struct_time,)):
                 return listtovalue(list(time)[0:6])
-            elif isinstance(time, (TreeNode)):
+            if isinstance(time, (_mds.treenode.TreeNode, _mds.Scalar)):
                 time = time.data()
-                if time < 2E9 and time > 0:  # time in 's'
-                    time = time*1000000000
-                return long.__new__(self, time)
-            elif isinstance(time, (numpy.ScalarType, Scalar)):
-                if isinstance(time, (Scalar,)):
-                    time = time.data()
-                if time < 2E9 and time > 0:  # time in 's'
-                    time = time*1000000000
-                return long.__new__(self, time)
-            else:
-                print(type(time))
-                return listtovalue(list(time[0:9]))
+            if isinstance(time, (_np.ScalarType)):
+                if _np.array(time).dtype==float:
+                    time = time*self._s2ns
+                return super(Time, self).__new__(self, time)
+            return listtovalue(list(time[0:9]))
 
-    def __add__(self, y): return Time(long.__add__(self, y))
+    def __add__(self, y):
+        if isinstance(y, float):
+            y = int(y*1E9)
+        return Time(_ver.long.__add__(self, y))
 
-    def __radd__(self, y): return Time(long.__radd__(self, y))
+    def __radd__(self, y):
+        if isinstance(y, float):
+            y = int(y*1E9)
+        return Time(_ver.long.__radd__(self, y))
 
-    def __sub__(self, y): return Time(long.__sub__(self, y))
+    def __sub__(self, y):
+        if isinstance(y, float):
+            y = int(y*1E9)
+        return Time(_ver.long.__sub__(self, y))
 
-    def __rsub__(self, y): return Time(long.__rsub__(self, y))
+    def __rsub__(self, y):
+        if isinstance(y, float):
+            y = int(y*1E9)
+        return Time(_ver.long.__rsub__(self, y))
 
     def __repr__(self): return self.utc
 
-    def _ns(self): return long(self)
+    def _ns(self): return _ver.long(self)
 
-    def _s(self): return long(self) * 1E-9
+    def _s(self): return self.ns * 1E-9
 
-    def _subsec(self): return self % 1000000000
+    def _subsec(self): return self.ns % self._s2ns
 
     def _utc(self):
         import time as _time
@@ -304,22 +324,20 @@ class TimeInterval(list):
             return arg  # short cut
         return list.__new__(self)
 
-    def __init__(self, arg=[-1800000000000, 'now', -1]):
+    def __init__(self, arg=[-1800., 'now', -1]):
         if type(arg) is TimeInterval:
             return  # short cut
-        from MDSplus.mdsarray import Array
-        from MDSplus.treenode import TreeNode
-        from MDSplus.tdibuiltins.builtins_other import VECTOR
-        if isinstance(arg, (Array, TreeNode, VECTOR)):
-            arg = arg.data().tolist()
-        elif isinstance(arg, (numpy.ndarray,)):
+        if isinstance(arg, (_mds.Array, _mds.treenode.TreeNode, _mds.tdibuiltins.VECTOR)):
+            arg = arg.data()
+        if isinstance(arg, (_np.ndarray,)):
             arg = arg.tolist()
-        elif not isinstance(arg, (list, tuple)):
+        if not isinstance(arg, (list, tuple)):
             arg = [arg]
         if len(arg) < 3:
             if len(arg) < 2:
                 if len(arg) == 0:
-                    arg == [-1800000000000]
+                    arg = [-1800.]
+                arg = list(map(Time,arg))
                 arg += [0] if arg[0] < 0 else arg
             arg += [-1]
         super(TimeInterval, self).append(Time(arg[0]))
@@ -402,15 +420,19 @@ units = ['unknown', '', 'none', 'arb.unit', 'kg', 'g', 'u', 'kg/s', 'g/s', 'm',
 
 
 def Unit(unit, force=False):
-    import MDSplus
-    if isinstance(unit, (MDSplus.treenode.TreeNode)):
+    if isinstance(unit, (_mds.treenode.TreeNode)):
         if unit.isSegmented():
             unit = unit.getSegment(0).units
         else:
             unit = unit.units
-    elif isinstance(unit, (MDSplus.compound.Signal, MDSplus.mdsarray.Array)):
-        unit = unit.units
+    elif isinstance(unit, (_mds.compound.Signal, _mds.mdsarray.Array)):
+        try:
+            unit = unit.units
+        except:
+            return 'unknown'
     unit = str(unit)
+    if unit == ' ':
+        return 'unknown'
     if unit in units:
         return unit
     if force:
@@ -420,9 +442,7 @@ def Unit(unit, force=False):
 
 
 def createSignal(dat, dim, t0=0, unit=None, addim=[], units=[], help=None):
-    import MDSplus
-    from numpy import ndarray
-    if isinstance(dat, (ndarray,)):
+    if isinstance(dat, (_np.ndarray,)):
         dat = dat.tolist()
 
     def _dim(dim, t0):
@@ -431,21 +451,21 @@ def createSignal(dat, dim, t0=0, unit=None, addim=[], units=[], help=None):
         def normt(t, t0=t0):
             return (Time(t).ns-t0)/1.E9
         if len(dim):
-            wind = MDSplus.Window(dim[0]-1, dim[-1], 0+t0)
-            dim = MDSplus.Float64Array(map(normt, dim))
-            dim = MDSplus.Dimension(wind, dim)
+            wind = _mds.Window(dim[0]-1, dim[-1], t0)
+            dim = _mds.Float64Array(list(map(normt, dim)))
+            dim = _mds.Dimension(wind, dim)
             dim.setUnits('s')
             return dim
         else:
-            return MDSplus.EmptyData()
+            return _mds.EmptyData()
 
     def _addim(dim, unit='unknown'):
         if len(dim):
-            dim = MDSplus.Dimension(_dat(dim))
+            dim = _mds.Dimension(_dat(dim))
             dim.setUnits(unit)
             return dim
         else:
-            return MDSplus.EmptyData()
+            return _mds.EmptyData()
 
     def _dat(dat):
 
@@ -468,46 +488,46 @@ def createSignal(dat, dim, t0=0, unit=None, addim=[], units=[], help=None):
                     return 0, 2
                 return m, n
         if len(dat) == 0:
-            return MDSplus.EmptyData()
+            return _mds.EmptyData()
         m, n = _datr(dat)
         if n == 3:
-            return MDSplus.Complex128Array(dat)
+            return _mds.Complex128Array(dat)
         if n == 2:
-            return MDSplus.Float64Array(dat)
+            return _mds.Float64Array(dat)
         if n:
             if m+1 > 64:
-                return MDSplus.Int128Array(dat)
+                return _mds.Int128Array(dat)
             elif m+1 > 32:
-                return MDSplus.Int64Array(dat)
+                return _mds.Int64Array(dat)
             elif m+1 > 16:
-                return MDSplus.Int32Array(dat)
+                return _mds.Int32Array(dat)
             elif m+1 > 8:
-                return MDSplus.Int16Array(dat)
+                return _mds.Int16Array(dat)
             else:
-                return MDSplus.Int8Array(dat)
+                return _mds.Int8Array(dat)
         else:
             if m > 64:
-                return MDSplus.Uint128Array(dat)
+                return _mds.Uint128Array(dat)
             elif m > 32:
-                return MDSplus.Uint64Array(dat)
+                return _mds.Uint64Array(dat)
             elif m > 16:
-                return MDSplus.Uint32Array(dat)
+                return _mds.Uint32Array(dat)
             elif m > 8:
-                return MDSplus.Uint16Array(dat)
+                return _mds.Uint16Array(dat)
             elif m > 0:
-                return MDSplus.Uint8Array(dat)
+                return _mds.Uint8Array(dat)
                 # else:
                 # return MDSplus.BoolArray(dat==1)
             else:
-                return MDSplus.EmptyData()
+                return _mds.EmptyData()
     dat = _dat(dat)
     dim = _dim(dim, t0)
-    for i in xrange(len(addim)):
+    for i in _ver.xrange(len(addim)):
         addim[i] = _addim(addim[i], units[i])
-    raw = MDSplus.Data.compile('*')
+    raw = _mds.Data.compile('*')
     if unit is not None:
         dat.setUnits(unit)
-    sig = MDSplus.Signal(dat, raw, dim, *addim)
+    sig = _mds.Signal(dat, raw, dim, *addim)
     if help:
         sig.setHelp(help)
     return sig
