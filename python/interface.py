@@ -12,11 +12,7 @@ from . import cache as _cache
 from . import support as _sup
 from . import version as _ver
 
-if _os.name == 'posix':
-    _tmpdir = "/tmp/"
-else:
-    _tmpdir = _os.getenv('TEMP')+'\\'
-SQCache =  _cache.cache(_tmpdir+'archive_cache')
+SQCache =  _cache.cache(_ver.tmpdir+'archive_cache')
 
 class URLException(Exception):
     def __init__(self,value):
@@ -54,7 +50,7 @@ def _write_scalar(path, data, dimof):
 def _write_vector(path, data, dimof):
     # path=Path, data=list, dimof=list
     stream = path.stream
-    tmpfile = _tmpdir+"archive_"+stream+".h5"
+    tmpfile = _ver.tmpdir+"archive_"+stream+".h5"
     try:
         from h5py import File as h5file
         with h5file(tmpfile, 'w') as f:

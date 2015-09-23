@@ -15,6 +15,12 @@ isnt = osname == 'nt'
 islinux = platform.startswith('linux')
 iswin = platform.startswith('win')
 
+if isposix:
+    tmpdir = "/tmp/"
+else:
+    from os import getenv as tmpdir
+    tmpdir = tmpdir('TEMP')+'\\'
+
 ispy3 = pyver > (3,)
 ispy2 = pyver < (3,)
 
