@@ -117,7 +117,7 @@ def get(url, headers={}, *data):
         req.add_header(k, v)
     try:
         handler = _ver.urllib.urlopen(req, *data)
-    except _ver.urllib.HTTPError, err:
+    except _ver.urllib.HTTPError as err:
         print(err.reason())
         print(err.info())
         raise(err)
