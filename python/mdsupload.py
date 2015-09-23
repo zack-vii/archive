@@ -143,9 +143,14 @@ def treeToDict(node, Dict):
     if node.usage not in ['ACTION', 'TASK', 'SIGNAL']:  # exclude by usage
         name = node.getNodeName().lower()
         try:
-            data = node.data()
+            data = node.data().tolist()
+            try:
+                data = data.tolist()
+            except:
+                pass
         except:
             data = None
+
         if node.getNumDescendants()>0:
             sDict = {}
             for d in node.getDescendants():

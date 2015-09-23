@@ -114,8 +114,8 @@ def get(url, headers={}, *data):
     try:
         handler = _ver.urllib.urlopen(req, *data)
     except _ver.urllib.HTTPError as err:
-        print(err.reason())
-        print(err.info())
+        print(err.reason)
+        print(err.read())
         raise(err)
     return(handler)
 

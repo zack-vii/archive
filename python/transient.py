@@ -5,7 +5,8 @@ transient
 """
 import MDSplus as _mds
 import numpy as _np
-import time as _time
+import time as _re
+import re as _time
 from . import base as _base
 from . import diff as _diff
 from . import support as _sup
@@ -24,10 +25,15 @@ class client(object):
         try:
             self._addNode()
             print('"'+self._stream+'" signal created.')
+            self.notify()
         except Exception as exc:
-            if not str(exc).startswith('%TREE-W-ALREADY_THERE'):
+            sexc = str(exc)
+            if sexc.startswith('%TREE-W-ALREADY_THERE'):
+                print('"'+self._stream+'" signal found.')
+            elif sexc.startswith('%TREE-E-FOPENW'):
+                raise(Exception('"'+self._tree+'" tree not found.'))
+            else:
                 raise exc
-            print('"'+self._stream+'" signal found.')
 
     def __repr__(self):
         return '<'+self._tree+' client for signal '+self._stream+'>'
@@ -51,10 +57,39 @@ class client(object):
         finally:
             self._tcl('CLOSE')
 
+    def _delNode(self, node, confirm=False):
+        try:
+            self._tcl('EDIT', self._tree)
+            prefix = node+'/CONFIRM' if confirm else node
+            self._tcl('DEL NODE', prefix)
+            self._tcl('WRITE')
+        finally:
+            self._tcl('CLOSE')
+
     def _path(self):
         return '\TOP:'+self._stream
 
+    def _clearConfig(self):
+        self._con.openTree(self._tree, -1)
+        child = map(str.rstrip,self._con.get('IF_ERROR(GETNCI(GETNCI($, "CHILDREN_NIDS"),"NODE_NAME"),[])', self._path()).tolist())
+        for c in child:
+            self._delNode(self._path()+'.'+c, True)
+        self._con.openTree(self._tree, -1)
+        memb = map(str.rstrip,self._con.get('IF_ERROR(GETNCI(GETNCI($, "MEMBER_NIDS"),"NODE_NAME"),[])', self._path()).tolist())
+        for m in memb:
+            if not m in ['UNITS', 'DESCRIPTION']:
+                self._delNode(self._path()+':'+m)
+
     def _setConfig(self, dic):
+        diff = _diff.diffdict(self.config, dic, case=False)
+        if 'dic_item_removed' in diff.keys():
+            for rem in diff('dic_item_removed'):
+                res = _re.findall("\['([A-Za-z0-9_]+)'\]",rem)
+                nodepath = '.'.join([self._path()]+res)
+                self._delNode(nodepath,True)
+        self._addConfig(dic)
+
+    def _addConfig(self, dic):
         def dicttotree(dic, path):
             def addnode(path, usage):
                 try:
@@ -64,7 +99,6 @@ class client(object):
                     if not str(exc).startswith('%TREE-W-ALREADY_THERE'):
                         raise exc
                     print('updating '+path.upper())
-
             for k,v in dic.items():
                 newpath = path+':'+k[0:12]
                 if isinstance(v, dict):
@@ -99,8 +133,11 @@ class client(object):
         return dic
     config = property(_getConfig, _setConfig)
 
+    def notify(self):
+        _mds.Event.setevent(self._tree, self._stream)
+
     def _setUnits(self, units):
-        self._setConfig({'UNITS': _base.Unit(units)})
+        self._addConfig({'UNITS': _base.Unit(units)})
 
     def _getUnits(self):
         return self._con.get('IF_ERROR(EXECUTE($),"unknown")',self._path+':'+'UNITS').tolist()
@@ -111,7 +148,7 @@ class client(object):
         setDescription(description)
         @helptext as str
         """
-        self._setConfig({'DESCRIPTION': description})
+        self._addConfig({'DESCRIPTION': description})
 
     def _getDescription(self):
         """Set a description text (e.g for the title of a plot)
@@ -142,7 +179,6 @@ class client(object):
     def putInt64(self, data, dim):
         return self.putArray(self.mdsarray.Int64Array([data]), [dim])
 
-
     def putArray(self, data, dim):
         """Write a chunk of data to the TRANSIENT tree
         putData(data, dim)
@@ -154,19 +190,24 @@ class client(object):
         end = len(dim)-1
         putexpr = 'makeSegment(Compile($),$,$,Build_Dim(*,$),$,-1,-1)'
         chkexpr = 'GetNumSegments(Compile($))'
-        shot = 0;
-        self._con.openTree(self._tree, shot)
         try:
-            shot = self._con.get('$SHOT')
-            self._con.get(putexpr, self._path(), dim[0], dim[end], dim, data);
-            segs = int(self._con.get(chkexpr, self._path()));
-        finally:
-            self._con.closeTree(self._tree, shot)
+            shot = 0;
+            self._con.openTree(self._tree, shot)
+            try:
+                shot = self._con.get('$SHOT')
+                self._con.get(putexpr, self._path(), dim[0], dim[end], dim, data);
+                segs = int(self._con.get(chkexpr, self._path()));
+            finally:
+                self._con.closeTree(self._tree, shot)
+        except Exception as exc:
+            print(self._tree+' tree not ready. Sending notification')
+            self.notify()
+            raise(exc)
         return("written: %d: %f (%d: %d)" % (dim[0], data[0], shot, segs))
 
 
 class server(object):
-    tree = 'transient'
+    _tree = 'TRANSIENT'
     _path = _base.Path("/Test/raw/W7X/MDS_transient/")
     mds = _mds
     tdi = _mds.TdiExecute
@@ -184,16 +225,20 @@ class server(object):
         self.last = (self.current % 2)+1
 
     def Tree(self, *args):
-        return _mds.Tree(self.tree, *args)
+        return _mds.Tree(self._tree, *args)
 
     def createPulse(self, shot):
+        try:
+            self.clean()
+        except:
+            pass
         self.Tree().createPulse(shot)
 
     def getCurrent(self):
-        return _mds.Tree.getCurrent(self.tree)
+        return _mds.Tree.getCurrent(self._tree)
 
     def setCurrent(self, shot):
-        _mds.Tree.setCurrent(self.tree, shot)
+        _mds.Tree.setCurrent(self._tree, shot)
         self.current = shot
 
     def switch(self):
@@ -206,22 +251,22 @@ class server(object):
     def ping(self, timeout=5):
         return self._path.ping(timeout)
 
+    def autorun(self, timing=60):
+        while True:
+            self.run()
+            try:
+                timeleft = int(timing - (_time.time() % timing)+.5)
+                print('idle: waiting for event or timeout')
+                print('event: '+str(_mds.Event.wfevent(self._tree, timeleft)))
+            except(_mds._mdsshr.MdsTimeout):
+                print('timeout: run on timer')
+
     def run(self):
         while not self.ping():
             print('web-archive unreachable: retrying')
         self.switch()
         for m in self.Tree(self.last).getNode('\TOP').getMembers():
             self.upload(m)
-
-    def autorun(self, timing=60):
-        while True:
-            self.run()
-            try:
-                timeleft = timing - (_time.time() % timing)
-                print('idle: waiting for event or timeout')
-                print('event: '+str(_mds.Event.wfevent('transient', int(timeleft+.5))))
-            except(_mds._mdsshr.MdsTimeout):
-                print('timeout: run on timer')
 
     def getTimeInserted(self, node, shot=-1):
         if isinstance(node, str):
@@ -236,7 +281,7 @@ class server(object):
             t = max(t, self.getUpdateTime(c))
         for m in node.getMembers():
             t = max(t, self.getUpdateTime(m))
-            t = max(t,self.getTimeInserted(m))
+            t = max(t, self.getTimeInserted(m))
         return t
 
     def getDict(self, node, shot=-1):
@@ -259,7 +304,7 @@ class server(object):
             udict = self.configUpstream(node)
         except:
             udict = {}
-        return _diff.diffdict(udict, tdict)
+        return _diff.diffdict(udict, tdict, case=False)
 
     def getParlogPath(self, nodename):
         return self.getDataPath(nodename).parlog
@@ -272,13 +317,13 @@ class server(object):
     def config(self, node):
         if isinstance(node, str):
             node = self.Tree().getNode(node)
-        chanDesc = _mdsup.SignalDict(node)
+        chanDesc = self.configTree(node)
         t0 = self.getUpdateTime(node)
         parlog = {'chanDescs': [chanDesc]}
         try:
             _if.write_logurl(self.getParlogPath(node), parlog, t0)
-        except:
-            return _sup.error()
+        except Exception as exc:
+            print(exc)
 
     def upload(self, node):
         if isinstance(node, str):
@@ -298,26 +343,26 @@ class server(object):
         for i in _ver.xrange(int(node.getNumSegments())):
             segi = node.getSegment(i)
             data += list(segi.data().tolist())
-            dimof += list(segi.dim_of().tolist())
+            dimof += list(segi.dim_of().data().tolist())
         while True:
             try:
                 _if.write_data(path, data, dimof)
                 break
-            except:
-                _sup.error()
+            except Exception as exc:
+                print(exc)
 
     def _uploadSegmented(self, node):
         path = self.getDataPath(node)
         for i in _ver.xrange(int(node.getNumSegments())):
             segi = node.getSegment(i)
-            data = segi.data()
-            dimof = segi.dim_of()
+            data = segi.data().tolist()
+            dimof = segi.dim_of().data().tolist()
             while True:
                 try:
                     _if.write_data(path, data, dimof)
                     break
-                except:
-                    _sup.error()
+                except Exception as exc:
+                    print(exc)
 
     def clean(self,shot=-1):
         self.Tree(shot).cleanDatafile()

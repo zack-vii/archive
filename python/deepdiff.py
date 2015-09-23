@@ -196,9 +196,10 @@ class DeepDiff(dict):
 
     """
 
-    def __init__(self, t1, t2, ignore_order=False):
+    def __init__(self, t1, t2, ignore_order=False, case=True):
 
         self.ignore_order = ignore_order
+        self.case = case
 
         self.update({"type_changes": [], "dic_item_added": [], "dic_item_removed": [],
                      "values_changed": [], "unprocessed": [], "iterable_item_added": [], "iterable_item_removed": [],
@@ -249,6 +250,11 @@ class DeepDiff(dict):
             item_added_key = "dic_item_added"
             item_removed_key = "dic_item_removed"
             parent_text = "%s[%s]"
+
+        if not self.case:
+            t1 = dict([k.upper(), v] for k, v in t1.items())
+            t2 = dict([k.upper(), v] for k, v in t2.items())
+
 
         t1_keys, t2_keys = [
             set(d.keys()) for d in (t1, t2)
