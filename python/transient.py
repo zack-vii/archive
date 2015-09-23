@@ -203,7 +203,12 @@ class server(object):
         self.setCurrent(new)
         return self.current
 
+    def ping(self, timeout=5):
+        return self._path.ping(timeout)
+
     def run(self):
+        while not self.ping():
+            print('web-archive unreachable: retrying')
         self.switch()
         for m in self.Tree(self.last).getNode('\TOP').getMembers():
             self.upload(m)

@@ -8,6 +8,7 @@ lev  0       1        2       3       4      5      6      7
 import MDSplus as _mds
 import numpy as _np
 import re as _re
+import os as _os
 import time as _time
 from . import version as _ver
 _defreadpath = ('/ArchiveDB/raw/W7X/CoDaStationDesc.10251' +
@@ -33,6 +34,15 @@ class Path(object):
     def __str__(self):
         return self.path()
     __repr__ = __str__
+
+    def ping(self, timeout=5):
+        timeout = max(1, int(timeout))
+        hostname = self._ROOTURL.split('//')[-1]
+        if _ver.isposix:
+            status = _os.system("/bin/ping -c 1 -i %d %s >/dev/null" % (timeout, hostname))
+        elif _ver.isnt:
+            status = _os.system("%%WINDIR%%\System32\PING.EXE /n 1 /w %d %s >NUL" % (timeout, hostname))
+        return status==0
 
     def set_path(self, *path):
         [self._path, self._lev] = self.path(-2, '/'.join(path))
