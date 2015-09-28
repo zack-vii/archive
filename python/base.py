@@ -11,9 +11,9 @@ import re as _re
 import os as _os
 import time as _time
 from . import version as _ver
-_defreadpath = ('/ArchiveDB/raw/W7X/CoDaStationDesc.10251' +
-                '/DataModuleDesc.10193_DATASTREAM/0/AAB27CT003')
+_defreadpath = ('raw/W7X/MDS_w7x')
 _rooturl = 'http://archive-webapi.ipp-hgw.mpg.de'
+_database = 'Test'
 
 
 class InsufficientPathException(Exception):
@@ -54,7 +54,7 @@ class Path(object):
             if (_path[0:7].lower() == "http://"):
                 _path = '/'.join(_path[7:].split('/')[1:])
             else:
-                _path = 'ArchiveDB/' + _path
+                _path = _database + '/' + _path
         _path = _path.strip('/').split('/')
         if len(_path) > 4:
             if not (_path[4].endswith('_DATASTREAM') or
@@ -72,14 +72,14 @@ class Path(object):
         return '/'+'/'.join(_path)
 
     def url(self, lev=-1, *arg):
-        return url_parms(self._ROOTURL+self.path(lev), *arg)
+        return _url_parms(self._ROOTURL+self.path(lev), *arg)
 
     # set
-    def set_database(self, database):
+    def _set_database(self, database):
         self.set_path(database)
         return self
 
-    def set_view(self, view):
+    def _set_view(self, view):
         if type(view) is int:
             if view <= 0:
                 view = 'raw'
@@ -90,53 +90,53 @@ class Path(object):
         self.set_path(self.path(1), view)
         return self
 
-    def set_project(self, project):
+    def _set_project(self, project):
         if type(project) is int:
             project = self.list_projects()[project]
         self.set_path(self.path(2), project)
         return self
 
-    def set_streamgroup(self, streamgroup):
+    def _set_streamgroup(self, streamgroup):
         if type(streamgroup) is int:
             streamgroup = self.list_streamgroups()[streamgroup]
         self.set_path(self.path(3), streamgroup)
         return self
 
-    def set_stream(self, stream):
+    def _set_stream(self, stream):
         if type(stream) is int:
             stream = self.list_streams()[stream]
         self.set_path(self.path(4), stream)
         return self
 
-    def set_channel(self, channel, index=0):
+    def _set_channel(self, channel, index=0):
         self.set_path(self.path(5), str(index), channel)
         return self
 
     # get
-    def get_database(self):
+    def _get_database(self):
         return self.path_database().split('/')[-1]
 
-    def get_view(self):
+    def _get_view(self):
         return self.path_view().split('/')[-1]
 
-    def get_project(self):
+    def _get_project(self):
         return self.path_project().split('/')[-1]
 
-    def get_streamgroup(self):
+    def _get_streamgroup(self):
         return self.path_streamgroup().split('/')[-1]
 
-    def get_stream(self):
+    def _get_stream(self):
         return self.path_datastream().split('/')[-1][:-11]
 
-    def get_channel(self):
+    def _get_channel(self):
         return self.path_channel().split('/')[-1]
 
-    database = property(get_database, set_database)
-    view = property(get_view, set_view)
-    project = property(get_project, set_project)
-    streamgroup = property(get_streamgroup, set_streamgroup)
-    stream = property(get_stream, set_stream)
-    channel = property(get_channel, set_channel)
+    database = property(_get_database, _set_database)
+    view = property(_get_view, _set_view)
+    project = property(_get_project, _set_project)
+    streamgroup = property(_get_streamgroup, _set_streamgroup)
+    stream = property(_get_stream, _set_stream)
+    channel = property(_get_channel, _set_channel)
 
     # get path
     def path_database(self):
@@ -194,16 +194,16 @@ class Path(object):
         return self._ROOTURL + self.path_streamgroup()
 
     def url_datastream(self, *arg):
-        return url_parms(self._ROOTURL + self.path_datastream(), *arg)
+        return _url_parms(self._ROOTURL + self.path_datastream(), *arg)
 
     def url_parlog(self, *arg):
-        return url_parms(self._ROOTURL + self.path_parlog(), *arg)
+        return _url_parms(self._ROOTURL + self.path_parlog(), *arg)
 
     def url_cfglog(self, *arg):
-        return url_parms(self._ROOTURL + self.path_cfglog(), *arg)
+        return _url_parms(self._ROOTURL + self.path_cfglog(), *arg)
 
     def url_channel(self, *arg):
-        return url_parms(self._ROOTURL + self.path_channel(), *arg)
+        return _url_parms(self._ROOTURL + self.path_channel(), *arg)
 
     def url_data(self, *arg):
         if self._lev > 6:
@@ -215,7 +215,7 @@ class Path(object):
     parlog = property(url_parlog)
 
 
-def url_parms(url, time=None, skip=0, nsamples=0, channels=[]):
+def _url_parms(url, time=None, skip=0, nsamples=0, channels=[]):
     if time is not None:
         time = TimeInterval(time)
         url = url + '/_signal.json'
@@ -236,43 +236,45 @@ class Time(_ver.long):
     Time([<ns:long>, <s:float>,'now', 'now_m'])
     """
     _s2ns = 1000000000
-    def __new__(self, time='now'):
+    def __new__(self, time='now', local=False):
         if isinstance(time, Time):
             return time
-        else:
-            def listtovalue(time):
-                time += [0]*(9-len(time))
-                seconds = int(_time.mktime(tuple(time[0:6]+[0]*3)) -
-                               _time.timezone)
-                return super(Time, self).__new__(self,
-                                                ((seconds*1000+time[6])*1000 +
-                                                time[7])*1000+time[8])
-            if isinstance(time, (_ver.basestring,)):
-                if time.startswith('now'):  # now
-                    time = time.split('_')
-                    if len(time)<2 or time[1]=='ms':
-                        return super(Time, self).__new__(self, int(_time.time()*1000)*1000000)
-                    if time[1]=='s':
-                        return super(Time, self).__new__(self, int(_time.time())*self._s2ns)
-                    if time[1]=='m':
-                        return super(Time, self).__new__(self, int(_time.time()/60)*60*self._s2ns)
-                    if time[1]=='h':
-                        return super(Time, self).__new__(self, int(_time.time()/3600)*3600*self._s2ns)
-                else:  # '2009-02-13T23:31:30.123456789Z'
-                    time = _re.findall('[0-9]+', time)
-                    if len(time) == 7:  # we have subsecond precision
-                        time = time[0:6] + _re.findall('[0-9]{3}', time[6]+'00')
-                    time = [int(t) for t in time]
-                    return listtovalue(time)
-            if isinstance(time, (_time.struct_time,)):
-                return listtovalue(list(time)[0:6])
-            if isinstance(time, (_mds.treenode.TreeNode, _mds.Scalar)):
-                time = time.data()
-            if isinstance(time, (_np.ScalarType)):
-                if _np.array(time).dtype==float:
-                    time = time*self._s2ns
-                return super(Time, self).__new__(self, time)
-            return listtovalue(list(time[0:9]))
+        def listtovalue(time):
+            time += [0]*(9-len(time))
+            seconds = int(_time.mktime(tuple(time[0:6]+[0]*3)) -
+                           _time.timezone)
+            if local:
+                seconds += int((_time.gmtime(seconds).tm_hour-_time.localtime(seconds).tm_hour)*3600)
+            return super(Time, self).__new__(self,
+                                            ((seconds*1000+time[6])*1000 +
+                                            time[7])*1000+time[8])
+
+        if isinstance(time, (_ver.basestring,)):
+            if time.startswith('now'):  # now
+                time = time.split('_')
+                if len(time)<2 or time[1]=='ms':
+                    return super(Time, self).__new__(self, int(_time.time()*1000)*1000000)
+                if time[1]=='s':
+                    return super(Time, self).__new__(self, int(_time.time())*self._s2ns)
+                if time[1]=='m':
+                    return super(Time, self).__new__(self, int(_time.time()/60)*60*self._s2ns)
+                if time[1]=='h':
+                    return super(Time, self).__new__(self, int(_time.time()/3600)*3600*self._s2ns)
+            else:  # '2009-02-13T23:31:30.123456789Z'
+                time = _re.findall('[0-9]+', time)
+                if len(time) == 7:  # we have subsecond precision
+                    time = time[0:6] + _re.findall('[0-9]{3}', time[6]+'00')
+                time = [int(t) for t in time]
+                return listtovalue(time)
+        if isinstance(time, (_time.struct_time,)):
+            return listtovalue(list(time)[0:6])
+        if isinstance(time, (_mds.treenode.TreeNode, _mds.Scalar)):
+            time = time.data()
+        if isinstance(time, (_np.ScalarType)):
+            if _np.array(time).dtype==float:
+                time = time*self._s2ns
+            return super(Time, self).__new__(self, time)
+        return listtovalue(list(time[0:9]))
 
     def __add__(self, y):
         if isinstance(y, float):
@@ -413,7 +415,7 @@ class TimeInterval(list):
     fromStr = property(_fromStr)
     uptoStr = property(_uptoStr)
 
-units = ['unknown', '', 'none', 'arb.unit', 'kg', 'g', 'u', 'kg/s', 'g/s', 'm',
+_units = ['unknown', '', 'none', 'arb.unit', 'kg', 'g', 'u', 'kg/s', 'g/s', 'm',
          'cm', 'mm', 'nm', 'Angstrom', 'm^2', 'm^3', 'L', 'm^-1', 'nm^-1',
          'm^-2', 'cm^-2', 'm^-3', 'cm^-3', 'm^3/s', 'm^3/h', 'L/s', 'L/min',
          'L/h', '(m.s)^-1', '(cm.s)^-1', 's', 'min', 'h', 'ms', 'us', 'ns',
@@ -429,26 +431,26 @@ units = ['unknown', '', 'none', 'arb.unit', 'kg', 'g', 'u', 'kg/s', 'g/s', 'm',
          'Byte', 'KiByte', 'MiByte']
 
 
-def Unit(unit, force=False):
-    if isinstance(unit, (_mds.treenode.TreeNode)):
-        if unit.isSegmented():
-            unit = unit.getSegment(0).units
+def Units(units, force=False):
+    if isinstance(units, (_mds.treenode.TreeNode)):
+        if units.isSegmented():
+            units = units.getSegment(0).units
         else:
-            unit = unit.units
-    elif isinstance(unit, (_mds.compound.Signal, _mds.mdsarray.Array)):
+            units = units.units
+    elif isinstance(units, (_mds.compound.Signal, _mds.mdsarray.Array)):
         try:
-            unit = unit.units
+            units = units.units
         except:
             return 'unknown'
-    unit = str(unit)
-    if unit == ' ':
+    units = str(units)
+    if units == ' ':
         return 'unknown'
-    if unit in units:
-        return unit
+    if units in units:
+        return units
     if force:
-        print("'"+unit+"' is not a recognized unit but has been enforced!")
-        return unit
-    raise Exception("Unit must be one of '"+"', '".join(units))
+        print("'"+units+"' is not a recognized unit but has been enforced!")
+        return units
+    raise Exception("Units must be one of '"+"', '".join(_units)+"'")
 
 
 def createSignal(dat, dim, t0=0, unit=None, addim=[], units=[], help=None):
@@ -469,10 +471,10 @@ def createSignal(dat, dim, t0=0, unit=None, addim=[], units=[], help=None):
         else:
             return _mds.EmptyData()
 
-    def _addim(dim, unit='unknown'):
+    def _addim(dim, units='unknown'):
         if len(dim):
             dim = _mds.Dimension(_dat(dim))
-            dim.setUnits(unit)
+            dim.setUnits(Units(units))
             return dim
         else:
             return _mds.EmptyData()
