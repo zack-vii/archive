@@ -5,8 +5,7 @@ transient
 """
 import MDSplus as _mds
 import numpy as _np
-import time as _re
-import re as _time
+import time as _time
 from . import base as _base
 from . import diff as _diff
 from . import support as _sup
@@ -55,7 +54,7 @@ class client(object):
             self._tcl('ADD NODE', node+'/usage='+usage)
             self._tcl('WRITE')
         finally:
-            self._tcl('CLOSE')
+            self._tcl('QUIT')
 
     def _delNode(self, node, confirm=False):
         try:
@@ -64,7 +63,7 @@ class client(object):
             self._tcl('DEL NODE', prefix)
             self._tcl('WRITE')
         finally:
-            self._tcl('CLOSE')
+            self._tcl('QUIT')
 
     def _path(self):
         return '\TOP:'+self._stream
@@ -81,12 +80,10 @@ class client(object):
                 self._delNode(self._path()+':'+m)
 
     def _setConfig(self, dic):
-        diff = _diff.diffdict(self.config, dic, case=False)
-        if 'dic_item_removed' in diff.keys():
-            for rem in diff('dic_item_removed'):
-                res = _re.findall("\['([A-Za-z0-9_]+)'\]",rem)
-                nodepath = '.'.join([self._path()]+res)
-                self._delNode(nodepath,True)
+        diff = _diff.DeepDiff(self.config, dic, case=False)
+        for rem in diff.dict_rem:
+            nodepath = '.'.join([self._path()]+rem)
+            self._delNode(nodepath,True)
         self._addConfig(dic)
 
     def _addConfig(self, dic):
@@ -113,7 +110,8 @@ class client(object):
                 else:
                     addnode(newpath, 'ANY')
                 self._con.openTree(self._tree, -1)
-                self._con.put(newpath,'$',v)
+                self._con.put(newpath,'*')  # or it does not update time
+                self._con.put(newpath,'$',v.tolist())
                 self._con.closeTree(self._tree, -1)
         dicttotree(dic, self._path())
 
@@ -126,7 +124,12 @@ class client(object):
                 dic[c] = treetodict(path+'.'+c)
             memb = map(str.rstrip,self._con.get('IF_ERROR(GETNCI(GETNCI($, "MEMBER_NIDS"),"NODE_NAME"),[])', path).tolist())
             for m in memb:
-                dic[m] = self._con.get(path+':'+m).tolist()
+                try:
+                    dic[m] = self._con.get(path+':'+m).tolist()
+                except Exception as exc:
+                    sexc = str(exc)
+                    if sexc.startswith('%TREE-E-NODATA'):
+                        print(path+':'+m+' does not contain any data')
             return dic
         dic = treetodict(self._path())
         self._con.closeTree(self._tree, -1)
@@ -137,7 +140,7 @@ class client(object):
         _mds.Event.setevent(self._tree, self._stream)
 
     def _setUnits(self, units):
-        self._addConfig({'UNITS': _base.Unit(units)})
+        self._addConfig({'UNITS': _base.Units(units)})
 
     def _getUnits(self):
         return self._con.get('IF_ERROR(EXECUTE($),"unknown")',self._path+':'+'UNITS').tolist()
@@ -146,9 +149,18 @@ class client(object):
     def _setDescription(self, description):
         """Set a description text (e.g for the title of a plot)
         setDescription(description)
-        @helptext as str
+        @description as str
         """
         self._addConfig({'DESCRIPTION': description})
+
+
+    def setURL(self, url):
+        """
+        overrides the URL to be written to
+        !No validity check will be applied!
+        """
+        self._addConfig({'$URL': url})
+
 
     def _getDescription(self):
         """Set a description text (e.g for the title of a plot)
@@ -159,34 +171,37 @@ class client(object):
     description = property(_getDescription, _setDescription)
 
     def putFloat32(self, data, dim):
-        return self.putArray(self.mdsarray.Float32Array([data]), [dim])
+        return self.putData(self.mdsarray.Float32Array(data), dim)
     def putFloat64(self, data, dim):
-        return self.putArray(self.mdsarray.Float64Array([data]), [dim])
+        return self.putData(self.mdsarray.Float64Array(data), dim)
     def putUint8(self, data, dim):
-        return self.putArray(self.mdsarray.Uint8Array([data]), [dim])
+        return self.putData(self.mdsarray.Uint8Array(data), dim)
     def putInt8(self, data, dim):
-        return self.putArray(self.mdsarray.Int8Array([data]), [dim])
+        return self.putData(self.mdsarray.Int8Array(data), dim)
     def putUint16(self, data, dim):
-        return self.putArray(self.mdsarray.Uint16Array([data]), [dim])
+        return self.putData(self.mdsarray.Uint16Array(data), dim)
     def putInt16(self, data, dim):
-        return self.putArray(self.mdsarray.Int16Array([data]), [dim])
+        return self.putData(self.mdsarray.Int16Array(data), dim)
     def putUint32(self, data, dim):
-        return self.putArray(self.mdsarray.Uint32Array([data]), [dim])
+        return self.putData(self.mdsarray.Uint32Array(data), dim)
     def putInt32(self, data, dim):
-        return self.putArray(self.mdsarray.Int32Array([data]), [dim])
+        return self.putData(self.mdsarray.Int32Array(data), dim)
     def putUint64(self, data, dim):
-        return self.putArray(self.mdsarray.Uint64Array([data]), [dim])
+        return self.putData(self.mdsarray.Uint64Array(data), dim)
     def putInt64(self, data, dim):
-        return self.putArray(self.mdsarray.Int64Array([data]), [dim])
+        return self.putData(self.mdsarray.Int64Array(data), dim)
 
-    def putArray(self, data, dim):
+    def putData(self, data, dim):
         """Write a chunk of data to the TRANSIENT tree
         putData(data, dim)
-        @data as mdsarray
+        @data as any <mdsarray convertable>
         @dim  as [int/long] in ns -> Uint64Array
         """
-        data = self.mdsarray.makeArray(data)
-        dim = self.mdsarray.Uint64Array(dim)
+        if not isinstance(data, self.mdsarray.Array):
+            data = self.mdsarray.makeArray(data)
+        if not isinstance(dim, self.mdsarray.Array):
+            dim = self.mdsarray.makeArray(dim)
+        dim = self.mdsarray.Uint64Array(list(map(lambda t: _base.Time(t).ns, dim)))
         end = len(dim)-1
         putexpr = 'makeSegment(Compile($),$,$,Build_Dim(*,$),$,-1,-1)'
         chkexpr = 'GetNumSegments(Compile($))'
@@ -195,7 +210,9 @@ class client(object):
             self._con.openTree(self._tree, shot)
             try:
                 shot = self._con.get('$SHOT')
-                self._con.get(putexpr, self._path(), dim[0], dim[end], dim, data);
+                status = self._con.get(putexpr, self._path(), dim[0], dim[end], dim, data);
+                if (status & 1) == 0:
+                    raise Exception(_mds.MdsGetMsg(status))
                 segs = int(self._con.get(chkexpr, self._path()));
             finally:
                 self._con.closeTree(self._tree, shot)
@@ -208,7 +225,7 @@ class client(object):
 
 class server(object):
     _tree = 'TRANSIENT'
-    _path = _base.Path("/Test/raw/W7X/MDS_transient/")
+    _path = _base.Path("raw/W7X/MDS_transient/")
     mds = _mds
     tdi = _mds.TdiExecute
     upload_as_block = True
@@ -296,7 +313,7 @@ class server(object):
     def configTree(self, node):
         if isinstance(node, str):
             node = self.Tree().getNode(node)
-        return _mdsup.SignalDict(node)
+        return _mdsup._signalDict(node)
 
     def checkconfig(self, node):
         tdict = self.configTree(node)
@@ -304,15 +321,19 @@ class server(object):
             udict = self.configUpstream(node)
         except:
             udict = {}
-        return _diff.diffdict(udict, tdict, case=False)
+        return _diff.DeepDiff(udict, tdict, case=False)
 
     def getParlogPath(self, nodename):
         return self.getDataPath(nodename).parlog
 
-    def getDataPath(self, nodename):
-        if not isinstance(nodename, str):
-            nodename = str(nodename.getNodeName())
-        return self._path.set_stream(nodename.lower())
+    def getDataPath(self, node):
+        if isinstance(node, str):
+            node = self.Tree().getNode(node)
+        url = node.getNodeWild('$URL')
+        if len(url):
+            return _base.Path(str(url[0].data()))
+        else:
+            return self._path._set_stream(str(node.getNodeName()).lower())
 
     def config(self, node):
         if isinstance(node, str):
@@ -329,7 +350,7 @@ class server(object):
         if isinstance(node, str):
             node = self.Tree(self.last).getNode(node)
         if node.getNumSegments()>0:
-            if len(self.checkconfig(node))>0:
+            if len(self.checkconfig(node).all())>0:
                 self.config(node)
             if self.upload_as_block:
                 self._uploadBlock(node)

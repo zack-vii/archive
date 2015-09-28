@@ -51,9 +51,9 @@ def getTimeInserted(node):
         time = list(_re.findall('([0-9]{2})-([A-Z]{3})-([0-9]{4}) ([0-9]{2}):([0-9]{2}):([0-9]{2}).([0-9]{2})', timestr)[0])
     except:
         return _base.Time(0)
-    time[1] = ['JAN','FEB','MAR','APR','JUN','JUL','AUG','SEP','OCT','NOV','DEC'].index(time[1])
+    time[1] = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'].index(time[1])+1
     time = [int(t) for t in time]
-    return _base.Time([time[2]]+[time[1]]+[time[0]]+time[3:-1]+[time[-1]*10])
+    return _base.Time([time[2]]+[time[1]]+[time[0]]+time[3:-1]+[time[-1]*10], local=True)
 
 class getFlags(int):
     _STATE             =0x00000001

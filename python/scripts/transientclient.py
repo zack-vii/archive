@@ -7,17 +7,17 @@ Created on Mon Sep 21 10:27:18 2015
 import archive
 import numpy
 import time
-import sys as _sys
+import sys
 
-name = 'TEST'
-rate = 1.
+name = 'TEST1'
+rate = 1.1
 period = 60.
-if len(_sys.argv)>1:
-    name = _sys.argv[1]
-if len(_sys.argv)>2:
-    rate = float(_sys.argv[2])
-if len(_sys.argv)>3:
-    period = float(_sys.argv[3])
+if len(sys.argv)>1:
+    name = sys.argv[1]
+if len(sys.argv)>2:
+    rate = float(sys.argv[2])
+if len(sys.argv)>3:
+    period = float(sys.argv[3])
 
 client = archive.transient.client(name)
 client.config = {'samplingrate': rate, 'signal':{'function': 'sine', 'period': period} }

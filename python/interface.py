@@ -7,6 +7,11 @@ lev  0       1        2       3       4      5      6      7
 """
 import os as _os
 import json as _json
+import numpy as _np
+try:
+    import h5py as _h5
+except:
+    print('WARNING: "h5py" package not fould.\nImage upload will not be available')
 from . import base as _base
 from . import cache as _cache
 from . import support as _sup
@@ -27,10 +32,9 @@ def write_logurl(url, parms, time):
     return(post(url, json=log))  # , data=json.dumps(cfg)
 
 def write_data(path, data, dimof, t0=0):
-    # path=Path, data=array, dimof=array
-    from numpy import array
-    dimof = array(dimof)
-    data = array(data)
+    # path=Path, data=numpy.array, dimof=numpy.array
+    dimof = _np.array(dimof)
+    data = _np.array(data)
     if dimof.dtype == float:
         dimof = (dimof*1e9).astype('uint64') + t0
     if data.ndim > 2:
@@ -52,8 +56,7 @@ def _write_vector(path, data, dimof):
     stream = path.stream
     tmpfile = _ver.tmpdir+"archive_"+stream+".h5"
     try:
-        from h5py import File as h5file
-        with h5file(tmpfile, 'w') as f:
+        with _h5.File(tmpfile, 'w') as f:
             f.create_dataset(stream, data=list(data), compression="gzip")
             f.create_dataset('timestamps', data=list(dimof), dtype='int64',
                              compression="gzip")
@@ -82,10 +85,13 @@ def read_signal(path, time, t0=0, *arg):
 
 
 def get_json(url, *arg):
+    class reader(object):
+        def __init__(self, value):
+            self.value = value
+        def read(self,*argin):
+            return _ver.tostr(self.value.read(*argin))
     url = _base.Path(url).url(-1, *arg)
-    import codecs
     _debug(url)
-    reader = codecs.getreader('utf-8')
     headers = {'Accept': 'application/json'}
     handler = get(url, headers)
     if handler.getcode() != 200:
@@ -93,6 +99,7 @@ def get_json(url, *arg):
     if handler.headers.get('content-type') != 'application/json':
         raise Exception('requested content-type mismatch: ' +
                         handler.headers.get('content-type'))
+
     return _json.load(reader(handler), strict=False)
 
 
