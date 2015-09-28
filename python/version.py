@@ -3,6 +3,7 @@ This is a helper module.
 Its purpose is to supply tools that are used to generate version specific code.
 Goal is to generate code that work on both python2x and python3x.
 """
+import datetime as _datetime
 from numpy import generic as npscalar
 from numpy import ndarray as nparray
 from sys import version_info as pyver
@@ -40,6 +41,7 @@ except:
     has_buffer = 'buffer' in __builtins__.__dict__.keys()
     has_xrange = 'xrange' in __builtins__.__dict__.keys()
 
+
 # substitute missing builtins
 if has_long:
     long = long  # analysis:ignore
@@ -68,10 +70,19 @@ if has_xrange:
 else:
     xrange = range
 
+
+if ispy3:
+    numbers = (int, float, complex)
+else:
+    numbers = (int, float, long, complex)  # analysis:ignore
+
+
 if ispy3:
     import urllib.request as urllib
+    from itertools import zip_longest
 else:
     import urllib2 as urllib  # analysis:ignore
+    from itertools import izip_longest as zip_longest  # analysis:ignore
 
 try:
     import cPickle as pickle
