@@ -18,8 +18,10 @@ class client(object):
     mdsarray = _mds.mdsarray
     _tree = 'TRANSIENT'
 
-    def __init__(self, stream, hostspec='localhost'):
+    def __init__(self, stream, hostspec='sv-e5-trm-2'):
         self._con = _mds.Connection(hostspec)
+        if len(stream)>12:
+            raise Exception('The name of the stream cannot be longer than 12 charaters. '+stream)
         self._stream = stream.upper()
         try:
             self._addNode()
@@ -136,8 +138,11 @@ class client(object):
         return dic
     config = property(_getConfig, _setConfig)
 
-    def notify(self):
-        _mds.Event.setevent(self._tree, self._stream)
+    def notify(self, local=False):
+        if local:
+            _mds.Event.seteventRaw(self._tree, self.mdsarray.Uint8Array(list(map(ord,self._stream))))
+        else:
+            self._con.get('SETEVENT($,$)', self._tree, self.mdsarray.Uint8Array(list(map(ord,self._stream))))
 
     def _setUnits(self, units):
         self._addConfig({'UNITS': _base.Units(units)})
@@ -274,7 +279,8 @@ class server(object):
             try:
                 timeleft = int(timing - (_time.time() % timing)+.5)
                 print('idle: waiting for event or timeout')
-                print('event: '+str(_mds.Event.wfevent(self._tree, timeleft)))
+                result = _mds.Event.wfeventRaw(self._tree, timeleft)
+                print('event: '+''.join(map(chr,result)))
             except(_mds._mdsshr.MdsTimeout):
                 print('timeout: run on timer')
 
