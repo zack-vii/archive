@@ -112,7 +112,6 @@ class client(object):
                 else:
                     addnode(newpath, 'ANY')
                 self._con.openTree(self._tree, -1)
-                self._con.put(newpath,'*')  # or it does not update time
                 self._con.put(newpath,'$',v.tolist())
                 self._con.closeTree(self._tree, -1)
         dicttotree(dic, self._path())
