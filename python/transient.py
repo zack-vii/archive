@@ -29,9 +29,9 @@ class client(object):
             self.notify()
         except Exception as exc:
             sexc = str(exc)
-            if sexc.startswith('%TREE-W-ALREADY_THERE'):
+            if sexc.startswith('%Tree-W-ALREADY_THERE'):
                 print('"'+self._stream+'" signal found.')
-            elif sexc.startswith('%TREE-E-FOPENW'):
+            elif sexc.startswith('%Tree-E-FOPENW'):
                 raise(Exception('"'+self._tree+'" tree not found.'))
             else:
                 raise exc
@@ -95,7 +95,7 @@ class client(object):
                     self._addNode(path, usage)
                     print('creating '+path.upper())
                 except Exception as exc:
-                    if not str(exc).startswith('%TREE-W-ALREADY_THERE'):
+                    if not str(exc).startswith('%Tree-W-ALREADY_THERE'):
                         raise exc
                     print('updating '+path.upper())
             for k,v in dic.items():
@@ -103,17 +103,17 @@ class client(object):
                 if isinstance(v, dict):
                     addnode(newpath, 'STRUCTURE')
                     dicttotree(v, newpath)
-                    break;
-                v = _np.array(v)
-                if v.dtype.descr[0][1][1] in 'SU':
-                    addnode(newpath, 'TEXT')
-                elif v.dtype.descr[0][1][1] in 'if':
-                    addnode(newpath, 'NUMERIC')
                 else:
-                    addnode(newpath, 'ANY')
-                self._con.openTree(self._tree, -1)
-                self._con.put(newpath,'$',v.tolist())
-                self._con.closeTree(self._tree, -1)
+                    v = _np.array(v)
+                    if v.dtype.descr[0][1][1] in 'SU':
+                        addnode(newpath, 'TEXT')
+                    elif v.dtype.descr[0][1][1] in 'if':
+                        addnode(newpath, 'NUMERIC')
+                    else:
+                        addnode(newpath, 'ANY')
+                    self._con.openTree(self._tree, -1)
+                    self._con.put(newpath,'$',v.tolist())
+                    self._con.closeTree(self._tree, -1)
         dicttotree(dic, self._path())
 
     def _getConfig(self):
@@ -129,7 +129,7 @@ class client(object):
                     dic[m] = self._con.get(path+':'+m).tolist()
                 except Exception as exc:
                     sexc = str(exc)
-                    if sexc.startswith('%TREE-E-NODATA'):
+                    if sexc.startswith('%Tree-E-NODATA'):
                         print(path+':'+m+' does not contain any data')
             return dic
         dic = treetodict(self._path())
