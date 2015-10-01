@@ -5,8 +5,9 @@ archive
 @copyright: 2015
 @license: GNU GPL
 """
+__version__ = "2015.09.10.11"
 from . import version, base, interface, mdsupload, support  # analysis:ignore
-from . import archiveaccess, archivebuild, transient, diff  # analysis:ignore
+from . import archiveaccess, archivebuild, transient, diff, winspec  # analysis:ignore
 from .base import Time, TimeInterval, Units, Path  # analysis:ignore
 from .interface import read_signal, read_cfglog, read_parlog  # analysis:ignore
 from .classes import datastream, browser  # analysis:ignore
