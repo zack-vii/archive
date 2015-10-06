@@ -276,7 +276,7 @@ class server(object):
             self.run()
             try:
                 timeleft = max(1,int(timing - (_time.time() % timing)+.5))
-                print('idle: waiting for event or timeout')
+                print('idle: waiting for event or timeout in '+str(timeleft)+'s')
                 result = _mds.Event.wfeventRaw(self._tree, timeleft)
                 print('event: '+''.join(map(chr,result)))
             except(_mds._mdsshr.MdsTimeout):
