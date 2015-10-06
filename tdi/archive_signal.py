@@ -6,15 +6,24 @@ def archive_signal(node, time=None):
     """ else use TIME node """
     print('archive_signal')
     try:
-        if node.tree.upper() == 'ARCHIVE':
+        # use _time variable if Tree is ARCHIVE
+        if str(node.tree.tree) == 'ARCHIVE':
             try:
-                time = time.data()
-            except:
                 time = archive.TimeInterval(time)
+            except:
+                time = archive.TimeInterval([-1800.,0])
         else:
             time = archive.TimeInterval(node.getNode('\TIME').data())
-        url = node.getNode('$URL').data()
-        signal = archive.read_signal(url, time, time.t0T, 0, 0, [])
+        # load channels by datastream + index
+        try:
+            idx = [node.getNode('$IDX').data()]
+            url = node.getParent().getNode('$URL').data()
+        except:
+            idx = []
+            url = node.getNode('$URL').data()
+        # request signal
+        signal = archive.read_signal(url, time, time.t0T, 0, 0, idx)
+        # generate help text (HELP, DESCRIPTION, $NAME)
         try:
             help = node.getNode('HELP').data()
         except:
@@ -25,6 +34,7 @@ def archive_signal(node, time=None):
         signal.setHelp(str(help))
         return(signal)
     except:
+        # generate dummy signal with error message as help text
         import getpass
         user = getpass.getuser()
         help = user+": "+archive.support.error()
