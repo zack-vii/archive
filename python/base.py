@@ -14,7 +14,7 @@ from . import version as _ver
 _defreadpath = ('raw/W7X/MDS_w7x')
 _rooturl = 'http://archive-webapi.ipp-hgw.mpg.de'
 _database = 'Test'
-
+_server = 'mds-data-1.ipp-hgw.mpg.de'
 
 class InsufficientPathException(Exception):
     def __init__(self, value=''):

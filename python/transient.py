@@ -17,8 +17,7 @@ from . import version as _ver
 class client(object):
     mdsarray = _mds.mdsarray
     _tree = 'TRANSIENT'
-
-    def __init__(self, stream, hostspec='sv-e5-trm-2'):
+    def __init__(self, stream, hostspec=_base._server):
         self._con = _mds.Connection(hostspec)
         if len(stream)>12:
             raise Exception('The name of the stream cannot be longer than 12 charaters. '+stream)
@@ -31,7 +30,7 @@ class client(object):
             sexc = str(exc)
             if sexc.startswith('%TREE-W-ALREADY_THERE'):
                 print('"'+self._stream+'" signal found.')
-            elif sexc.startswith('%Tree-E-FOPENW'):
+            elif sexc.startswith('%TREE-E-FOPENW'):
                 raise(Exception('"'+self._tree+'" tree not found.'))
             else:
                 raise exc
@@ -42,10 +41,10 @@ class client(object):
     def _tcl(self, command, *args):
         cmd = 'TCL($'+'//" "//$'*len(args)+', _output, _error)'
         expr = str(_mds.TdiCompile(cmd, tuple([command]+list(args))))
-        status = self._con.get(expr)
+        status = self._con.get(expr).tolist()
         if (status & 1)==1:
             return self._con.get('_output')
-        raise _mds._treeshr.TreeException(_mds._mdsshr.MdsGetMsg(status))
+        raise _mds.mdsExceptions.statusToException(status)
 
     def _addNode(self, node=None, usage='STRUCTURE'):
         if node is None:
@@ -214,9 +213,9 @@ class client(object):
             self._con.openTree(self._tree, shot)
             try:
                 shot = self._con.get('$SHOT')
-                status = self._con.get(putexpr, self._path(), dim[0], dim[end], dim, data);
+                status = self._con.get(putexpr, self._path(), dim[0], dim[end], dim, data).tolist();
                 if (status & 1) == 0:
-                    raise Exception(_mds.MdsGetMsg(status))
+                    raise _mds.mdsExceptions.statusToException(status)
                 segs = int(self._con.get(chkexpr, self._path()));
             finally:
                 self._con.closeTree(self._tree, shot)
@@ -276,7 +275,7 @@ class server(object):
         while True:
             self.run()
             try:
-                timeleft = int(timing - (_time.time() % timing)+.5)
+                timeleft = max(1,int(timing - (_time.time() % timing)+.5))
                 print('idle: waiting for event or timeout')
                 result = _mds.Event.wfeventRaw(self._tree, timeleft)
                 print('event: '+''.join(map(chr,result)))
