@@ -5,40 +5,31 @@ archive.archivebuild
 data rooturl database view    project strgrp stream idx    channel
 lev  0       1        2       3       4      5      6      7
 """
+import MDSplus as _mds
+import re as _re
+from .base import Path
 from .classes import browser
+from .interface import read_parlog
+from .support import error, fixname12
 from .version import xrange, basestring, tobytes
 
 
 def build(treename='test', shotnumber=-1,
           time=['2015/07/01-12:00:00.000000000',
                 '2015/07/01-12:30:00.000000000']):
-    from .base import Path
-    from MDSplus import Tree, Int64Array
+
+      # , Int64Array
     name = "raw"
     path = Path("/ArchiveDB/raw/W7X").url()
-    with Tree(treename, shotnumber, 'New') as tree:
-        try:
-            timeNode = tree.addNode('TIMING', 'NUMERIC')
-            timeNode.addTag('TIME')
-            tree.write()
-        except:
-            pass
-        tree.getNode('\TIME').putData(Int64Array([-1800000000000,0,-1]))
-        """
-        try:
-            tree.deleteNode(name)
-        except:
-            pass
-        """
+    with _mds.Tree(treename, shotnumber, 'New') as tree:
         addProject(tree, name, '', path)
         tree.write()
         tree.close
 
 
 def addProject(node, nname, name='', url=None):
-    from re import compile
-    re = compile('[A-Z]+[0-9]+')
-    cap = compile('[^A-Z]')
+    re = _re.compile('[A-Z]+[0-9]+')
+    cap = _re.compile('[^A-Z]')
     if name != '':
         node = node.addNode(nname, 'STRUCTURE')
         if re.match(nname) is not None:
@@ -59,9 +50,8 @@ def addProject(node, nname, name='', url=None):
 
 
 def addStreamgroup(node, nname, name='', url=None):
-    from re import compile
-    re = compile('[A-Z]+[0-9]+')
-    cap = compile('[^A-Z]')
+    re = _re.compile('[A-Z]+[0-9]+')
+    cap = _re.compile('[^A-Z]')
     if name != '':
         node = node.addNode(nname, 'STRUCTURE')
         # node is stream group
@@ -97,8 +87,7 @@ def addStreamgroup(node, nname, name='', url=None):
 
 
 def addStream(node, nname, name='', url=None):
-    from re import compile
-    re = compile('[A-Z]+[0-9]+')
+    re = _re.compile('[A-Z]+[0-9]+')
     if name != '':
         node = node.addNode(nname, 'SIGNAL')
         if re.match(nname) is not None:
@@ -115,8 +104,6 @@ def addStream(node, nname, name='', url=None):
 
 
 def addParlog(node):
-    from .interface import read_parlog
-    from .support import error, fixname12
     try:
         # time = node.getNode('\TIME')
         url = str(node.getNode('$URL').data())
@@ -164,7 +151,6 @@ def addParlog(node):
 
 
 def addChannel(node, nname, idx, chan={}, url=None):
-    from .support import error, fixname12
     node = node.addNode(nname, 'SIGNAL')
     node.putData(archive_channel(node))
     if url == None:
@@ -196,25 +182,20 @@ def addChannel(node, nname, idx, chan={}, url=None):
 
 
 def archive_url(node):
-    from MDSplus import TdiCompile
-    return TdiCompile('archive_url($)', (node, ))
+    return _mds.TdiCompile('archive_url($)', (node, ))
 
 
 def archive_channel(channelNode):
-    from MDSplus import TdiCompile
-    return TdiCompile('archive_signal($, _time)', (channelNode, ))
+    return _mds.TdiCompile('archive_signal($, _time)', (channelNode, ))
 
 
 def archive_stream(streamNode):
-    from MDSplus import TdiCompile
-    return TdiCompile('archive_signal($, _time)', (streamNode, ))
+    return _mds.TdiCompile('archive_signal($, _time)', (streamNode, ))
 
 
 def archive_parlog(streamNode):
-    from MDSplus import TdiCompile
-    return TdiCompile('archive_parlog($, _time)', (streamNode, ))
+    return _mds.TdiCompile('archive_parlog($, _time)', (streamNode, ))
 
 
 def archive_cfglog(streamgroupNode):
-    from MDSplus import TdiCompile
-    return TdiCompile('archive_cfglog($, _time)', (streamgroupNode, ))
+    return _mds.TdiCompile('archive_cfglog($, _time)', (streamgroupNode, ))

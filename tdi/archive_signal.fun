@@ -1,6 +1,13 @@
 fun public archive_signal (as_is _node, optional _timein)
 {
-    _time = (PRESENT(_timein) ? KIND(_timein)==* : 1) ? DATA(\TIME) : _timein;
+    IF( $EXPT=="ARCHIVE" )
+    {
+        _time = (PRESENT(_timein) ? KIND(_timein)==* : 1) ? [-1800., 0] : _timein;
+    }
+    ELSE
+    {
+        _time = DATA(\TIME);
+    }
     _path= GETNCI(_node, "MINPATH");
     _url = EXECUTE(_path // ":$URL");
     _help= IF_ERROR(EVALUATE(_path // ":HELP"),

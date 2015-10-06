@@ -2,19 +2,17 @@ import archive
 
 
 def archive_signal(node, time=None):
+    """ use time if tree is archive """
+    """ else use TIME node """
     print('archive_signal')
     try:
-        try:
-            time = time.data()
-        except:
-            time = None
-        if time is None:
-            time = archive.TimeInterval(node.getNode('\TIME').data())
+        if node.tree.upper() == 'ARCHIVE':
+            try:
+                time = time.data()
+            except:
+                time = archive.TimeInterval(time)
         else:
-            time = archive.TimeInterval(time)
-#        try:
-#            t0 = archive.Time(node.getNode('\TIME.T1:IDEAL')).ns
-#        except:
+            time = archive.TimeInterval(node.getNode('\TIME').data())
         url = node.getNode('$URL').data()
         signal = archive.read_signal(url, time, time.t0T, 0, 0, [])
         try:
