@@ -6,8 +6,8 @@ fun public archive_signal (as_is _node, optional _timein)
         _time = DATA(\TIME);
     _path= GETNCI(_node, "MINPATH");
     IF_ERROR(_idx = [EXECUTE(_path // ":$IDX")], _idx = []);
-    _urlpar = (SHAPE(_idx) == [0]) ? _path : GETNCI(GETNCI(_path,"PARENT"),"MINPATH");
-    _url = EXECUTE( _urlpar //":$URL");
+    _urlpar = (SHAPE(_idx) == [0]) ? _path // ":$URL" : GETNCI(GETNCI(_path,"PARENT"),"MINPATH") // ":$URL";
+    _url = EXECUTE( _urlpar );
     _help= IF_ERROR(EXECUTE(_path // ":HELP"),
                     EXECUTE(_path // ":DESCRIPTION"),
                     EXECUTE(_path // ":$NAME"),
