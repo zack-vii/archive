@@ -5,25 +5,65 @@ archive
 @ionspired by Kasey Russell (krussell@post.harvard.edu)
           and James Battat (jbattat@post.harvard.edu)
 @license: GNU GPL
+import archive as a;S=a.winspec.read("M:\Test109 1frame full image.SPE")
+a.winspec.generateNode(S.parlog)
+
+import archive as a;a.winspec.putSPE('CAMERA0', "M:\Test107 10frames full image.SPE", list(range(10)), -1)
 """
 import struct as _struct
 import numpy as _np
 import MDSplus as _mds
 from . import version as _ver
 
-def generateNode(parlog, nodename='CAM1' ,treename='QSQ', shotnumber=-1):
+def putSPE(nodename, filepath, dim, shot=0):
+    content = read(filepath)
+    writedata(nodename, content.data, dim, shot)
+    writeparlog(nodename, content.parlog, shot)
+
+
+def writedata(nodename, data, dims, shot=0):
+    """ data: list of images """
+    """ dims: array of double seconds based on T1 """
+    w7x   = _mds.Tree('W7X', shot)
+    triax  = w7x.getNode('.QSQ.HARDWARE.TRIAX')
+    node = triax.getNode(nodename)
+    node.deleteData()
+    for i in range(len(data)):
+        dim = _mds.Float64Array(dims[i])
+        dim.setUnits('s')
+        node.makeSegment(dims[i], dims[i], dim, _mds.makeArray(data[i]), -1)
+
+def writeparlog(nodename, parlog, shot=0):
+    w7x   = _mds.Tree('W7X', shot)
+    triax = w7x.getNode('.QSQ.HARDWARE.TRIAX')  # 'DATA:HEBEAM'
+    node = triax.getNode(nodename)
+    def dicttotree(dic, node):
+        for k,v in dic.items():
+            print(node.getPath()+':'+k[0:12])
+            newnode = node.getNode(k[0:12])
+            if isinstance(v, dict):
+                dicttotree(v, newnode)
+            elif isinstance(v, (tuple, list)):
+                newnode.putData(_mds.makeArray(v))
+            else:
+                newnode.putData(_mds.makeScalar(v))
+
+    dicttotree(parlog, node)
+
+def generateNode(parlog, nodename='CAMERA0', shotnumber=-1, treename='QSQ'):
     with _mds.Tree(treename, shotnumber, 'edit') as tree:
-        triax = tree.getNodeWild('DATA:HEBEAM')
+        triax = tree.getNodeWild('HARDWARE.TRIAX')
         if len(triax):
             triax = triax[0]
         else:
-            triax = tree.getNode('DATA').addNode('HEBEAM','STRUCTURE')
-        node = triax.getNodeWild('CAM1')
+            triax = tree.getNode('HARDWARE').addNode('TRIAX','STRUCTURE')  # 'HEBEAM''
+        node = triax.getNodeWild(nodename)
         if len(node):
             node = node[0]
             #raise Exception('Node '+str(node[0].getPath())+' already exists.' )
         else:
             node = triax.addNode(nodename,'SIGNAL')
+        node.putData(tree.getNode('HARDWARE.TRIAX:CAMERA'+nodename[-1]))
 
         def dicttotree(dic, path):
             def addnode(path, usage):
@@ -31,7 +71,7 @@ def generateNode(parlog, nodename='CAM1' ,treename='QSQ', shotnumber=-1):
                     node.addNode(path, usage)
                     print('creating '+path.upper())
                 except Exception as exc:
-                    if not str(exc).startswith('%Tree-W-ALREADY_THERE'):
+                    if not str(exc).startswith('%TREE-W-ALREADY_THERE'):
                         raise exc
                     print('updating '+path.upper())
             for k,v in dic.items():
