@@ -11,7 +11,7 @@ import numpy as _np
 try:
     import h5py as _h5
 except:
-    print('WARNING: "h5py" package not fould.\nImage upload will not be available')
+    print('WARNING: "h5py" package not found.\nImage upload will not be available')
 from . import base as _base
 from . import cache as _cache
 from . import support as _sup
