@@ -29,7 +29,7 @@ class client(object):
             self.notify()
         except Exception as exc:
             sexc = str(exc)
-            if sexc.startswith('%Tree-W-ALREADY_THERE'):
+            if sexc.startswith('%TREE-W-ALREADY_THERE'):
                 print('"'+self._stream+'" signal found.')
             elif sexc.startswith('%Tree-E-FOPENW'):
                 raise(Exception('"'+self._tree+'" tree not found.'))
@@ -95,7 +95,7 @@ class client(object):
                     self._addNode(path, usage)
                     print('creating '+path.upper())
                 except Exception as exc:
-                    if not str(exc).startswith('%Tree-W-ALREADY_THERE'):
+                    if not str(exc).startswith('%TREE-W-ALREADY_THERE'):
                         raise exc
                     print('updating '+path.upper())
             for k,v in dic.items():
@@ -129,7 +129,7 @@ class client(object):
                     dic[m] = self._con.get(path+':'+m).tolist()
                 except Exception as exc:
                     sexc = str(exc)
-                    if sexc.startswith('%Tree-E-NODATA'):
+                    if sexc.startswith('%TREE-E-NODATA'):
                         print(path+':'+m+' does not contain any data')
             return dic
         dic = treetodict(self._path())
