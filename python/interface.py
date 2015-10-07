@@ -73,7 +73,7 @@ def read_signal(path, time, t0=0, *arg):
     time = _base.TimeInterval(time)
     sig = None
     if time.uptoT != -1:
-        key = path.path()+'?'+str(time)
+        key = path.path()+'?'+','.join(map(str,[time.fromT,time.uptoT]+list(arg)))
         sig = SQCache.get(key)
     if sig is None:
         print('get web-archive: '+key)
