@@ -339,7 +339,7 @@ class TimeInterval(list):
     def __init__(self, arg=[-1800., 'now', -1]):
         if type(arg) is TimeInterval:
             return  # short cut
-        if isinstance(arg, (_mds.Array, _mds.treenode.TreeNode, _mds.tdibuiltins.VECTOR)):
+        if isinstance(arg, (_mds.Array, _mds.Ident, _mds.treenode.TreeNode, _mds.tdibuiltins.VECTOR)):
             arg = arg.data()
         if isinstance(arg, (_np.ndarray,)):
             arg = arg.tolist()
@@ -351,7 +351,7 @@ class TimeInterval(list):
                     arg = [-1800.]
                 arg = list(map(Time,arg))
                 arg += [0] if arg[0] < 0 else arg
-            arg += [-1]
+            arg += [-1] if arg[0]<0 else [0]
         super(TimeInterval, self).append(Time(arg[0]))
         super(TimeInterval, self).append(Time(arg[1]))
         super(TimeInterval, self).append(Time(arg[2]))
@@ -379,7 +379,7 @@ class TimeInterval(list):
         return 'from=' + str(self.fromT-1) + '&upto=' + str(self.uptoT)
 
     def __repr__(self):
-        return 'UTC: [ '+self.fromT.utc+' , '+self.uptoT.utc+' ]'
+        return 'UTC: [ '+self.fromT.utc+' , '+self.uptoT.utc+' ; '+self.t0T.utc+' ]'
 
     def _setFrom(self, time): self[0] = Time(time)
 
@@ -464,9 +464,14 @@ def createSignal(dat, dim, t0=0, unit=None, addim=[], units=[], help=None):
             return (Time(t).ns-t0)/1.E9
         if len(dim):
             wind = _mds.Window(dim[0]-1, dim[-1], t0)
-            dim = _mds.Float64Array(list(map(normt, dim)))
-            dim = _mds.Dimension(wind, dim)
-            dim.setUnits('s')
+            if t0==0:
+                dim = _mds.Uint64Array(dim)
+                dim = _mds.Dimension(wind, dim)
+                dim.setUnits('ns')
+            else:
+                dim = _mds.Float64Array(list(map(normt, dim)))
+                dim = _mds.Dimension(wind, dim)
+                dim.setUnits('s')
             return dim
         else:
             return _mds.EmptyData()
