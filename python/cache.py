@@ -41,7 +41,7 @@ class cache():
                 with conn:
                     conn.execute(self._create_sql)
                 try:
-                    os.chmod(self.path, 0b110110110)  # -rx-rx-rx-
+                    os.chmod(self.path, 0o666)  # -rx-rx-rx-
                 except:
                     pass
             self.connection_cache = conn
