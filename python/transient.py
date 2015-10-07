@@ -272,14 +272,17 @@ class server(object):
 
     def autorun(self, timing=60):
         while True:
-            self.run()
             try:
-                timeleft = int(timing - ((_time.time()+1) % timing)+1)
-                print('idle: waiting for event or timeout in '+str(timeleft)+'s')
-                result = _mds.Event.wfeventRaw(self._tree, timeleft)
-                print('event: '+''.join(map(chr,result)))
-            except(_mds._mdsshr.MdsTimeout):
-                print('timeout: run on timer')
+                self.run()
+                try:
+                    timeleft = int(timing - ((_time.time()+1) % timing)+1)
+                    print('idle: waiting for event or timeout in '+str(timeleft)+'s')
+                    result = _mds.Event.wfeventRaw(self._tree, timeleft)
+                    print('event: '+''.join(map(chr,result)))
+                except(_mds._mdsshr.MdsTimeout):
+                    print('timeout: run on timer')
+            except:
+                _sup.error()
 
     def run(self):
         while not self.ping():
@@ -359,13 +362,14 @@ class server(object):
         path = self.getDataPath(node)
         data = []
         dimof = []
-        for i in _ver.xrange(int(node.getNumSegments())):
+        Nsamp = int(node.getNumSegments())
+        for i in _ver.xrange(Nsamp):
             segi = node.getSegment(i)
             data += list(segi.data().tolist())
             dimof += list(segi.dim_of().data().tolist())
-        while True:
+        for i in _ver.xrange(Nsamp):
             try:
-                _if.write_data(path, data, dimof)
+                _if.write_data(path, data[i:], dimof[i:])
                 break
             except Exception as exc:
                 print(exc)
@@ -376,12 +380,13 @@ class server(object):
             segi = node.getSegment(i)
             data = segi.data().tolist()
             dimof = segi.dim_of().data().tolist()
-            while True:
+            for i in range(3):
                 try:
                     _if.write_data(path, data, dimof)
                     break
                 except Exception as exc:
                     print(exc)
+                    _time.sleep(1)
 
     def clean(self,shot=-1):
         self.Tree(shot).cleanDatafile()
