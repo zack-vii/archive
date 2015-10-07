@@ -54,7 +54,7 @@ class cache():
             for row in conn.execute(self._get_sql, (key,)):
                 expire = row[1]
                 if expire > time():
-                    rv = MDSplus.Data.deserialize(pickle.loads(row[0]))
+                    rv = MDSplus.Data.deserialize(pickle.loads(str(row[0])))
                     print('read from cache: '+key)
                 break
         return rv
