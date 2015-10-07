@@ -11,7 +11,7 @@ import re as _re
 import os as _os
 import time as _time
 from . import version as _ver
-_defreadpath = ('raw/W7X/MDS_w7x')
+_defreadpath = ('raw/W7X/MDSplus')
 _rooturl = 'http://archive-webapi.ipp-hgw.mpg.de'
 _database = 'Test'
 _server = 'mds-data-1.ipp-hgw.mpg.de'
