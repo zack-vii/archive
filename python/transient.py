@@ -25,7 +25,6 @@ class client(object):
         try:
             self._addNode()
             print('"'+self._stream+'" signal created.')
-            self.notify()
         except Exception as exc:
             sexc = str(exc)
             if sexc.startswith('%TREE-W-ALREADY_THERE'):
@@ -305,18 +304,13 @@ class server(object):
             t = max(t, self.getTimeInserted(m))
         return t
 
-    def getDict(self, node, shot=-1):
-        if isinstance(node, str):
-            node = self.Tree(shot).getNode(node)
-        return _diff.treeToDict(node)
-
     def configUpstream(self, nodename):
         dic = _if.read_parlog(self.getDataPath(nodename),'now')
         return dic['chanDescs'][0]
 
     def configTree(self, node):
         if isinstance(node, str):
-            node = self.Tree().getNode(node)
+            node = self.Tree(self.last).getNode(node)
         return _mdsup._signalDict(node)
 
     def checkconfig(self, node):
@@ -332,7 +326,7 @@ class server(object):
 
     def getDataPath(self, node):
         if isinstance(node, str):
-            node = self.Tree().getNode(node)
+            node = self.Tree(self.last).getNode(node)
         url = node.getNodeWild('$URL')
         if len(url):
             return _base.Path(str(url[0].data()))
@@ -341,7 +335,7 @@ class server(object):
 
     def config(self, node):
         if isinstance(node, str):
-            node = self.Tree().getNode(node)
+            node = self.Tree(self.last).getNode(node)
         chanDesc = self.configTree(node)
         t0 = self.getUpdateTime(node)
         parlog = {'chanDescs': [chanDesc]}

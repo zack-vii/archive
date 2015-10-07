@@ -23,7 +23,7 @@ client = archive.transient.client(name)
 client.config = {'samplingrate': rate, 'signal':{'function': 'sine', 'period': period} }
 client.units = 'V'
 client.description = 'this is a transient test signal'
-
+client.notify()
 while True:
     try:
         now  = time.time()  # time in s
