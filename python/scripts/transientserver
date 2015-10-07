@@ -1,0 +1,109 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          transientserver
+# Required-Start:    $local_fs
+# Required-Stop:
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: transientserver
+# Description:       transient server daemon
+### END INIT INFO
+#
+# /etc/init.d/transientserver
+# Subsystem file for "transient" server
+#
+# chkconfig: 2345 95 05
+# description: transient server daemon
+#
+# processname: transientserver
+# pidfile: /usr/local/w7x/run/transientserver
+
+RETVAL=0
+prog="transientserver"
+progfile="/usr/local/w7x/bin/$prog.py"
+pidfile="/usr/local/w7x/run/$prog"
+logfile="/usr/local/w7x/log/$prog/%Y-%m-%d-%H_%M_%S"
+transient_path="/transient"
+timeout=60
+
+
+
+su -c "echo jojo > >(/usr/sbin/rotatelogs test 1k) & echo \$!>pid"
+start() {
+	echo -n $"Starting $prog:"
+	export transient_path=$transient_path
+	su -c "$progfile $timeout > >(/usr/sbin/rotatelogs -f $logfile 16M) & echo \$!>$pidfile" mdsplus
+	RETVAL=$?
+	[ "$RETVAL" = 0 ] || rm -f $pidfile
+	echo
+}
+
+stop() {
+	echo -n $"Stopping $prog:"
+	for i in $(cat $pidfile);do
+	    kill $i
+	done
+	RETVAL=$?
+	[ "$RETVAL" = 0 ] && rm -f $pidfile
+	echo
+}
+
+case "$1" in
+	start)
+                if [ -f $pidfile ] ; then
+		    echo $"$prog already started, restarting."
+		    stop
+                fi
+		start
+		;;
+	stop)
+		stop
+		;;
+	restart)
+		stop
+		start
+		;;
+	condrestart)
+		if [ -f $pidfile ] ; then
+			stop
+			# avoid race
+			sleep 3
+			start
+		fi
+		;;
+        clean)
+                if [ -f $pidfile ] ; then
+		    cat $pidfile
+                    stop
+                    rm -f $pidfile 2>/dev/null
+                fi
+                ;;
+	status)
+		if [ -f $pidfile ] ; then
+		    echo $"$prog running under PID $(cat $pidfile)."
+		else
+		    echo $"$prog not running."
+		fi
+		RETVAL=$?
+		;;
+        setup)
+                if [ -f $transient_path ] ; then
+                    echo $transient_path already exists.
+                    RETVAL=1
+                else
+                    mkdir $transient_path
+                    groupadd -g 555 mdsplus_transient
+                    chgrp 555 $transient_path
+                    chown mdsplus $transient_path
+                    chmod 775,g+s,u+s $transient_path
+                    setfacl -d -m u::rw $transient_path
+                    setfacl -d -m g::rw $transient_path
+                    setfacl -d -m o::rw $transient_path
+                    RETVAL=$?
+                fi
+                ;;
+	*)
+		echo $"Usage: $0 {start|stop|restart|condrestart|clean|status|setup}"
+		RETVAL=1
+esac
+exit $RETVAL
