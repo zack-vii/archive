@@ -7,6 +7,7 @@ archive
 """
 __version__ = "2015.09.10.11"
 import MDSplus as _mds  # analysis:ignore
+import numpy as _np  # analysis:ignore
 from . import version, base, interface, mdsupload, support  # analysis:ignore
 from . import archiveaccess, archivebuild, transient, diff, winspec  # analysis:ignore
 from .base import Time, TimeInterval, Units, Path  # analysis:ignore

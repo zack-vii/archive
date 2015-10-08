@@ -67,9 +67,10 @@ else:
     buffer = memoryview
 if has_xrange:
     xrange = xrange  # analysis:ignore
+    range = range
 else:
     xrange = range
-
+    range = lambda *x: list(__builtins__['range'](*x))
 
 if ispy3:
     numbers = (int, float, complex)
