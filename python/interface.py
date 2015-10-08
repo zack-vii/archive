@@ -34,30 +34,43 @@ def write_logurl(url, parms, time):
 def write_data(path, data, dimof, t0=0):
     # path=Path, data=numpy.array, dimof=numpy.array
     dimof = _np.array(dimof)
-    data = _np.array(data)
-    if dimof.dtype == float:
+    if dimof.ndim == 0:  # we need to add one level
+        dimof = [dimof.tolist()]
+        data  = data.reshape(*(list(data.shape)+[1]))
+    else:
+        dimof = dimof.tolist()
+    if data.dtype == float:
         dimof = (dimof*1e9).astype('uint64') + t0
     if data.ndim > 2:
-        return(_write_vector(_base.Path(path), data.tolist(), dimof.tolist()))
-    elif data.ndim > 1:
-        return(_write_scalar(_base.Path(path), data.tolist(), dimof.tolist()))
+        return(_write_vector(_base.Path(path), data, dimof))
     else:
-        return(_write_scalar(_base.Path(path), data.tolist(), dimof.tolist()))
+        return(_write_scalar(_base.Path(path), data, dimof))
 
 
 def _write_scalar(path, data, dimof):
-    # path=Path, data=list, dimof=list
-    jdict = {'values': list(data), 'dimensions': list(dimof)}
+    # path=Path, data=numpy.array, dimof=list of long
+    dtype = str(data.dtype)
+    if dtype in ['bool','int8','uint8','int16','uint16']:
+        datatype='short'
+    elif dtype in ['int32','uint32']:
+        datatype='int'
+    elif dtype in ['int64','uint64']:
+        datatype='long'
+    else:
+        datatype='float'
+    jdict = {'values': data.tolist(), 'datatype':datatype, 'dimensions': dimof}
     return(post(path.url_datastream(), json=jdict))
 
 
 def _write_vector(path, data, dimof):
-    # path=Path, data=list, dimof=list
+    # path=Path, data=numpyarray, dimof=list of long
+    dtype = str(data.dtype)
     stream = path.stream
     tmpfile = _ver.tmpdir+"archive_"+stream+".h5"
     try:
         with _h5.File(tmpfile, 'w') as f:
-            f.create_dataset(stream, data=list(data), compression="gzip")
+            f.create_dataset(stream, data=data.tolist(), dtype=dtype,
+                             compression="gzip")
             f.create_dataset('timestamps', data=list(dimof), dtype='int64',
                              compression="gzip")
         headers = {'Content-Type': 'application/x-hdf'}
