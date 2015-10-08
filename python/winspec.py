@@ -33,9 +33,10 @@ def writedata(nodename, data, dims, shot=0):
         dim.setUnits('s')
         node.makeSegment(dims[i], dims[i], dim, _mds.makeArray(data[i]), -1)
 
-def writeparlog(nodename, parlog, shot=0):
+def writeparlog(parlog, shot=0, nodename='IMAGES', treename='QSQ'):
     w7x   = _mds.Tree('W7X', shot)
-    triax = w7x.getNode('.QSQ.HARDWARE.TRIAX')  # 'DATA:HEBEAM'
+    tree  = w7x.getNode(treename)
+    triax = tree.getNode('DATA:HEBEAM')
     node = triax.getNode(nodename)
     def dicttotree(dic, node):
         for k,v in dic.items():
@@ -50,13 +51,16 @@ def writeparlog(nodename, parlog, shot=0):
 
     dicttotree(parlog, node)
 
-def generateNode(parlog, nodename='CAMERA0', shotnumber=-1, treename='QSQ'):
-    with _mds.Tree(treename, shotnumber, 'edit') as tree:
-        triax = tree.getNodeWild('HARDWARE.TRIAX')
+def generateNode(parlog, shot=-1, nodename='IMAGES', treename='QSQ'):
+    """Creates the DATA node of the IMAGES with its sub-structure using parlog"""
+    with _mds.Tree(treename, shot, 'edit') as tree:
+        # triax = tree.getNodeWild('HARDWARE.TRIAX')
+        triax = tree.getNodeWild('DATA.HEBEAM')
         if len(triax):
             triax = triax[0]
         else:
-            triax = tree.getNode('HARDWARE').addNode('TRIAX','STRUCTURE')  # 'HEBEAM''
+            # triax = tree.getNode('HARDWARE').addNode('TRIAX','STRUCTURE')
+            triax = tree.getNode('DATA').addNode('HEBEAM','STRUCTURE')
         node = triax.getNodeWild(nodename)
         if len(node):
             node = node[0]
