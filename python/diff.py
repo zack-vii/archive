@@ -17,13 +17,14 @@ def treeToDict(tree, exclude=[]):
     def nodeToDict(node, exclude):
         dic = {}
         dic["usage"] = str(node.usage)
-        if dic["usage"] != "SIGNAL":
+        if dic["usage"] == "SIGNAL":
+            if any(_mds.TdiExecute('[GETNCI($1,"NID_REFERENCE"),GETNCI($1,"PATH_REFERENCE")]',(node,)).tolist()):
+                dic["record"] = _mds.TdiDecompile(node.record)
+        else:
             try:
                 dic["record"] = _mds.TdiDecompile(node.record)
             except:
-                dic["record"] = '*' # No data stored
-        else:
-            dic["record"] = '<signal>'
+                pass
         dic["flags"] = _sup.getFlags(node)
         dic["tags"] = list(map(str,node.tags))
         for desc in node.getDescendants():
