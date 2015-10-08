@@ -364,7 +364,7 @@ class TimeInterval(list):
     def __getitem__(self, idx):
         idx = min(idx, 2)
         time = super(TimeInterval, self).__getitem__(idx)
-        if idx == 0 and time <= 0:
+        if idx == 0 and time < 0:
             return self[1] + time
         elif idx == 1 and (time == 0 or time < -2):
             return Time('now') + time
@@ -431,7 +431,7 @@ _units = ['unknown', '', 'none', 'arb.unit', 'kg', 'g', 'u', 'kg/s', 'g/s', 'm',
          'Byte', 'KiByte', 'MiByte']
 
 
-def Units(units, force=False):
+def Units(units=None, force=False):
     if isinstance(units, (_mds.treenode.TreeNode)):
         if units.isSegmented():
             units = units.getSegment(0).units
@@ -445,7 +445,7 @@ def Units(units, force=False):
     units = str(units)
     if units == ' ':
         return 'unknown'
-    if units in units:
+    if units in _units:
         return units
     if force:
         print("'"+units+"' is not a recognized unit but has been enforced!")

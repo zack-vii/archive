@@ -6,6 +6,7 @@ data rooturl database view    project strgrp stream idx    channel
 lev  0       1        2       3       4      5      6      7
 """
 import MDSplus as _mds
+import numpy as _np
 import re as _re
 from . import base as _base
 from . import diff as _diff
@@ -15,35 +16,40 @@ from . import version as _ver
 _MDS_shots = _base.Path('raw/W7X/MDSplus/shots')
 
 
-def writeparlog():
+def _writeparlog():
     """should be executed only once before frist experiment"""
     def chanDesc(n):
         if n==0:
-            return {'name':'shot','physicalQuantity':{'type':''}}
+            return {'name':'shot','physicalQuantity':{'type':'none'}}
         else:
             return {'name':'T%d' % n,'physicalQuantity':{'type':'ns'}}
     parlog = {'chanDescs':[chanDesc(n) for n in _ver.xrange(7)]}
-    return _if.write_logurl(_MDS_shots.url_parlog, parlog, 0)
+    result = _if.write_logurl(_MDS_shots.url_parlog(), parlog, 1)
+    print(result.msg)
+    return result
 
 
 def uploadModel(shot):
     """should be executed right after T0"""
     def getModel():
-        nodenames = ['ADMIN','TIMING','QMC', 'QMR', 'QRN', 'QSW', 'QSX']
+        nodenames = ['ADMIN','TIMING','QMC','QMR','QRN','QSD','QSQ','QSR','QSW','QSX']
         w7x = _mds.Tree('W7X',-1)
         return dict([k,_diff.treeToDict(w7x.getNode(k))] for k in nodenames)
 
     time = _sup.getTiming(shot, 0)
     cfglog = getModel()
-    return _if.write_logurl(_MDS_shots.url_cfglog, cfglog, time)
+    result = cfglog#_if.write_logurl(_MDS_shots.url_cfglog(), cfglog, time)
+    #print(result.msg)
+    return result
 
-
-def uploadTime(shot):
+def uploadTiming(shot):
     """should be executed soon after T6"""
-    data = _sup.getTiming(shot)
+    data = _np.uint64(_sup.getTiming(shot))
     dim = data[0]
     data[0] = int(shot)
-    return _if.write_data(_MDS_shots,data,dim)
+    result = _if.write_data(_MDS_shots,data,dim)
+    print(result.msg)
+    return result
 
 
 def upload(names=['SINWAV'], shot=0, treename='W7X', time=None):
