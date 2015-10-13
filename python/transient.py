@@ -365,8 +365,10 @@ class server(object):
         Nsamp = int(node.getNumSegments())
         for i in _ver.xrange(Nsamp):
             segi = node.getSegment(i)
-            data += list(segi.data().tolist())
-            dimof += list(segi.dim_of().data().tolist())
+            data  += [segi.data()]
+            dimof += list(segi.dim_of().data())
+        data  = _np.concatenate(data)
+        dimof = _np.uint64(dimof)
         for i in _ver.xrange(Nsamp):
             try:
                 _if.write_data(path, data[i:], dimof[i:])
@@ -378,8 +380,8 @@ class server(object):
         path = self.getDataPath(node)
         for i in _ver.xrange(int(node.getNumSegments())):
             segi = node.getSegment(i)
-            data = segi.data().tolist()
-            dimof = segi.dim_of().data().tolist()
+            data = segi.data()
+            dimof = segi.dim_of().data()
             for i in range(3):
                 try:
                     _if.write_data(path, data, dimof)

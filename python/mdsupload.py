@@ -38,8 +38,8 @@ def uploadModel(shot):
 
     time = _sup.getTiming(shot, 0)
     cfglog = getModel()
-    result = cfglog#_if.write_logurl(_MDS_shots.url_cfglog(), cfglog, time)
-    #print(result.msg)
+    result = _if.write_logurl(_MDS_shots.url_cfglog(), cfglog, time)
+    print(result.msg)
     return result
 
 def uploadTiming(shot):
@@ -47,7 +47,7 @@ def uploadTiming(shot):
     data = _np.uint64(_sup.getTiming(shot))
     dim = data[0]
     data[0] = int(shot)
-    result = _if.write_data(_MDS_shots,data,dim)
+    result = _if.write_data(_MDS_shots, data, dim)
     print(result.msg)
     return result
 
@@ -248,6 +248,7 @@ def _treeToDict(node, Dict):
             Dict[name] = data
     return(Dict)
 
+
 def _write_signals(path, signals, t0):
     R = []
     t0 = _base.Time(t0).ns
@@ -265,7 +266,7 @@ def _write_signals(path, signals, t0):
                     print(r.content)
                     return(R)
         else:
-            data = sig.data().tolist()
+            data = sig.data()
             dimof = sig.dim_of()
             R = _if.write_data(path, data, dimof, t0)
             print(R)
@@ -280,15 +281,17 @@ def _write_signals(path, signals, t0):
             sig = sig.evaluate()
             data.append(sig.data())
             dimof.append(sig.dim_of().data())
-        wearegood = True
+        for d in data[1:]:
+            if not data[0].dtype==d.dtype:
+                raise(Exception('data types are not equal for all channels'))
         for d in dimof[1:]:
-            wearegood &= (dimof[0]==d).all()
-        if not wearegood:
-            raise(Exception('dimesions are not equal for all channels'))
+            if not (dimof[0]==d).all():
+                raise(Exception('dimesions are not equal for all channels'))
         dimof = dimof[0]
+        data = _np.array(data)
         N = 100000
         for i in _ver.xrange(int((len(dimof)-1)/N+1)):
-            R.append(_if.write_data(path, [d[i*N:(i+1)*N].tolist() for d in data], dimof[i*N:(i+1)*N]), t0)
+            R.append(_if.write_data(path, data[:,i*N:(i+1)*N], dimof[i*N:(i+1)*N]), t0)
         return R
 
 

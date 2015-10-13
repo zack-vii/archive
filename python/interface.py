@@ -33,14 +33,16 @@ def write_logurl(url, parms, time):
 
 def write_data(path, data, dimof, t0=0):
     # path=Path, data=numpy.array, dimof=numpy.array
+    if not isinstance(data, _np.ndarray):
+        raise Exception('write_data: data must be numpy.ndarray')
     dimof = _np.array(dimof)
+    if dimof.dtype == float:
+        dimof = (dimof*1e9).astype('uint64') + t0
     if dimof.ndim == 0:  # we need to add one level
         dimof = [dimof.tolist()]
         data  = data.reshape(*(list(data.shape)+[1]))
     else:
         dimof = dimof.tolist()
-    if data.dtype == float:
-        dimof = (dimof*1e9).astype('uint64') + t0
     if data.ndim > 2:
         return(_write_vector(_base.Path(path), data, dimof))
     else:
@@ -63,7 +65,7 @@ def _write_scalar(path, data, dimof):
 
 
 def _write_vector(path, data, dimof):
-    # path=Path, data=numpyarray, dimof=list of long
+    # path=Path, data=numpy.array, dimof=list of long
     dtype = str(data.dtype)
     stream = path.stream
     tmpfile = _ver.tmpdir+"archive_"+stream+".h5"
