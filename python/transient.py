@@ -271,16 +271,17 @@ class server(object):
         return self._path.ping(timeout)
 
     def autorun(self, timing=60):
+        event = '<server_start>'
         while True:
             try:
+                print('%s running on %s' % (_time.strftime('%Y/%m/%d-%H:%M:%S'), event))
                 self.run()
                 try:
                     timeleft = int(timing - ((_time.time()+1) % timing)+1)
-                    print('idle: waiting for event or timeout in '+str(timeleft)+'s')
                     result = _mds.Event.wfeventRaw(self._tree, timeleft)
-                    print('event: '+''.join(map(chr,result)))
+                    event = ''.join(map(chr,result))
                 except(_mds._mdsshr.MdsTimeout):
-                    print('timeout: run on timer')
+                    event = '<timeout>'
             except:
                 _sup.error()
 
