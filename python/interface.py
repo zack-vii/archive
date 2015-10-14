@@ -7,6 +7,7 @@ lev  0       1        2       3       4      5      6      7
 """
 import os as _os
 import json as _json
+import MDSplus as _mds
 import numpy as _np
 try:
     import h5py as _h5
@@ -17,7 +18,7 @@ from . import cache as _cache
 from . import support as _sup
 from . import version as _ver
 
-SQCache =  _cache.cache(_ver.tmpdir+'archive_cache')
+SQCache =  _cache.cache(_ver.tmpdir+'archive_cache'+str(_ver.pyver[0]))
 
 class URLException(Exception):
     def __init__(self,value):
@@ -93,9 +94,15 @@ def read_signal(path, time, t0=0, *arg):
     if sig is None:
         print('get web-archive: '+key)
         stream = get_json(path.url_data(), time, *arg)
-        sig = _base.createSignal(stream["values"], stream['dimensions'], t0,
-                           str(stream.get('unit', 'unknown')))
+        sig = _base.createSignal(stream['values'], stream['dimensions'], str(stream.get('unit', 'unknown')))
         SQCache.set(key, sig)
+    if t0!=0:
+        args = list(sig.args)
+        time = _mds.Float64((args[2].args[1]-_mds.Int64(t0))*1E-9)
+        wind = _mds.Window(time[0], time[time.shape[0]-1], t0)
+        args[2] = _mds.Dimension(wind, time)
+        args[2].setUnits('s')
+        sig.args = tuple(args)
     return sig
 
 

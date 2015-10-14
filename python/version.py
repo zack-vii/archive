@@ -3,7 +3,6 @@ This is a helper module.
 Its purpose is to supply tools that are used to generate version specific code.
 Goal is to generate code that work on both python2x and python3x.
 """
-import datetime as _datetime
 from numpy import generic as npscalar
 from numpy import ndarray as nparray
 from sys import version_info as pyver

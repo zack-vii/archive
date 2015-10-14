@@ -6,11 +6,17 @@ archive.cache
 data rooturl database view    project strgrp stream idx    channel
 lev  0       1        2       3       4      5      6      7
 """
-import os
-import sqlite3
+import os as _os
+import sqlite3 as _sql
 from time import time
-from .version import pickle, buffer
+import MDSplus as _mds
+from . import version as _ver
 
+if _ver.has_buffer:
+    _unpack = lambda x: _mds.Data.deserialize(_ver.pickle.loads(str(x)))
+else:
+    _unpack = lambda x: _mds.Data.deserialize(_ver.pickle.loads(x))
+_pack = lambda x: _ver.buffer(_ver.pickle.dumps(x))
 
 class cache():
     _create_sql = (
@@ -28,33 +34,31 @@ class cache():
     _lst_sql = 'SELECT key, exp FROM bucket'
 
     def __init__(self, path, default_timeout=3600):
-        self.path = os.path.abspath(path)
+        self.path = _os.path.abspath(path)
         self.default_timeout = default_timeout
         self.connection_cache = None
 
     def _get_conn(self):
         if self.connection_cache is None:
-            import os
-            isnew = ~os.path.isfile(self.path)
-            conn = sqlite3.Connection(self.path, timeout=60)
+            isnew = ~_os.path.isfile(self.path)
+            conn = _sql.Connection(self.path, timeout=60)
             if isnew:
                 with conn:
                     conn.execute(self._create_sql)
                 try:
-                    os.chmod(self.path, 0o666)  # -rx-rx-rx-
+                    _os.chmod(self.path, 0o666)  # -rw-rw-rw-
                 except:
                     pass
             self.connection_cache = conn
         return self.connection_cache
 
     def get(self, key):
-        import MDSplus
         rv = None
         with self._get_conn() as conn:
             for row in conn.execute(self._get_sql, (key,)):
                 expire = row[1]
                 if expire > time():
-                    rv = MDSplus.Data.deserialize(pickle.loads(str(row[0])))
+                    rv = _unpack(row[0])
                     print('read from cache: '+key)
                 break
         return rv
@@ -64,12 +68,11 @@ class cache():
             conn.execute(self._del_sql, (key,))
 
     def set(self, key, value, timeout=None):
-        import MDSplus
-        if isinstance(value, (MDSplus.compound.Signal)):
+        if isinstance(value, (_mds.Signal)):
             return(self.set(key, value.serialize().data(), timeout))
         if not timeout:
             timeout = self.default_timeout
-        value = buffer(pickle.dumps(value, 2))
+        value = _pack(value)
         expire = time() + timeout
         with self._get_conn() as conn:
             conn.execute(self._set_sql, (key, value, expire))
@@ -79,11 +82,11 @@ class cache():
         if not timeout:
             timeout = self.default_timeout
         expire = time() + timeout
-        value = buffer(pickle.dumps(value, 2))
+        value = _pack(value)
         with self._get_conn() as conn:
             try:
                 conn.execute(self._add_sql, (key, value, expire))
-            except sqlite3.IntegrityError:
+            except _sql.IntegrityError:
                 pass
 
     def clean(self):
@@ -94,5 +97,5 @@ class cache():
                     self.delete(row[0])
 
     def clear(self):
-        os.unlink(self.path)
+        _os.unlink(self.path)
         self.connection_cache = None

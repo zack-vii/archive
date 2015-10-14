@@ -453,39 +453,30 @@ def Units(units=None, force=False):
     raise Exception("Units must be one of '"+"', '".join(_units)+"'")
 
 
-def createSignal(dat, dim, t0=0, unit=None, addim=[], units=[], help=None):
+def createSignal(dat, dim, unit=None, addim=[], units=[], help=None):
     if isinstance(dat, (_np.ndarray,)):
         dat = dat.tolist()
 
-    def _dim(dim, t0):
-        t0 = Time(t0).ns
-
-        def normt(t, t0=t0):
-            return (Time(t).ns-t0)/1.E9
+    def _dim(dim):
         if len(dim):
-            wind = _mds.Window(dim[0]-1, dim[-1], t0)
-            if t0==0:
-                dim = _mds.Uint64Array(dim)
-                dim = _mds.Dimension(wind, dim)
-                dim.setUnits('ns')
-            else:
-                dim = _mds.Float64Array(list(map(normt, dim)))
-                dim = _mds.Dimension(wind, dim)
-                dim.setUnits('s')
+            wind = _mds.Uint64Array([dim[0]-1, dim[-1], 0])
+            wind = _mds.Window(wind[0], wind[1], wind[2])
+            dim = _mds.Uint64Array(dim)
+            dim = _mds.Dimension(wind, dim)
+            dim.setUnits('ns')
             return dim
         else:
             return _mds.EmptyData()
 
     def _addim(dim, units='unknown'):
         if len(dim):
-            dim = _mds.Dimension(_dat(dim))
-            dim.setUnits(Units(units))
+            dim  = _mds.Dimension(None, _dat(dim))
+            dim.setUnits(Units(units))#
             return dim
         else:
             return _mds.EmptyData()
 
     def _dat(dat):
-
         def _datr(dat, m=0, n=0):
             if len(dat) == 0 or (n > 1 and m+n > 64):
                 return m, n
@@ -538,7 +529,7 @@ def createSignal(dat, dim, t0=0, unit=None, addim=[], units=[], help=None):
             else:
                 return _mds.EmptyData()
     dat = _dat(dat)
-    dim = _dim(dim, t0)
+    dim = _dim(dim)
     for i in _ver.xrange(len(addim)):
         addim[i] = _addim(addim[i], units[i])
     raw = _mds.Data.compile('*')
