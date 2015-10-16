@@ -3,9 +3,12 @@ if sys.version_info>(3,):
     xrange = range
 
 def testtree(node):
+    from MDSplus import TreeNode
     try:
-        print("python call: testtree("+str(node)+")")
-        return getSignal(node.getNodeName())
+        print("python call: testtree("+repr(node)+")")
+        if isinstance(node, TreeNode):
+            node = node.getNodeName()
+        return getSignal(node)
     except Exception as exc:#return debug information
         trace = 'python error:'+repr(exc)
         return(trace)
@@ -89,7 +92,7 @@ def getSignal(name,data=False):
     return Signal(data,raw,*dims).setHelp('this is the help text')
 
 
-def createTestTree(path=None):
+def createTestTree(shot=-1,path=None):
     import MDSplus,os
     def populate(node):
         def py(n):
@@ -108,20 +111,28 @@ def createTestTree(path=None):
                     for nd in ndims:
                         py(node.addNode(nt+str(nd)+"D"+dt,'SIGNAL'))
     def evaluate(node):
-        segszs=(1000, 100)
-        for n in node.getMembers():
-            if n.getNodeName().startswith("SEG"):
-                sig = getSignal(n.getNodeName(),True)
-                data= sig.data()
-                segsz = segszs[data.ndim] if data.ndim<2 else 1
-                for i in xrange(int(data.shape[0]/segsz)):
-                    ft  = (i*segsz,(i+1)*segsz)
-                    dim = MDSplus.Dimension(sig.dim_of()[ft[0]:ft[1]]).setUnits(sig.dim_of().units)
-                    img = data[ft[0]:ft[1]]
-                    n.makeSegment(0,0,dim,img)
-                n.setHelp(sig.getHelp())
-            else:
-                n.putData(getSignal(n.getNodeName(),True))
+        try:
+            segszs=(1000, 100)
+            for n in node.getMembers():
+                name = n.getNodeName()
+                if name.startswith("SEG"):
+                    sig = getSignal(name,True)
+                    data= sig.data()
+                    segsz = segszs[data.ndim] if data.ndim<2 else 1
+                    for i in xrange(int(data.shape[0]/segsz)):
+                        ft  = (i*segsz,(i+1)*segsz)
+                        dim = MDSplus.Dimension(sig.dim_of()[ft[0]:ft[1]]).setUnits(sig.dim_of().units)
+                        img = data[ft[0]:ft[1]]
+                        n.makeSegment(0,0,dim,img)
+                    #n.setHelp(sig.getHelp())
+                else:
+                    n.putData(getSignal(name,True))
+            name = None
+        finally:
+            if name is not None:
+                print(name)
+
+
     if not len(os.environ["test_path"]):
         if path is None:
             isunix = os.name=='posix';
@@ -130,7 +141,7 @@ def createTestTree(path=None):
             else:
                 path = os.getenv('TEMP')
         os.environ["test_path"] = path
-    with MDSplus.Tree('test',-1,'new') as tree:
+    with MDSplus.Tree('test',shot,'new') as tree:
         datanode = tree.addNode('DATA','STRUCTURE')
         pynode   = tree.addNode('PYTHON','STRUCTURE')
         populate(pynode)

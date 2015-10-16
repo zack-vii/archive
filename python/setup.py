@@ -13,7 +13,7 @@ setup(name='archive',
       url='http://archive-webapi.ipp-hgw.mpg.de',
       version=version,
       package_dir={'archive': '.'},
-      packages=['archive', 'h5py', 'MDSplus'],
+      packages=['archive'],#, 'h5py', 'MDSplus'
       platforms=('Any',),
       classifiers=['Development Status :: 4 - Beta',
                    'Programming Language :: Python',
