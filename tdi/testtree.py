@@ -1,7 +1,3 @@
-import sys
-if sys.version_info>(3,):
-    xrange = range
-
 def testtree(node):
     from MDSplus import TreeNode
     try:
@@ -111,6 +107,11 @@ def createTestTree(shot=-1,path=None):
                     for nd in ndims:
                         py(node.addNode(nt+str(nd)+"D"+dt,'SIGNAL'))
     def evaluate(node):
+        from sys import version_info as pyver
+        if pyver>(3,):
+            _xrange = range
+        else:
+            _xrange = xrange
         try:
             segszs=(1000, 100)
             for n in node.getMembers():
@@ -119,12 +120,12 @@ def createTestTree(shot=-1,path=None):
                     sig = getSignal(name,True)
                     data= sig.data()
                     segsz = segszs[data.ndim] if data.ndim<2 else 1
-                    for i in xrange(int(data.shape[0]/segsz)):
+                    for i in _xrange(int(data.shape[0]/segsz)):
                         ft  = (i*segsz,(i+1)*segsz)
                         dim = MDSplus.Dimension(sig.dim_of()[ft[0]:ft[1]]).setUnits(sig.dim_of().units)
                         img = data[ft[0]:ft[1]]
-                        n.makeSegment(0,0,dim,img)
-                    #n.setHelp(sig.getHelp())
+                        n.makeSegment(sig.dim_of()[ft[0]],sig.dim_of()[ft[1]-1],dim,img)
+                    n.setHelp(sig.getHelp())
                 else:
                     n.putData(getSignal(name,True))
             name = None
