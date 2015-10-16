@@ -1,5 +1,5 @@
 import sys
-if sys.version_info.major==3:
+if sys.version_info>(3,):
     xrange = range
 
 def testtree(node):
@@ -122,17 +122,18 @@ def createTestTree(path=None):
                 n.setHelp(sig.getHelp())
             else:
                 n.putData(getSignal(n.getNodeName(),True))
-
-    isunix = os.name=='posix';
-    if isunix:
-        path = "/tmp"
-    else:
-        path = os.getenv('TEMP')
+    if not len(os.environ["test_path"]):
+        if path is None:
+            isunix = os.name=='posix';
+            if isunix:
+                path = "/tmp"
+            else:
+                path = os.getenv('TEMP')
         os.environ["test_path"] = path
-        with MDSplus.Tree('test',-1,'new') as tree:
-            datanode = tree.addNode('DATA','STRUCTURE')
-            pynode   = tree.addNode('PYTHON','STRUCTURE')
-            populate(pynode)
-            populate(datanode)
-            tree.write()
-            evaluate(datanode)
+    with MDSplus.Tree('test',-1,'new') as tree:
+        datanode = tree.addNode('DATA','STRUCTURE')
+        pynode   = tree.addNode('PYTHON','STRUCTURE')
+        populate(pynode)
+        populate(datanode)
+        tree.write()
+        evaluate(datanode)
