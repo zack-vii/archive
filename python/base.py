@@ -7,14 +7,15 @@ lev  0       1        2       3       4      5      6      7
 """
 import MDSplus as _mds
 import numpy as _np
-import re as _re
 import os as _os
+import re as _re
 import time as _time
 from . import version as _ver
 _defreadpath = ('raw/W7X/MDSplus')
 _rooturl = 'http://archive-webapi.ipp-hgw.mpg.de'
 _database = 'Test'
 _server = 'mds-data-1.ipp-hgw.mpg.de'
+
 
 class InsufficientPathException(Exception):
     def __init__(self, value=''):
@@ -344,7 +345,7 @@ class TimeInterval(list):
         if isinstance(arg, (_np.ndarray,)):
             arg = arg.tolist()
         if not isinstance(arg, (list, tuple)):
-            arg = [arg]
+            arg = [-1, arg, 0]
         if len(arg) < 3:
             if len(arg) < 2:
                 if len(arg) == 0:
@@ -352,6 +353,10 @@ class TimeInterval(list):
                 arg = list(map(Time,arg))
                 arg += [0] if arg[0] < 0 else arg
             arg += [-1] if arg[0]<0 else [0]
+        if arg[0]==0:
+            arg[0] = 'now'
+        if arg[1]==0:
+            arg[1] = 'now'
         super(TimeInterval, self).append(Time(arg[0]))
         super(TimeInterval, self).append(Time(arg[1]))
         super(TimeInterval, self).append(Time(arg[2]))
@@ -376,7 +381,7 @@ class TimeInterval(list):
             return time
 
     def __str__(self):
-        return 'from=' + str(self.fromT-1) + '&upto=' + str(self.uptoT)
+        return 'from=' + str(max(0, self.fromT-1)) + '&upto=' + str(self.uptoT)
 
     def __repr__(self):
         return 'UTC: [ '+self.fromT.utc+' , '+self.uptoT.utc+' ; '+self.t0T.utc+' ]'

@@ -176,7 +176,7 @@ def parseXML(toparse):
     return xmltodict(tree)
 
 
-def read_parlog(path, time=_base.TimeInterval([0, 0]), *args):
+def read_parlog(path, time=[1, 0], *args):
     def rmfield(dic, field):
         if field in dic.keys():
             del(dic[field])

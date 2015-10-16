@@ -274,7 +274,7 @@ class server(object):
         event = '<server_start>'
         while True:
             try:
-                print('%s running on %s' % (_time.strftime('%Y/%m/%d-%H:%M:%S'), event))
+                print('%s running on %s' % (_sup.nowstr(), event))
                 self.run()
                 try:
                     timeleft = int(timing - ((_time.time()+1) % timing)+1)

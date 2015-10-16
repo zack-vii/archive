@@ -6,15 +6,20 @@ data rooturl database view    project strgrp stream idx    channel
 lev  0       1        2       3       4      5      6      7
 """
 from __future__ import absolute_import
+import MDSplus as _mds
 import numpy as _np
 import re as _re
-import MDSplus as _mds
+import time as _time
 from . import base as _base
 from . import version as _ver
 
 
 def version():
     return '2015.08.08.12.00'
+
+
+def nowstr():
+    return _time.strftime('%Y/%m/%d-%H:%M:%S')
 
 
 def sampleImage(imgfile='image.jpg'):
