@@ -62,6 +62,8 @@ def upload(names=['SINWAV'], shot=0, treename='W7X', time=None):
     w7x = _mds.Tree(treename, shot)
     if time is None:
         time = _base.TimeInterval(w7x.getNode('\TIME'))
+    else:
+        time = _base.TimeInterval(time)
     path = _base.Path('raw/W7X')
     for name in names:
         kks = w7x.getNode(name)
@@ -70,7 +72,7 @@ def upload(names=['SINWAV'], shot=0, treename='W7X', time=None):
         secdict = {}
         for sec in data.getDescendants():
             print(sec)
-            path.set_streamgroup(name+'_'+sec.getNodeName().lower())
+            path.streamgroup = name+'_'+sec.getNodeName().lower()
             try:
                 pcl = _if.write_logurl(path.url_cfglog(), cfg, time.fromT)
             except:
@@ -151,7 +153,7 @@ def _sectionDict(node, secs, kks, time, path):
                 devs[dev.nid].append(ch)
             for dev in HW.getDescendants():
                 if len(devs[dev.Nid]):
-                    path.set_stream(dev.getNodeName().lower())
+                    path.stream = dev.getNodeName().lower()
                     par, sig = _iterateDevices(dev, devs[dev.Nid], chans)
                     try:
                         rpl = _if.write_logurl(path.url_parlog(), par, time.fromT)
@@ -258,7 +260,7 @@ def _write_signals(path, signals, t0):
             R = []
             for seg in _ver.xrange(sig.getNumSegments()):
                 data = sig.getSegment(seg).data()
-                dimof = sig.getSegmentDim(seg).data()
+                dimof = _base.TimeArray(sig.getSegmentDim(seg)).ns
                 r = _if.write_data(path, data, dimof, t0)
                 R.append({"seg": seg, "rds": r})
                 print(seg, r)
@@ -267,7 +269,7 @@ def _write_signals(path, signals, t0):
                     return(R)
         else:
             data = sig.data()
-            dimof = sig.dim_of()
+            dimof = _base.TimeArray(sig.dim_of()).ns
             R = _if.write_data(path, data, dimof, t0)
             print(R)
             if R.status_code >= 400:
@@ -280,15 +282,16 @@ def _write_signals(path, signals, t0):
         for sig in signals:
             sig = sig.evaluate()
             data.append(sig.data())
-            dimof.append(sig.dim_of().data())
-        for d in data[1:]:
-            if not data[0].dtype==d.dtype:
-                raise(Exception('data types are not equal for all channels'))
-        for d in dimof[1:]:
-            if not (dimof[0]==d).all():
-                raise(Exception('dimesions are not equal for all channels'))
-        dimof = dimof[0]
+            sigdimof = _base.TimeArray(sig.dim_of()).ns
+            if dimof==[]:
+                dimof = sigdimof
+            else:
+                if not (data[0].dtype==data[-1].dtype):
+                    raise(Exception('data types are not equal for all channels'))
+                if not (dimof==sigdimof):
+                    raise(Exception('dimesions are not equal for all channels'))
         data = _np.array(data)
+        dimof = _np.array(dimof)
         N = 100000
         for i in _ver.xrange(int((len(dimof)-1)/N+1)):
             R.append(_if.write_data(path, data[:,i*N:(i+1)*N], dimof[i*N:(i+1)*N]), t0)
