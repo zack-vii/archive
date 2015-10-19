@@ -134,7 +134,7 @@ class getFlags(int):
 
 def getTimestamp(n=1):
     url = 'http://mds-data-1.ipp-hgw.mpg.de/operator/last_trigger/'+str(n)
-    return(_base.Time(_ver.urllib.urlopen(url).read(20)))
+    return(_base.Time(int(_ver.urllib.urlopen(url).read(20))))
 
 
 def fixname(name):
@@ -231,8 +231,12 @@ def ndims(signal, N=0):
     return N
 
 
-def setTIME(time):
-    time = _base.TimeInterval(time)
-    data = _mds.Int64Array(time)
-    data.setUnits('ns')
-    _mds.TdiCompile('\TIME').putData(data)
+def setTIME(tree,shot):
+    tree = _mds.Tree(tree,shot)
+    _t = tree.getNode('\TIME')
+    def setT(n):
+        t = _mds.Uint64(getTimestamp(n))
+        t.setUnits('ns')
+        _t.getNode('T%d:IDEAL' % n).putData(t)
+    for i in range(7):
+        setT(i)
