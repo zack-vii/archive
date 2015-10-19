@@ -6,9 +6,11 @@ data rooturl database view    project strgrp stream idx    channel
 lev  0       1        2       3       4      5      6      7
 """
 import os as _os
+import mmap as _mmap
 import json as _json
 import MDSplus as _mds
 import numpy as _np
+
 try:
     import h5py as _h5
 except:
@@ -32,13 +34,15 @@ def write_logurl(url, parms, time):
            }
     return(post(url, json=log))  # , data=json.dumps(cfg)
 
+
 def write_data(path, data, dimof, t0=0):
     # path=Path, data=numpy.array, dimof=numpy.array
     if not isinstance(data, _np.ndarray):
         raise Exception('write_data: data must be numpy.ndarray')
     dimof = _np.array(dimof)
     if dimof.dtype == float:
-        dimof = (dimof*1e9).astype('uint64') + t0
+        dimof = (dimof*1e9).astype('uint64')
+    dimof = dimof + t0
     if dimof.ndim == 0:  # we need to add one level
         dimof = [dimof.tolist()]
         data  = data.reshape(*(list(data.shape)+[1]))
@@ -72,12 +76,13 @@ def _write_vector(path, data, dimof):
     tmpfile = _ver.tmpdir+"archive_"+stream+".h5"
     try:
         with _h5.File(tmpfile, 'w') as f:
-            f.create_dataset(stream, data=data.tolist(), dtype=dtype,
+            g = f.create_group('data')
+            g.create_dataset(stream, data=data.transpose(*list(range(1,data.ndim)+[0])).tolist(), dtype=dtype,
                              compression="gzip")
-            f.create_dataset('timestamps', data=list(dimof), dtype='int64',
+            g.create_dataset('timestamps', data=list(dimof), dtype='int64',
                              compression="gzip")
         headers = {'Content-Type': 'application/x-hdf'}
-        link = path.url_streamgroup()+'?dataPath='+stream+'&timePath=timestamps'
+        link = path.url_streamgroup()+'?dataPath=data/'+stream+'&timePath=data/timestamps'
         with open(tmpfile, 'rb') as f:
             return(post(link, headers=headers, data=f))
     finally:
@@ -131,9 +136,17 @@ def post(url, headers={}, data=None, json=None):
     if json is not None:
         data = _json.dumps(json)
         headers['content-type'] = 'application/json'
+    if isinstance(data, (file)):
+        _debug(data.name)
+        data = _mmap.mmap(data.fileno(), 0, access=_mmap.ACCESS_READ)
+    else:
+        _debug(data)
+        data = _ver.tobytes(data)
     _debug(url)
-    _debug(data)
-    return(get(url, headers, _ver.tobytes(data)))
+    result = get(url, headers, data)
+    if isinstance(data,(_mmap.mmap)):
+        data.close()
+    return result
 
 
 def get(url, headers={}, *data):

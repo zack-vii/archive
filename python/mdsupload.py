@@ -264,7 +264,7 @@ def _write_signals(path, signals, t0):
                 r = _if.write_data(path, data, dimof, t0)
                 R.append({"seg": seg, "rds": r})
                 print(seg, r)
-                if r.status_code >= 400:
+                if r.getcode() >= 400:
                     print(r.content)
                     return(R)
         else:
@@ -272,7 +272,7 @@ def _write_signals(path, signals, t0):
             dimof = _base.TimeArray(sig.dim_of()).ns
             R = _if.write_data(path, data, dimof, t0)
             print(R)
-            if R.status_code >= 400:
+            if R.getcode() >= 400:
                 print(R.content)
         return(R)
     elif len(signals) > 1:
@@ -294,7 +294,9 @@ def _write_signals(path, signals, t0):
         dimof = _np.array(dimof)
         N = 100000
         for i in _ver.xrange(int((len(dimof)-1)/N+1)):
-            R.append(_if.write_data(path, data[:,i*N:(i+1)*N], dimof[i*N:(i+1)*N]), t0)
+            R.append(_if.write_data(path, data[:,i*N:(i+1)*N], dimof[i*N:(i+1)*N], t0))
+            if R[-1].getcode() >= 400:
+                print(R.content)
         return R
 
 
