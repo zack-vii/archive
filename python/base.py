@@ -231,15 +231,57 @@ def _url_parms(url, time=None, skip=0, nsamples=0, channels=[]):
             url = url+'?'+'&'.join(par)
     return url
 
+class TimeArray(list):
+    def __init__(self,*argin):
+        for i in Time(*argin):
+            self.append(i)
+
+    def __setitem__(self, value):
+        super(TimeArray, self).__setitem__(self, Time(value))
+
+    def __append__(self, value):
+        super(TimeArray, self).__append__(self, Time(value))
+
+    def _ns(self): return [i.ns for i in self]
+
+    def _s(self): return [i.s for i in self]
+
+    def _subsec(self): return [i.subsec for i in self]
+
+    def _utc(self): return [i.utc for i in self]
+
+    def _local(self): return [i.local for i in self]
+
+    ns = property(_ns)
+    s = property(_s)
+    utc = property(_utc)
+    local = property(_local)
+    subsec = property(_subsec)
+
 
 class Time(_ver.long):
     """
-    Time([<ns:long>, <s:float>,'now', 'now_m'])
+    Time([<ns:long>, <s:float>,'now', 'now_m'],['ns','us','ms','s','m','h','d'])
     """
+    _d2ns = 86400000000000
+    _h2ns = 3600000000000
+    _m2ns = 60000000000
     _s2ns = 1000000000
-    def __new__(self, time='now', local=False):
+    _ms2ns = 1000000
+    _us2ns = 1000
+    def __new__(self, time='now', units=None, local=False):
         if isinstance(time, Time):
             return time
+        if isinstance(time, (_mds.treenode.TreeNode)):
+            return Time(time.evaluate(),units,local)
+        if isinstance(time, (list,_np.ndarray)):
+            return [Time(e,units,local) for e in time]
+        if isinstance(time, (_mds.mdsarray.Array, _mds.Dimension)):
+            if units is None:
+                units = time.units
+            return Time(time.data(),units,local)
+        if isinstance(time, (tuple)):
+            return tuple(Time(e,units,local) for e in time)
         def listtovalue(time):
             time += [0]*(9-len(time))
             seconds = int(_time.mktime(tuple(time[0:6]+[0]*3)) -
@@ -269,13 +311,32 @@ class Time(_ver.long):
                 return listtovalue(time)
         if isinstance(time, (_time.struct_time,)):
             return listtovalue(list(time)[0:6])
-        if isinstance(time, (_mds.treenode.TreeNode, _mds.Scalar)):
+        if isinstance(time, (_mds.Scalar)):
+            if units is None:
+                units = time.units
             time = time.data()
-        if isinstance(time, (_np.ScalarType)):
+#        if isinstance(time, (_np.ScalarType)):
+        if units is None:
             if _np.array(time).dtype==float:
                 time = time*self._s2ns
-            return super(Time, self).__new__(self, time)
-        return listtovalue(list(time[0:9]))
+        else:
+            units = units.lower()
+            if units =='ns':
+                pass
+            elif units =='us':
+                time = time*self._us2ns
+            elif units =='ms':
+                time = time*self._ms2ns
+            elif units =='s':
+                time = time*self._s2ns
+            elif units =='m':
+                time = time*self._m2ns
+            elif units =='h':
+                time = time*self._h2ns
+            elif units =='d':
+                time = time*self._d2ns
+        return super(Time, self).__new__(self, time)
+
 
     def __add__(self, y):
         if isinstance(y, float):
@@ -321,7 +382,7 @@ class Time(_ver.long):
     subsec = property(_subsec)
 
 
-class TimeInterval(list):
+class TimeInterval(TimeArray):
     """
     isinstance generic
     from <=  0 : upto -|X| ns
@@ -353,10 +414,8 @@ class TimeInterval(list):
                 arg = list(map(Time,arg))
                 arg += [0] if arg[0] < 0 else arg
             arg += [-1] if arg[0]<0 else [0]
-        if arg[0]==0:
-            arg[0] = 'now'
-        if arg[1]==0:
-            arg[1] = 'now'
+        if arg[0]==0: arg[0] = 'now'
+        if arg[1]==0: arg[1] = 'now'
         super(TimeInterval, self).append(Time(arg[0]))
         super(TimeInterval, self).append(Time(arg[1]))
         super(TimeInterval, self).append(Time(arg[2]))
@@ -402,18 +461,18 @@ class TimeInterval(list):
 
     def _uptoStr(self): return str(self.uptoT)
 
-    def _utc(self): return [self.fromT.utc, self.uptoT.utc]
-
-    def _local(self): return [self.fromT.local, self.uptoT.local]
-
-    def _s(self): return [self.fromT.s, self.uptoT.s]
-
-    def _ns(self): return [self.fromT.ns, self.uptoT.ns]
-
-    ns = property(_ns)
-    s = property(_s)
-    utc = property(_utc)
-    local = property(_local)
+#    def _utc(self): return [self.fromT.utc, self.uptoT.utc]
+#
+#    def _local(self): return [self.fromT.local, self.uptoT.local]
+#
+#    def _s(self): return [self.fromT.s, self.uptoT.s]
+#
+#    def _ns(self): return [self.fromT.ns, self.uptoT.ns]
+#
+#    ns = property(_ns)
+#    s = property(_s)
+#    utc = property(_utc)
+#    local = property(_local)
     fromT = property(_getFrom, _setFrom)
     uptoT = property(_getUpto, _setUpto)
     t0T = property(_getT0, _setT0)
