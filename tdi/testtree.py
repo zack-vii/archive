@@ -125,9 +125,11 @@ def createTestTree(shot=-1,path=None):
                     for i in _xrange(int(data.shape[0]/segsz)):
                         ft  = (i*segsz,(i+1)*segsz)
                         img = data[ft[0]:ft[1]]
-                        dim = MDSplus.Dimension(None,dims[ft[0]:ft[1]]).setUnits(duns)
+                        dim = MDSplus.Dimension(None,dims[ft[0]:ft[1]])
+                        dim.setUnits(duns)
                         n.makeSegment(dims[ft[0]],dims[ft[1]-1],dim,img)
-                    n.setHelp(sig.getHelp())
+                    # n.setUnits(sig.units)
+                    # n.setHelp(sig.getHelp())
                 else:
                     n.putData(getSignal(name,True))
             name = None
@@ -151,6 +153,8 @@ def createTestTree(shot=-1,path=None):
         populate(datanode)
         tree.write()
         evaluate(datanode)
+    with MDSplus.Tree('test',shot) as tree:
+        tree.cleanDatafile()
 
 if __name__ == '__main__':
   createTestTree()
