@@ -67,13 +67,14 @@ def upload(names=['SINWAV'], shot=0, treename='W7X', time=None):
     path = _base.Path('raw/W7X')
     for name in names:
         kks = w7x.getNode(name)
-        cfg = _getCfgLog(kks)
+        kkscfg = _getCfgLog(kks)
         data = kks.getNode('DATA')
         secdict = {}
         for sec in data.getDescendants():
             print(sec)
             path.streamgroup = name+'_'+sec.getNodeName().lower()
             try:
+                cfg = _getCfgLog(sec,kkscfg)
                 pcl = _if.write_logurl(path.url_cfglog(), cfg, time.fromT)
             except:
                 pcl = _sup.error(1)
@@ -82,47 +83,10 @@ def upload(names=['SINWAV'], shot=0, treename='W7X', time=None):
     return(SD)
 
 
-def uploadNode(node):  # , subsection=None):
-    '''
-    node = TreeNode or (tree, shot, path) or path -> (tree='w7X', shot=0)
-    e.g.:
-    uploadNode(("sandbox", -1, "\\KKS_EVAL::TOP.RESULTS:MYSECTION:MYIMAGE"))
-    '''
-    if isinstance(node, (_mds.treenode.TreeNode)):
-        tree = node.tree
-    elif isinstance(node, (tuple, list)):
-        tree = _mds.Tree(node[0], node[1])
-        node = tree.getNode(node[2])
-    else:
-        tree = _mds.Tree('W7X', 0)
-        node = tree.getNode(node)
-    path = _buildPath(node)  # , subsection)
-    t0 = _base.Time(tree.getNode('\TIME.T0:IDEAL').data())
-    t1 = _base.Time(tree.getNode('\TIME.T1:IDEAL').data())
-    par, sig = _iterateDevices(node)
-    if node.usage == "SIGNAL":
-        if len(sig):  # prepend
-            sig = [node] + sig
-            par["chanDescs"] = [_signalDict(node, node)] + par["chanDescs"]
-        else:  # replace
-            sig = [node]
-            par = {"chanDescs": [_signalDict(node, node)]}
-    par["shot"] = int(tree.shot)
-    r = [None, None]
-    r[0] = _if.write_logurl(path.url_parlog(), par, t0)
-    r[1] = _write_signals(path, sig, t1)
-    print(r)
-    if not r[0].ok:
-        print(r[0].content)
-    if not r[1].ok:
-        print(r[1].content)
-    return r
-
-
-def _getCfgLog(node):
-    parms = {}
+def _getCfgLog(node,parms={}):
+    parms = parms.copy()
     for m in node.getMembers():
-        #  if m.usage in ("TEXT", "NUMERIC"):
+        if m.usage!='SIGNAL':
             try:
                 k = m.getNodeName().lower()
                 v = m.data()
@@ -134,7 +98,9 @@ def _getCfgLog(node):
 
 
 def _sectionDict(node, secs, kks, time, path):
-    '''for interenal use'''
+    ''' for interenal use
+    browse sections of .DATA
+    '''
     f = _re.compile('(?<=\.HARDWARE[:\.])([^\.:]+)')
     chans = {}
     devs = {}
@@ -312,3 +278,40 @@ def _buildPath(node):  # , subsection=None):
     groupname = PathParts[-1].lower()
     path = _base.Path('/'.join([view, 'W7X', KKS+'_'+section, groupname]))
     return(path)
+
+
+def uploadNode(node):  # , subsection=None):
+    '''
+    node = TreeNode or (tree, shot, path) or path -> (tree='w7X', shot=0)
+    e.g.:
+    uploadNode(("sandbox", -1, "\\KKS_EVAL::TOP.RESULTS:MYSECTION:MYIMAGE"))
+    '''
+    if isinstance(node, (_mds.treenode.TreeNode)):
+        tree = node.tree
+    elif isinstance(node, (tuple, list)):
+        tree = _mds.Tree(node[0], node[1])
+        node = tree.getNode(node[2])
+    else:
+        tree = _mds.Tree('W7X', 0)
+        node = tree.getNode(node)
+    path = _buildPath(node)  # , subsection)
+    t0 = _base.Time(tree.getNode('\TIME.T0:IDEAL').data())
+    t1 = _base.Time(tree.getNode('\TIME.T1:IDEAL').data())
+    par, sig = _iterateDevices(node)
+    if node.usage == "SIGNAL":
+        if len(sig):  # prepend
+            sig = [node] + sig
+            par["chanDescs"] = [_signalDict(node, node)] + par["chanDescs"]
+        else:  # replace
+            sig = [node]
+            par = {"chanDescs": [_signalDict(node, node)]}
+    par["shot"] = int(tree.shot)
+    r = [None, None]
+    r[0] = _if.write_logurl(path.url_parlog(), par, t0)
+    r[1] = _write_signals(path, sig, t1)
+    print(r)
+    if not r[0].ok:
+        print(r[0].content)
+    if not r[1].ok:
+        print(r[1].content)
+    return r
