@@ -72,9 +72,9 @@ def upload(names=['SINWAV'], shot=0, treename='W7X', time=None):
         secdict = {}
         for sec in data.getDescendants():
             print(sec)
-            path.streamgroup = name+'_'+sec.getNodeName().lower()
+            path.streamgroup = name+'_'+sec.getNodeName().lower()+'1'
             try:
-                cfg = _getCfgLog(sec,kkscfg)
+                cfg = _treeToDict(sec,kkscfg.copy(),'')
                 pcl = _if.write_logurl(path.url_cfglog(), cfg, time.fromT)
             except:
                 pcl = _sup.error(1)
@@ -83,17 +83,13 @@ def upload(names=['SINWAV'], shot=0, treename='W7X', time=None):
     return(SD)
 
 
-def _getCfgLog(node,parms={}):
-    parms = parms.copy()
+def _getCfgLog(node):
+    parms = {}
     for m in node.getMembers():
-        if m.usage!='SIGNAL':
-            try:
-                k = m.getNodeName().lower()
-                v = m.data()
-                if v is not None:
-                    parms[k] = _sup.cp(v)
-            except:
-                pass
+        parms  = _treeToDict(m,parms)
+    for c in node.getChildren():
+        if not c.getNodeName() in ['HARDWARE','DATA']:
+            parms = _treeToDict(c,parms)
     return(parms)
 
 
@@ -134,13 +130,13 @@ def _sectionDict(node, secs, kks, time, path):
 
 
 def _channelDescs(ch, dic):
-    desc = {}
-    nid = ch.getData().Nid
-    if ch.getNumDescendants()>0:
-        _treeToDict(ch, desc)
     if ch.usage == "SIGNAL":
+        desc = {}
+        if ch.getNumDescendants()>0:
+            _treeToDict(ch, desc)
         desc["name"] = ch.getNodeName().lower()
-    dic[nid] = desc
+        nid = ch.getData().Nid
+        dic[nid] = desc
     return dic
 
 
@@ -191,9 +187,15 @@ def _signalDict(node, sig=None, dic={}):
     return(desc)
 
 
-def _treeToDict(node, Dict):
-    if node.usage not in ['ACTION', 'TASK', 'SIGNAL']:  # exclude by usage
-        name = node.getNodeName().lower()
+def _treeToDict(node, Dict={}, name=None):
+    try:
+        if node.usage in ['ACTION', 'TASK', 'SIGNAL']:  # exclude by usage
+            return Dict
+        sDict = {}
+        if name is None:
+            name = node.getNodeName().lower()
+        elif name=='':
+            sDict = Dict
         try:
             data = node.data().tolist()
             try:
@@ -202,18 +204,20 @@ def _treeToDict(node, Dict):
                 pass
         except:
             data = None
-
-        if node.getNumDescendants()>0:
-            sDict = {}
-            for d in node.getDescendants():
-                sDict = _treeToDict(d, sDict)
-            if len(sDict.keys()):
-                if data is not None:
-                    sDict["$value"] = data
+        for d in node.getDescendants():
+            sDict = _treeToDict(d, sDict)
+        if len(sDict.keys()):
+            if data is not None:
+                sDict["$value"] = data
+            if name!='':
                 Dict[name] = sDict
-                return(Dict)
-        if data is not None:
-            Dict[name] = data
+        elif data is not None:
+            if name!='':
+                Dict[name] = data
+            else:
+                Dict = data
+    except:
+        pass
     return(Dict)
 
 
