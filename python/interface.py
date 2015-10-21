@@ -28,7 +28,11 @@ class URLException(Exception):
 
 
 def write_logurl(url, parms, time):
-    log = {'label' : 'parms',
+    if url.endswith('CFGLOG'):
+        label = 'configuration'
+    else:
+        label = 'parms'
+    log = {'label' : label,
            'values': [parms],
            'dimensions': [_base.TimeInterval(time).fromT.ns,-1]
            }
@@ -73,7 +77,7 @@ def _write_vector(path, data, dimof):
     # path=Path, data=numpy.array, dimof=list of long
     dtype = str(data.dtype)
     stream = path.stream
-    tmpfile = _ver.tmpdir+"archive_"+stream+".h5"
+    tmpfile = _ver.tmpdir+"archive_"+stream+'_'+str(dimof[0])+".h5"
     try:
         with _h5.File(tmpfile, 'w') as f:
             g = f.create_group('data')
@@ -86,7 +90,11 @@ def _write_vector(path, data, dimof):
         with open(tmpfile, 'rb') as f:
             return(post(link, headers=headers, data=f))
     finally:
-        _os.remove(tmpfile)
+        try:
+            _os.remove(tmpfile)
+        except:
+            print('could not delete file "%s"' % tmpfile)
+            pass
 
 
 def read_signal(path, time, t0=0, *arg):
