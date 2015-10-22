@@ -14,9 +14,10 @@ from . import interface as _if
 from . import support as _sup
 from . import version as _ver
 _MDS_shots = _base.Path('raw/W7X/MDSplus/shots')
+_subtrees  = ['QMC','QMR','QRN','QSD','QSQ','QSR','QSW','QSX']
 
 
-def _writeparlog():
+def setupTiming():
     """should be executed only once before frist experiment"""
     def chanDesc(n):
         if n==0:
@@ -29,18 +30,22 @@ def _writeparlog():
     return result
 
 
-def uploadModel(shot):
+def uploadModel(shot, subtrees=_subtrees, treename='W7X'):
     """should be executed right after T0"""
     def getModel():
-        nodenames = ['ADMIN','TIMING','QMC','QMR','QRN','QSD','QSQ','QSR','QSW','QSX']
-        w7x = _mds.Tree('W7X',-1)
-        return dict([k,_diff.treeToDict(w7x.getNode(k))] for k in nodenames)
+        nodenames = ['ADMIN','TIMING']+subtrees
+        w7x = _mds.Tree(treename,-1)
+        model = {}
+        for key in nodenames:
+            print('reading %s' % key)
+            model[key]=_diff.treeToDict(w7x.getNode(key))
 
     time = _sup.getTiming(shot, 0)
     cfglog = getModel()
     result = _if.write_logurl(_MDS_shots.url_cfglog(), cfglog, time)
     print(result.msg)
     return result
+
 
 def uploadTiming(shot):
     """should be executed soon after T6"""
@@ -52,11 +57,11 @@ def uploadTiming(shot):
     return result
 
 
-def upload(names=['SINWAV'], shot=0, treename='W7X', time=None):
+def uploadShot(shot, subtrees=_subtrees, treename='W7X', time=None):
     '''
-    upload(['KKS'], shot=0, treename='W7X')
+    uploadData(['KKS'], shot=0, treename='W7X')
     uploads all sections of a given tree
-    e.g.: D=upload(['QMC', 'QMR', 'QRN', 'QSW', 'QSX'], 2, 'W7X')
+    e.g.: D=uploadData(['QMC', 'QMR', 'QRN', 'QSW', 'QSX'], 2, 'W7X')
     '''
     SD = []
     w7x = _mds.Tree(treename, shot)
@@ -65,14 +70,14 @@ def upload(names=['SINWAV'], shot=0, treename='W7X', time=None):
     else:
         time = _base.TimeInterval(time)
     path = _base.Path('raw/W7X')
-    for name in names:
-        kks = w7x.getNode(name)
+    for subtree in subtrees:
+        kks = w7x.getNode(subtree)
         kkscfg = _getCfgLog(kks)
         data = kks.getNode('DATA')
         secdict = {}
         for sec in data.getDescendants():
             print(sec)
-            path.streamgroup = name+'_'+sec.getNodeName().lower()+'1'
+            path.streamgroup = subtree.upper()+'_'+sec.getNodeName().lower()+'1'
             try:
                 cfg = _treeToDict(sec,kkscfg.copy(),'')
                 pcl = _if.write_logurl(path.url_cfglog(), cfg, time.fromT)

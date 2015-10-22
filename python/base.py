@@ -6,6 +6,7 @@ data rooturl database view    project strgrp stream idx    channel
 lev  0       1        2       3       4      5      6      7
 """
 import MDSplus as _mds
+import MDSplus.tdibuiltins as _tdi
 import numpy as _np
 import os as _os
 import re as _re
@@ -401,7 +402,7 @@ class TimeInterval(TimeArray):
     def __init__(self, arg=[-1800., 'now', -1]):
         if type(arg) is TimeInterval:
             return  # short cut
-        if isinstance(arg, (_mds.Array, _mds.Ident, _mds.treenode.TreeNode, _mds.tdibuiltins.VECTOR)):
+        if isinstance(arg, (_mds.Array, _mds.Ident, _mds.treenode.TreeNode, _tdi.VECTOR)):
             arg = arg.data()
         if isinstance(arg, (_np.ndarray,)):
             arg = arg.tolist()

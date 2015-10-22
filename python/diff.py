@@ -25,7 +25,7 @@ def treeToDict(tree, exclude=[]):
                 dic["record"] = _mds.TdiDecompile(node.record)
             except:
                 pass
-        dic["flags"] = _sup.getFlags(node)
+        dic["flags"] = _sup.Flags(node)
         dic["tags"] = list(map(str,node.tags))
         for desc in node.getDescendants():
             if not str(desc.getPath()) in exclude:

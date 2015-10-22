@@ -70,7 +70,7 @@ def getTiming(shot, n=_ver.range(7)):
     else:
         return time.getNode('T%d:IDEAL' % n).data().tolist()
 
-class getFlags(int):
+class Flags(int):
     _STATE             =0x00000001
     _PARENT_STATE      =0x00000002
     _ESSENTIAL         =0x00000004
@@ -90,9 +90,8 @@ class getFlags(int):
     _COMPRESS_SEGMENTS =0x00010000
 
     def __new__(self, flags):
-        from MDSplus import TdiExecute, TreeNode
-        if isinstance(flags, TreeNode):
-            flags = TdiExecute('GETNCI($,"GET_FLAGS")', (flags,))
+        if isinstance(flags, _mds.TreeNode):
+            flags = _mds.TdiExecute('GETNCI($,"GET_FLAGS")', (flags,))
         return int.__new__(self, int(flags))
 
     def _on(self): return not bool(self & 1<<0)
@@ -113,23 +112,23 @@ class getFlags(int):
     def _include_in_pulse(self): return bool(self & 1<<15)
     def _compress_segments(self): return bool(self & 1<<16)
 
-    is_on = property(_on)
-    is_parent_on = property(_parent_on)
-    is_essential = property(_essential)
-    is_cached = property(_cached)
-    is_versions = property(_versions)
-    is_segmented = property(_segmented)
-    is_setup = property(_setup)
-    is_write_once = property(_write_once)
-    is_compressible = property(_compressible)
-    is_do_not_compress = property(_do_not_compress)
-    is_compress_on_put = property(_compress_on_put)
-    is_no_write_model = property(_no_write_model)
-    is_no_write_shot = property(_no_write_shot)
-    is_path_reference = property(_path_reference)
-    is_nid_reference = property(_nid_reference)
-    is_include_in_pulse = property(_include_in_pulse)
-    is_compress_segments = property(_compress_segments)
+    on = property(_on)
+    parent_on = property(_parent_on)
+    essential = property(_essential)
+    cached = property(_cached)
+    versions = property(_versions)
+    segmented = property(_segmented)
+    setup = property(_setup)
+    write_once = property(_write_once)
+    compressible = property(_compressible)
+    do_not_compress = property(_do_not_compress)
+    compress_on_put = property(_compress_on_put)
+    no_write_model = property(_no_write_model)
+    no_write_shot = property(_no_write_shot)
+    path_reference = property(_path_reference)
+    nid_reference = property(_nid_reference)
+    include_in_pulse = property(_include_in_pulse)
+    compress_segments = property(_compress_segments)
 
 
 def getTimestamp(n=1):
