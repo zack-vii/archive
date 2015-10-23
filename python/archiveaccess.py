@@ -8,6 +8,7 @@ lev  0       1        2       3       4      5      6      7
 from . import base as _base
 from . import interface as _if
 from . import support as _sup
+from . import version as _ver
 
 
 def mds_signal(url, time, help, channel):
@@ -15,8 +16,12 @@ def mds_signal(url, time, help, channel):
     try:
         time = _base.TimeInterval(time)
         t0 = time.t0T
-        signal = _if.read_signal(url, time, t0, 0, 0, channel.tolist())
-        signal.setHelp(str(help))
+        try:
+            channel = channel.tolist()
+        except:
+            pass
+        signal = _if.read_signal(url, time, t0, 0, 0, channel)
+        signal.setHelp(_ver.tostr(help))
         return signal
     except:
         import getpass
