@@ -136,7 +136,7 @@ def _sectionDict(section, kks, T0, T1, path):
     return sectionDict
 
 
-def _signalDict(signal, signalDict):
+def _signalDict(signal, signalDict={}):
     """collects the properties of a signal node and assiciates it with a channel nid
     called by _sectionDict"""
     if signal.usage == "SIGNAL":
@@ -162,7 +162,7 @@ def _getChannelLists(kks, channels):
     return channelLists
 
 
-def _deviceDict(device, channelList, signalDict):
+def _deviceDict(device, channelList, signalDict={}):
     """collects the data of channels and their parenting devices
     called by _sectionDict"""
     def _searchSignal(descendant):
