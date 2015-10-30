@@ -15,7 +15,7 @@ from . import support as _sup
 from . import version as _ver
 _MDS_shots = _base.Path('raw/W7X/MDSplus/shots')
 _subtrees  = ['QMC','QMR','QRN','QSD','QSQ','QSR','QSW','QSX']
-
+_exclude   = ['ACTION', 'TASK', 'SIGNAL']
 
 def setupTiming():
     """sets up the parlog of the shots datastream in the web archive
@@ -85,7 +85,7 @@ def uploadShot(shot, subtrees=_subtrees, treename='W7X', T0=None, T1=None):
             print(sec)
             path.streamgroup = subtree.upper()+'_'+sec.getNodeName().lower()
             try:
-                cfglog = _treeToDict(sec,kkscfg.copy(),'')
+                cfglog = _sup.treeToDict(sec,kkscfg.copy(),_exclude,'')
                 log_cfglog = _if.write_logurl(path.url_cfglog(), cfglog, T0)
             except:
                 log_cfglog = _sup.error(1)
@@ -99,10 +99,10 @@ def _getCfgLog(kks):
     called by uploadShot"""
     cfglog = {}
     for m in kks.getMembers():
-        cfglog  = _treeToDict(m,cfglog)
+        cfglog  = _sup.treeToDict(m, cfglog, _exclude)
     for c in kks.getChildren():
         if not c.getNodeName() in ['HARDWARE','DATA']:
-            cfglog = _treeToDict(c,cfglog)
+            cfglog = _sup.treeToDict(c, cfglog, _exclude)
     return(cfglog)
 
 
@@ -142,7 +142,7 @@ def _signalDict(signal, signalDict={}):
     if signal.usage == "SIGNAL":
         desc = {}
         if signal.getNumDescendants()>0:
-            _treeToDict(signal, desc)
+            _sup.treeToDict(signal, desc, _exclude)
         desc["name"] = signal.getNodeName().lower()
         nid = signal.getData().Nid
         signalDict[nid] = desc
@@ -181,7 +181,7 @@ def _deviceDict(device, channelList, signalDict={}):
     for descendant in device.getDescendants():
         signal = _searchSignal(descendant)
         if signal is None:  # add to parlog
-            _treeToDict(descendant, deviceDict)
+            _sup.treeToDict(descendant, deviceDict, _exclude)
         elif signal.Nid in channelList:  # add to signal list
             chanDescs.append(_chanDesc(descendant, signal, signalDict))
             signalList.append(signal)
@@ -222,43 +222,7 @@ def _channelDict(signalroot, nid):
     channelDict["physicalQuantity"] = {'type': 'unknown'}
     for sibling in signalroot.getDescendants():
         if not sibling.Nid == nid:  # in case: DEVICE.STRUCTURE:SIGNAL
-            channelDict = _treeToDict(sibling, channelDict)
-
-
-def _treeToDict(node, Dict={}, name=None):
-    """generates a dict of the of a node structure
-    called by <multiple>"""
-    try:
-        if node.usage in ['ACTION', 'TASK', 'SIGNAL']:  # exclude by usage
-            return Dict
-        sDict = {}
-        if name is None:
-            name = node.getNodeName().lower()
-        elif name=='':
-            sDict = Dict
-        try:
-            data = node.data().tolist()
-            try:
-                data = data.tolist()
-            except:
-                pass
-        except:
-            data = None
-        for d in node.getDescendants():
-            sDict = _treeToDict(d, sDict)
-        if len(sDict.keys()):
-            if data is not None:
-                sDict["$value"] = data
-            if name!='':
-                Dict[name] = sDict
-        elif data is not None:
-            if name!='':
-                Dict[name] = data
-            else:
-                Dict = data
-    except:
-        pass
-    return(Dict)
+            channelDict = _sup.treeToDict(sibling, channelDict, _exclude)
 
 
 def _write_signals(path, signals, t0):

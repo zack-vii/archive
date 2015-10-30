@@ -28,6 +28,42 @@ def sampleImage(imgfile='image.jpg'):
     return (im[:, :, 2]+im[:, :, 1]*256+im[:, :, 0]*65536).T.tolist()
 
 
+def treeToDict(node, Dict={}, exclude=[], name=None):
+    """generates a dict of the of a node structure
+    called by <multiple>"""
+    try:
+        if node.usage in exclude:  # exclude by usage
+            return Dict
+        sDict = {}
+        if name is None:
+            name = node.getNodeName().lower()
+        elif name=='':
+            sDict = Dict
+        try:
+            data = node.data().tolist()
+            try:
+                data = data.tolist()
+            except:
+                pass
+        except:
+            data = None
+        for d in node.getDescendants():
+            sDict = treeToDict(d, sDict, exclude)
+        if len(sDict.keys()):
+            if data is not None:
+                sDict["$value"] = data
+            if name!='':
+                Dict[name] = sDict
+        elif data is not None:
+            if name!='':
+                Dict[name] = data
+            else:
+                Dict = data
+    except:
+        pass
+    return(Dict)
+
+
 class remoteTree(_mds.Tree):
     def __init__(self, shot='-1', tree='W7X', server='mds-data-1'):
         from MDSplus import Connection

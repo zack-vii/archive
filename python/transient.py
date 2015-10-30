@@ -315,7 +315,11 @@ class server(object):
     def configTree(self, node):
         if isinstance(node, str):
             node = self.Tree(self.last).getNode(node)
-        return _mdsup._signalDict(node)
+        desc = {}
+        for d in node.getDescendants():
+            desc = _sup.treeToDict(d, desc)
+        desc["name"] = node.getNodeName().lower()
+        return desc
 
     def checkconfig(self, node):
         tdict = self.configTree(node)
