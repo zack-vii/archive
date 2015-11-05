@@ -89,7 +89,7 @@ def getSignal(name,data=False):
 
 
 def createTestTree(shot=-1,path=None):
-    import MDSplus
+    import MDSplus as m
     def checkpath(path):
         import os
         if not len(os.environ["test_path"]):
@@ -120,7 +120,7 @@ def createTestTree(shot=-1,path=None):
 
     def evaluate_python(node):
         for n in node.getMembers():
-            n.putData(MDSplus.TdiCompile('testtree($)',(n,)))
+            n.putData(m.TdiCompile('testtree($)',(n,)))
 
 
     def evaluate_data(node):
@@ -130,6 +130,7 @@ def createTestTree(shot=-1,path=None):
                 name = n.getNodeName()
                 sig = getSignal(name,True)
                 if name.startswith("SEG"):
+                    m.tcl('SET NODE %s /COMPRESS_SEGMENTS' % n.getPath())
                     data= sig.data()
                     dims= sig.dim_of().data()
                     duns= sig.dim_of().units
@@ -137,7 +138,7 @@ def createTestTree(shot=-1,path=None):
                     for i in range(int(data.shape[0]/segsz)):
                         ft  = (i*segsz,(i+1)*segsz)
                         img = data[ft[0]:ft[1]]
-                        dim = MDSplus.Dimension(None,dims[ft[0]:ft[1]])
+                        dim = m.Dimension(None,dims[ft[0]:ft[1]])
                         dim.setUnits(duns)
                         n.makeSegment(dims[ft[0]],dims[ft[1]-1],dim,img)
                     # n.setUnits(sig.units)
@@ -150,13 +151,13 @@ def createTestTree(shot=-1,path=None):
                 print(name)
 
     path = checkpath(path)
-    with MDSplus.Tree('test',shot,'new') as tree:
+    with m.Tree('test',shot,'new') as tree:
         populate(tree.addNode('DATA','STRUCTURE'))
         populate(tree.addNode('PYTHON','STRUCTURE'))
         tree.write()
         evaluate_data(tree.getNode('DATA'))
         evaluate_python(tree.getNode('PYTHON'))
-    with MDSplus.Tree('test',shot) as tree:
+    with m.Tree('test',shot) as tree:
         tree.compressDatafile()
 
 if __name__ == '__main__':

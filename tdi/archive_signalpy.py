@@ -11,7 +11,7 @@ def archive_signal(node, time=None):
             try:
                 time = archive.TimeInterval(time)
             except:
-                time = archive.TimeInterval([-1800.,0])
+                time = archive.TimeInterval([-1800.,0,0])
         else:
             time = archive.TimeInterval(node.getNode('\TIME').data())
         # load channels by datastream + index
