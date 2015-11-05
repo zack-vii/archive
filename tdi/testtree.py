@@ -89,40 +89,52 @@ def getSignal(name,data=False):
 
 
 def createTestTree(shot=-1,path=None):
-    import MDSplus,os
+    import MDSplus
+    def checkpath(path):
+        import os
+        if not len(os.environ["test_path"]):
+            if path is None:
+                isunix = os.name=='posix';
+                if isunix:
+                    path = "/tmp"
+                else:
+                    path = os.getenv('TEMP')
+            os.environ["test_path"] = path
+        return path
+
     def populate(node):
-        def py(n):
-            n.putData(MDSplus.TdiCompile('testtree('+n.getPath()+')'))
         ntypes=["ARR","SEG","NUM"]
         dtypes=["8","16","32","64","F","D"]
         ndims =range(3)
-        py(node.addNode('IMAGE','SIGNAL'))
-        py(node.addNode('IMAGES','SIGNAL'))
-        py(node.addNode('TEXT','TEXT'))
+        node.addNode('IMAGE','SIGNAL')
+        node.addNode('IMAGES','SIGNAL')
+        node.addNode('TEXT','TEXT')
         for nt in ntypes:
             for dt in dtypes:
                 if nt=="NUM":
-                    py(node.addNode(nt+dt,'NUMERIC'))
+                    node.addNode(nt+dt,'NUMERIC')
                 else:
                     for nd in ndims:
-                        py(node.addNode(nt+str(nd)+"D"+dt,'SIGNAL'))
-    def evaluate(node):
-        from sys import version_info as pyver
-        if pyver>(3,):
-            _xrange = range
-        else:
-            _xrange = xrange
+                        node.addNode(nt+str(nd)+"D"+dt,'SIGNAL')
+
+
+    def evaluate_python(node):
+        for n in node.getMembers():
+            n.putData(MDSplus.TdiCompile('testtree($)',(n,)))
+
+
+    def evaluate_data(node):
         try:
             segszs=(1000, 100)
             for n in node.getMembers():
                 name = n.getNodeName()
+                sig = getSignal(name,True)
                 if name.startswith("SEG"):
-                    sig = getSignal(name,True)
                     data= sig.data()
                     dims= sig.dim_of().data()
                     duns= sig.dim_of().units
                     segsz = segszs[data.ndim] if data.ndim<2 else 1
-                    for i in _xrange(int(data.shape[0]/segsz)):
+                    for i in range(int(data.shape[0]/segsz)):
                         ft  = (i*segsz,(i+1)*segsz)
                         img = data[ft[0]:ft[1]]
                         dim = MDSplus.Dimension(None,dims[ft[0]:ft[1]])
@@ -131,30 +143,21 @@ def createTestTree(shot=-1,path=None):
                     # n.setUnits(sig.units)
                     # n.setHelp(sig.getHelp())
                 else:
-                    n.putData(getSignal(name,True))
+                    n.putData(sig)
             name = None
         finally:
             if name is not None:
                 print(name)
 
-
-    if not len(os.environ["test_path"]):
-        if path is None:
-            isunix = os.name=='posix';
-            if isunix:
-                path = "/tmp"
-            else:
-                path = os.getenv('TEMP')
-        os.environ["test_path"] = path
+    path = checkpath(path)
     with MDSplus.Tree('test',shot,'new') as tree:
-        datanode = tree.addNode('DATA','STRUCTURE')
-        pynode   = tree.addNode('PYTHON','STRUCTURE')
-        populate(pynode)
-        populate(datanode)
+        populate(tree.addNode('DATA','STRUCTURE'))
+        populate(tree.addNode('PYTHON','STRUCTURE'))
         tree.write()
-        evaluate(datanode)
+        evaluate_data(tree.getNode('DATA'))
+        evaluate_python(tree.getNode('PYTHON'))
     with MDSplus.Tree('test',shot) as tree:
-        tree.cleanDatafile()
+        tree.compressDatafile()
 
 if __name__ == '__main__':
-  createTestTree()
+    createTestTree()
