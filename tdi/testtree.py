@@ -21,6 +21,7 @@ def getSignal(name,data=False):
         return String('Wooppp!!')
     from MDSplus._tdishr  import TdiCompile
     from MDSplus.mdsarray import Int8Array,Int16Array,Int32Array,Int64Array,Float32Array,Float64Array
+    from MDSplus import Dimension
     if name=='IMAGE':
         if data:
             return TdiCompile('DATA:ARR1D32')
@@ -67,24 +68,27 @@ def getSignal(name,data=False):
         if isfloat:
             return x
         return round(x*0x7F)
-
-    def time(N):
-        return Range(0., 1., 1./(N-1)).setUnits("time")
-    def axis(N,idx):
-        return Range(0., 1., 1./(N-1)).setUnits("dim_of("+str(idx)+")")
+    def mrange(N):
+        return Range(0., 1., 1./(N-1))
+    def time(r):
+        return Dimension(None,r).setUnits("time")
+    def axis(r,idx):
+        return Dimension(None,r).setUnits("dim_of("+str(idx)+")")
 
     data  = TdiCompile(tdifun+'($VALUE)').setUnits('V')
 
     dims = [[]]*(ndims+1)
-    dims[0] = time(shape[0])
+    dims[0] = mrange(shape[0])
     raw = pysfun(0).data()
     tfac = 1;
     for i in range(ndims,0,-1):
-        dims[i] = X = axis(shape[i],i)
-        raw = array([raw*factor+dfun(x) for x in X.data()])
+        dims[i] = X = mrange(shape[i])
+        raw = array([raw*factor+dfun(x) for x in X.data().tolist()])
         tfac*= factor
-    raw = array([raw+tfun(x)*tfac for x in dims[0].data()])
-    raw = pyafun(raw).setUnits('data')
+        dims[i] = axis(dims[i],i)
+    raw = array([raw+tfun(x)*tfac for x in dims[0].data().tolist()])
+    dims[0] = time(dims[0])
+    raw = pyafun(raw.tolist()).setUnits('data')
     return Signal(data,raw,*dims).setHelp('this is the help text')
 
 
@@ -160,5 +164,4 @@ def createTestTree(shot=-1,path=None):
     with m.Tree('test',shot) as tree:
         tree.compressDatafile()
 
-if __name__ == '__main__':
-    createTestTree()
+if __name__ == '__main__': createTestTree()
