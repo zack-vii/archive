@@ -14,7 +14,7 @@ from . import support as _sup
 from . import version as _ver
 
 
-def build(tree='archive', shot=-1, T=0, rootpath='/ArchiveDB/raw/W7X'):
+def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/raw/W7X'):
     def addProject(T, node, nname, name='', url=None):
         re = _re.compile('[A-Z]+[0-9]+')
         cap = _re.compile('[^A-Z]')
