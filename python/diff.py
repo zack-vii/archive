@@ -145,6 +145,7 @@ class DeepDiff(object):
                 t1 = {i: getattr(t1, i) for i in t1.__slots__}
                 t2 = {i: getattr(t2, i) for i in t2.__slots__}
             except AttributeError:
+                print(type(t1))
                 self.unprocessed.append(DeepDiff._change(parent, t1, t2))
                 return
 
@@ -264,6 +265,9 @@ class DeepDiff(object):
         elif isinstance(t1, _ver.numbers):
             if t1 != t2:
                 self.value.append(DeepDiff._change(parent, t1, t2))
+
+        elif isinstance(t1, list):
+            self.__diff_iterable(t1, t2, parent, parents_ids)
 
         elif isinstance(t1, dict):
             self.__diff_dict(t1, t2, parent, parents_ids)
