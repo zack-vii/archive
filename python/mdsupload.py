@@ -80,7 +80,7 @@ def uploadShot(shot, subtrees=_subtrees, treename='W7X', T0=None, T1=None):
     for subtree in subtrees:
         kks = w7x.getNode(subtree)
         kkscfg = _getCfgLog(kks)
-        data = kks.getNode('DATA')
+        data = kks.DATA
         for sec in data.getDescendants():
             print(sec)
             path.streamgroup = subtree.upper()+'_'+sec.getNodeName().lower()
@@ -115,7 +115,7 @@ def _sectionDict(section, kks, T0, T1, path):
     try:
         for signal in section.getDescendants():
             signalDict = _signalDict(signal, signalDict)
-        HW = kks.getNode('HARDWARE')
+        HW = kks.HARDWARE
         if HW.getNumDescendants()>0:
             channelLists = _getChannelLists(kks)
             for dev in HW.getDescendants():
@@ -153,7 +153,7 @@ def _getChannelLists(kks, channels):
     """collects the channel lists of all devices
     called by _sectionDict"""
     f = _re.compile('(?<=\.HARDWARE[:\.])([^\.:]+)')
-    HW = kks.getNode('HARDWARE')
+    HW = kks.HARDWARE
     channelLists = dict([device.Nid, []] for device in HW.getDescendants())
     for channel in channels.keys():
         deviceName = f.search(str(kks.tree.getNode(channel).FullPath)).group(0)

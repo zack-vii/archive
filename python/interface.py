@@ -144,7 +144,7 @@ def post(url, headers={}, data=None, json=None):
     if json is not None:
         data = _json.dumps(json)
         headers['content-type'] = 'application/json'
-    if isinstance(data, (file)):
+    if isinstance(data, (_ver.file)):
         _debug(data.name)
         data = _mmap.mmap(data.fileno(), 0, access=_mmap.ACCESS_READ)
     else:

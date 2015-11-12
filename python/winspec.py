@@ -36,7 +36,7 @@ def writedata(nodename, data, dims, shot=0):
 def writeparlog(parlog, shot=0, nodename='IMAGES', treename='QSQ'):
     w7x   = _mds.Tree('W7X', shot)
     tree  = w7x.getNode(treename)
-    triax = tree.getNode('DATA:HEBEAM')
+    triax = tree.DATA.HEBEAM
     node = triax.getNode(nodename)
     def dicttotree(dic, node):
         for k,v in dic.items():
@@ -60,7 +60,7 @@ def generateNode(parlog, shot=-1, nodename='IMAGES', treename='QSQ'):
             triax = triax[0]
         else:
             # triax = tree.getNode('HARDWARE').addNode('TRIAX','STRUCTURE')
-            triax = tree.getNode('DATA').addNode('HEBEAM','STRUCTURE')
+            triax = tree.DATA.addNode('HEBEAM','STRUCTURE')
         node = triax.getNodeWild(nodename)
         if len(node):
             node = node[0]

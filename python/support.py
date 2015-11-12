@@ -100,7 +100,7 @@ def getTimeInserted(node):
     return _base.Time(100*(int(_mds.TdiExecute('GETNCI($,"TIME_INSERTED")', (node,)))-35067240000000000), local=True)
 
 def getTiming(shot, n=_ver.range(7)):
-    time = _mds.Tree('W7X', shot).getNode('TIMING')
+    time = _mds.Tree('W7X', shot).TIMING
     if isinstance(n, (list, tuple)):
         return type(n)(time.getNode('T%d:IDEAL' % i).data().tolist() for i in n)
     else:

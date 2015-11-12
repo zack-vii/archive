@@ -10,7 +10,7 @@ from .base import createSignal  # analysis:ignore
 def createSectionNode(KKS, section, shot=-1):
     try:
         with MDSplus.Tree(KKS+'_EVAL', shot, 'edit') as tree:
-            tree.getNode(".RESULTS").addNode(section, 'STRUCTURE')
+            tree.DATA.addNode(section, 'STRUCTURE')
             tree.write()
         if shot > -1:
             try:
@@ -25,7 +25,7 @@ def createSectionNode(KKS, section, shot=-1):
 def createSignalNode(KKS, section, signal, shot=-1):
     try:
         with MDSplus.Tree(KKS+'_EVAL', shot, 'edit') as tree:
-            tree.getNode(".RESULTS." + section).addNode(signal, 'SIGNAL')
+            tree.DATA.getNode(section).addNode(signal, 'SIGNAL')
             tree.write()
         if shot > -1:
             try:
@@ -44,7 +44,7 @@ def writeSignalNode(node, data):
         if isinstance(node, (list, tuple)):
             (KKS, section, signal, shot) = node
         with MDSplus.Tree(KKS+'_EVAL', shot, 'edit') as tree:
-            tree.getNode(".RESULTS." + section + ":" + signal).putData(data)
+            tree.DATA.getNode(section).getNode(signal).putData(data)
     except MDSplus._treeshr.TreeException:
         print('Signal data could not be written.' +
               'Check your KKS or create signal.\ntype:')

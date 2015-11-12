@@ -76,11 +76,12 @@ if ispy3:
 else:
     numbers = (int, float, long, complex)  # analysis:ignore
 
-
 if ispy3:
+    from _io import TextIOWrapper as file
     import urllib.request as urllib
     from itertools import zip_longest
 else:
+    file = file
     import urllib2 as urllib  # analysis:ignore
     from itertools import izip_longest as zip_longest  # analysis:ignore
 

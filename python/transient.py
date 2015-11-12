@@ -9,7 +9,6 @@ import time as _time
 from . import base as _base
 from . import diff as _diff
 from . import support as _sup
-from . import mdsupload as _mdsup
 from . import interface as _if
 from . import version as _ver
 
