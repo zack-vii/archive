@@ -26,7 +26,7 @@ class InsufficientPathException(Exception):
 class Path(object):
     _ROOTURL = _rooturl
 
-    def __init__(self, path=_defreadpath, *_argin):
+    def __init__(self, path=_defreadpath):
         if isinstance(path, (Path)):
             self._path = path._path
             self._lev = path._lev
@@ -73,8 +73,8 @@ class Path(object):
                 raise InsufficientPathException
         return '/'+'/'.join(_path)
 
-    def url(self, lev=-1, *arg):
-        return _url_parms(self._ROOTURL+self.path(lev), *arg)
+    def url(self, lev=-1, **kwargs):
+        return parms(self._ROOTURL+self.path(lev), **kwargs)
 
     # set
     def _set_database(self, database):
@@ -195,41 +195,43 @@ class Path(object):
     def url_streamgroup(self):
         return self._ROOTURL + self.path_streamgroup()
 
-    def url_datastream(self, *arg):
-        return _url_parms(self._ROOTURL + self.path_datastream(), *arg)
+    def url_datastream(self, **kwargs):
+        return parms(self._ROOTURL + self.path_datastream(), **kwargs)
 
-    def url_parlog(self, *arg):
-        return _url_parms(self._ROOTURL + self.path_parlog(), *arg)
+    def url_parlog(self, **kwargs):
+        return parms(self._ROOTURL + self.path_parlog(), **kwargs)
 
-    def url_cfglog(self, *arg):
-        return _url_parms(self._ROOTURL + self.path_cfglog(), *arg)
+    def url_cfglog(self, **kwargs):
+        return parms(self._ROOTURL + self.path_cfglog(), **kwargs)
 
-    def url_channel(self, *arg):
-        return _url_parms(self._ROOTURL + self.path_channel(), *arg)
+    def url_channel(self, **kwargs):
+        return parms(self._ROOTURL + self.path_channel(), **kwargs)
 
-    def url_data(self, *arg):
+    def url_data(self, **kwargs):
         if self._lev > 6:
-            return self.url_channel(*arg)
+            return self.url_channel(**kwargs)
         else:
-            return self.url_datastream(*arg)
+            return self.url_datastream(**kwargs)
 
     cfglog = property(url_cfglog)
     parlog = property(url_parlog)
 
 
-def _url_parms(url, time=None, skip=0, nsamples=0, channels=[]):
-    if time is not None:
-        time = TimeInterval(time)
+def parms(url, **kwargs):
+    if 'time' in kwargs.keys():
+        time = TimeInterval(kwargs['time'])
+        if 'channel' in kwargs.keys():
+            url = url + '/' + str(int(kwargs['channel']))
         url = url + '/_signal.json'
-        par = [str(time)]
-        if skip > 0:
-            par.append('skip='+str(skip))
-        if nsamples > 0:
-            par.append('nSamples='+str(nsamples))
-        if len(channels):
-            par.append('channels='+','.join(map(str, channels)))
-        if len(par):
-            url = url+'?'+'&'.join(par)
+#        par = [str(time)]
+#        if 'skip' in kwargs.keys():
+#            par.append('skip='+str(int(kwargs['skip'])))
+#        if 'nsamples' in kwargs.keys():
+#            par.append('nSamples='+str(int(kwargs['nsamples'])))
+#        if 'channels' in kwargs.keys():
+#            par.append('channels='+str(kwargs['channels']).lstrip('[').rstrip(']').replace(' ',''))
+#        if len(par):
+        url = url+'?'+str(time)#+'&'.join(par)
     return url
 
 class TimeArray(list):
@@ -441,7 +443,7 @@ class TimeInterval(TimeArray):
             return time
 
     def __str__(self):
-        return 'from=' + str(max(0, self.fromT-1)) + '&upto=' + str(self.uptoT)
+        return 'from=' + str(self.fromT) + '&upto=' + str(self.uptoT)
 
     def __repr__(self):
         return 'UTC: [ '+self.fromT.utc+' , '+self.uptoT.utc+' ; '+self.t0T.utc+' ]'
@@ -518,89 +520,84 @@ def Units(units=None, force=False):
     raise Exception("Units must be one of '"+"', '".join(_units)+"'")
 
 
-def createSignal(dat, dim, unit=None, addim=[], units=[], help=None):
-    if isinstance(dat, (_np.ndarray,)):
-        dat = dat.tolist()
-
-    def _dim(dim):
-        if len(dim):
-            wind = _mds.Uint64Array([dim[0]-1, dim[-1], 0])
-            wind = _mds.Window(wind[0], wind[1], wind[2])
-            dim = _mds.Uint64Array(dim)
-            dim = _mds.Dimension(wind, dim)
-            dim.setUnits('ns')
+def createSignal(dat, dim, t0, unit=None, addim=[], units=[], help=None):
+    def _dim(time,t0):
+        if len(time):
+            t0 = _mds.Int64(t0)
+            time = _mds.Int64Array(time)
+            if t0==0:
+                unit = 'ns'
+            else:
+                time = _mds.Float64(time-t0)*1E-9
+                unit = 's'
+            wind = _mds.Window(time[0], time[time.shape[0]-1], t0)
+            dim = _mds.Dimension(wind, time)
+            dim.setUnits(unit)
             return dim
         else:
             return _mds.EmptyData()
 
     def _addim(dim, units='unknown'):
         if len(dim):
-            dim  = _mds.Dimension(None, _dat(dim))
+            dim  = _mds.Dimension(None, tonumpy(dim))
             dim.setUnits(Units(units))#
             return dim
         else:
-            return _mds.EmptyData()
+            return None
 
-    def _dat(dat):
-        def _datr(dat, m=0, n=0):
-            if len(dat) == 0 or (n > 1 and m+n > 64):
-                return m, n
-            if isinstance(dat[0], (list,)):
-                for x in dat:  # recursive
-                    m, n = _datr(x, m, n)
-                return m, n
-            else:
-                n = n or any([x < 0 for x in dat])
-                try:
-                    m = max(map(int.bit_length, dat)+[m])
-                except:
-                    # print(error())
-                    # if any([isinstance(x, (complex,)) for x in dat]):
-                    # return 0, 3
-                    # if any([isinstance(x, (float,)) for x in dat]):
-                    return 0, 2
-                return m, n
-        if len(dat) == 0:
-            return _mds.EmptyData()
-        m, n = _datr(dat)
-        if n == 3:
-            return _mds.Complex128Array(dat)
-        if n == 2:
-            return _mds.Float64Array(dat)
-        if n:
-            if m+1 > 64:
-                return _mds.Int128Array(dat)
-            elif m+1 > 32:
-                return _mds.Int64Array(dat)
-            elif m+1 > 16:
-                return _mds.Int32Array(dat)
-            elif m+1 > 8:
-                return _mds.Int16Array(dat)
-            else:
-                return _mds.Int8Array(dat)
-        else:
-            if m > 64:
-                return _mds.Uint128Array(dat)
-            elif m > 32:
-                return _mds.Uint64Array(dat)
-            elif m > 16:
-                return _mds.Uint32Array(dat)
-            elif m > 8:
-                return _mds.Uint16Array(dat)
-            elif m > 0:
-                return _mds.Uint8Array(dat)
-                # else:
-                # return MDSplus.BoolArray(dat==1)
-            else:
-                return _mds.EmptyData()
-    dat = _dat(dat)
-    dim = _dim(dim)
+    if isinstance(dat, (list,)):
+        dat = tonumpy(dat)
+    dat = _mds.makeArray(dat)
+    dim = _dim(dim,t0)
     for i in _ver.xrange(len(addim)):
         addim[i] = _addim(addim[i], units[i])
-    raw = _mds.Data.compile('*')
     if unit is not None:
         dat.setUnits(unit)
-    sig = _mds.Signal(dat, raw, dim, *addim)
+    sig = _mds.Signal(dat, None, dim, *addim)
     if help:
         sig.setHelp(help)
     return sig
+
+def tonumpy(dat):
+    def _datr(dat, m=0, n=0):
+        if len(dat) == 0 or (n > 1 and m+n > 64):
+            return m, n
+        if isinstance(dat[0], (list,)):
+            for x in dat:  # recursive
+                m, n = _datr(x, m, n)
+            return m, n
+        else:
+            n = n or any([x < 0 for x in dat])
+            try:
+                m = max(map(int.bit_length, dat)+[m])
+            except:
+                # print(error())
+                # if any([isinstance(x, (complex,)) for x in dat]):
+                # return 0, 3
+                # if any([isinstance(x, (float,)) for x in dat]):
+                return 0, 2
+            return m, n
+
+    if len(dat) == 0:
+        return _np.array([],'uint8')
+    m, n = _datr(dat)
+    if   n == 3:       nptype = 'complex128'
+    elif n == 2:       nptype = 'float64'
+    elif n == 1:
+        if   m+1 > 64: nptype = 'int128'
+        elif m+1 > 32: nptype = 'int64'
+        elif m+1 > 16: nptype = 'int32'
+        elif m+1 > 8:  nptype = 'int16'
+        elif m+1 > 0:  nptype = 'int8'
+
+    else:  # n == 0
+        if   m > 64:   nptype = 'uint128'
+        elif m > 32:   nptype = 'uint64'
+        elif m > 16:   nptype = 'uint32'
+        elif m > 8:    nptype = 'uint16'
+        elif m > 0:    nptype = 'uint8'
+            # else:
+            # return MDSplus.BoolArray(dat==1)
+        else:
+            nptype = 'uint8'
+    return _np.array(dat,nptype)

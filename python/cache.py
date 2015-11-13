@@ -11,13 +11,14 @@ import sqlite3 as _sql
 from time import time
 import MDSplus as _mds
 from . import version as _ver
+from . import support as _sup
 
 if _ver.has_buffer:
-    _unpack = lambda x: _mds.Data.deserialize(_ver.pickle.loads(str(x)))
+    _unpack = lambda x: _ver.pickle.loads(str(x))#_mds.Data.deserialize(_ver.pickle.loads(str(x)))
 else:
-    _unpack = lambda x: _mds.Data.deserialize(_ver.pickle.loads(x))
+    _unpack = lambda x: _ver.pickle.loads(x)#_mds.Data.deserialize(_ver.pickle.loads(x))
 _pack = lambda x: _ver.buffer(_ver.pickle.dumps(x))
-
+filepath = _ver.tmpdir+'archive_cache'+str(_ver.pyver[0])
 
 class cache():
     _create_sql = (
@@ -34,7 +35,7 @@ class cache():
     _add_sql = 'INSERT INTO bucket (key, val, exp) VALUES (?, ?, ?)'
     _lst_sql = 'SELECT key, exp FROM bucket'
 
-    def __init__(self, path, default_timeout=3600):
+    def __init__(self, path=filepath, default_timeout=3600):
         self.path = _os.path.abspath(path)
         self.default_timeout = default_timeout
         self.connection_cache = None
@@ -60,7 +61,7 @@ class cache():
                 expire = row[1]
                 if expire > time():
                     rv = _unpack(row[0])
-                    print('read from cache: '+key)
+                    _sup.debug('read from cache: '+key)
                 break
         return rv
 
@@ -77,7 +78,6 @@ class cache():
         expire = time() + timeout
         with self._get_conn() as conn:
             conn.execute(self._set_sql, (key, value, expire))
-        self.clean()
 
     def add(self, key, value, timeout=None):
         if not timeout:

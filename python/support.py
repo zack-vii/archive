@@ -275,3 +275,11 @@ def setTIME(tree,shot):
         _t.getNode('T%d:IDEAL' % n).putData(t)
     for i in range(7):
         setT(i)
+
+def debug(msg, lv=0):
+    if lv>3:
+        import inspect
+        try:
+            print(inspect.stack()[1][3] + ': ' + str(msg))
+        except:
+            print(msg)

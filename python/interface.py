@@ -8,8 +8,9 @@ lev  0       1        2       3       4      5      6      7
 import os as _os
 import mmap as _mmap
 import json as _json
-import MDSplus as _mds
 import numpy as _np
+from threading import Thread
+
 
 try:
     import h5py as _h5
@@ -20,7 +21,7 @@ from . import cache as _cache
 from . import support as _sup
 from . import version as _ver
 
-SQCache =  _cache.cache(_ver.tmpdir+'archive_cache'+str(_ver.pyver[0]))
+SQcache = _cache.cache()
 
 class URLException(Exception):
     def __init__(self,value):
@@ -96,37 +97,102 @@ def _write_vector(path, data, dimof):
             print('could not delete file "%s"' % tmpfile)
             pass
 
-
-def read_signal(path, time, t0=0, *arg):
+def read_signal(path, time, t0=0, **kwargs):
     path = _base.Path(path)
     time = _base.TimeInterval(time)
-    sig = None
-    if time.uptoT != -1:
-        key = path.path()+'?'+','.join(map(str,[time.fromT,time.uptoT]+list(arg)))
-        sig = SQCache.get(key)
-    if sig is None:
-        print('get web-archive: '+key)
-        stream = get_json(path.url_data(), time, *arg)
-        sig = _base.createSignal(stream['values'], stream['dimensions'], str(stream.get('unit', 'unknown')))
-        SQCache.set(key, sig)
-    if t0!=0:
-        args = list(sig.args)
-        time = _mds.Float64((args[2].args[1]-_mds.Int64(t0))*1E-9)
-        wind = _mds.Window(time[0], time[time.shape[0]-1], t0)
-        args[2] = _mds.Dimension(wind, time)
-        args[2].setUnits('s')
-        sig.args = tuple(args)
-    return sig
+    _cache.cache().clean()
+    chunk = kwargs.pop('chunk', None)
+    if chunk:
+        try:
+            rawset = _readchunks(path, time, chunk, **kwargs)
+        except Exception as exc:
+            rawset = _readraw(path, time, **kwargs)
+            rawset[2] = exc.message
+    else:
+        key = _getkey(path, time, **kwargs)
+        rawset = SQcache.get(key)
+        if rawset is None:
+            _sup.debug('get web-archive: '+key)
+            cacheable = time.uptoT>_base.Time('now') or time.uptoT<0
+            rawset = _readraw(path, time, **kwargs)
+            if cacheable and rawset is not None:
+                SQcache.set(key, rawset)
+    if rawset is None: return None
+    return _base.createSignal(rawset[0], rawset[1], t0, rawset[2])
 
 
-def get_json(url, *arg):
+def _getkey(path, time, **kwargs):
+    path = _base.Path(path)
+    time = _base.TimeInterval(time)
+    key = path.path()
+    if 'channel' in kwargs.keys():
+        key+= '/'+str(int(kwargs['channel']))
+    key +='?'+','.join(map(str,[time.fromT,time.uptoT]))
+    return key
+
+
+def _readraw(path, time, **kwargs):
+    try:
+        stream = get_json(path.url_data(), time=time, **kwargs)
+    except _ver.urllib.HTTPError:
+        return [[],[],None]
+    return [_base.tonumpy(stream['values']),stream['dimensions'],str(stream.get('unit', 'unknown'))]
+
+
+def _readchunks(path, time, chunk=60E9, **kwargs):
+    chunk = int(chunk)
+    def task(returns,idx,times,i):
+        while i<len(returns):
+            if returns[i] is None:
+                returns[i] = _readraw(path, times[i], **kwargs)
+                if (returns[i] is None) or (len(returns[i][1])<9):
+                    return
+            i = idx[0] = idx[0]+1
+    time = _base.TimeInterval(time)
+    if (time.uptoT-time.fromT)/chunk>1024:
+        exc = Exception('BadChunkSize: %d a %d' % (int((time.uptoT-time.fromT)/chunk)+1, chunk))
+        print(exc)
+        raise exc
+    path = _base.Path(path)
+    start= int(time.fromT.ns/chunk)*chunk
+    times= [_base.TimeInterval([s,s+chunk-1]) for s in range(start,time.uptoT.ns+1,chunk)]
+    idxs = list(range(len(times)))
+    keys = [_getkey(path, times[i], **kwargs) for i in idxs]
+    sets = [SQcache.get(key) for key in keys]
+    load = [s is None for s in sets]
+    tmax = 64
+    idx = [tmax-1]
+    threads = [Thread(target=task, args=(sets, idx, times, i)) for i in range(min(tmax,sum(load)))]
+    now = _base.Time('now')
+    for thread in threads: thread.start()
+    for thread in threads: thread.join()
+    if sum(load)+tmax-idx[0]>10:
+        exc = Exception('BadChunkSize: %d of %d a %d' % (sum(load), len(idxs), chunk))
+        print(exc)
+        raise exc
+    for i in idxs:
+        if load[i] and sets[i] is not None and times[i].uptoT<now:
+            SQcache.set(keys[i],sets[i])
+    sets = [s for s in sets if s is not None]
+    dat = _np.concatenate(tuple(s[0] for s in sets))
+    dim = _np.concatenate(tuple(s[1] for s in sets))
+    start= 0
+    stop = len(dim)
+    while dim[start]<time.fromT.ns: start+=1
+    while dim[stop-1]>time.uptoT.ns: stop-=1
+    dat = dat[start:stop]
+    dim = dim[start:stop]
+    return [dat, dim, sets[-1][2]]
+
+
+def get_json(url, **kwargs):
     class reader(object):
         def __init__(self, value):
             self.value = value
         def read(self,*argin):
             return _ver.tostr(self.value.read(*argin))
-    url = _base.Path(url).url(-1, *arg)
-    _debug(url)
+    url = _base.Path(url).url(-1, **kwargs)
+    _sup.debug(url,5)
     headers = {'Accept': 'application/json'}
     handler = get(url, headers)
     if handler.getcode() != 200:
@@ -134,23 +200,20 @@ def get_json(url, *arg):
     if handler.headers.get('content-type') != 'application/json':
         raise Exception('requested content-type mismatch: ' +
                         handler.headers.get('content-type'))
-
     return _json.load(reader(handler), strict=False)
 
 
 def post(url, headers={}, data=None, json=None):
-#    if url[-1] != '/':
- #       url += '/'
     if json is not None:
         data = _json.dumps(json)
         headers['content-type'] = 'application/json'
     if isinstance(data, (_ver.file)):
-        _debug(data.name)
+        _sup.debug(data.name)
         data = _mmap.mmap(data.fileno(), 0, access=_mmap.ACCESS_READ)
     else:
-        _debug(data)
+        _sup.debug(data)
         data = _ver.tobytes(data)
-    _debug(url)
+    _sup.debug(url)
     result = get(url, headers, data)
     if isinstance(data,(_mmap.mmap)):
         data.close()
@@ -177,7 +240,7 @@ def parseXML(toparse):
 
     def addvalue(res, name, value):
         if name in res.keys():
-            if type(res[name]) is list:
+            if isinstance(res[name], list):
                 res[name].append(value)
             else:
                 res[name] = [res[name], value]
@@ -197,13 +260,13 @@ def parseXML(toparse):
     return xmltodict(tree)
 
 
-def read_parlog(path, time=[1, 0], *args):
+def read_parlog(path, time=[-1, 0], **kwargs):
     def rmfield(dic, field):
         if field in dic.keys():
             del(dic[field])
 
     def dict2list(d):
-        l = len(d.keys())*[None]
+        l = len(d)*[None]
         for k, v in d.items():
             l[int(k[1:-1])] = v
         return l
@@ -222,10 +285,10 @@ def read_parlog(path, time=[1, 0], *args):
                 if v is not None:
                     chans[i][k] = _sup.cp(v)
         return chans
-    url = _base.Path(path).url_parlog(time, *args)
-    par = get_json(url)
-    if type(par) is not dict:
-        raise Exception('parlog not found:\n'+url)
+    path =  _base.Path(path)
+    par = get_json(path.url_parlog(), time=time, **kwargs)
+    if not isinstance(par, dict):
+        raise Exception('parlog not found!')
     par = par['values'][-1]
     if 'chanDescs' in par.keys():
         cD = par['chanDescs']
@@ -237,18 +300,18 @@ def read_parlog(path, time=[1, 0], *args):
     return par
 
 
-def read_cfglog(path, time=[0, 0], *args):
-    url = _base.Path(path).url_cfglog(time, *args)
-    par = get_json(url)
-    if type(par) is not dict:
-        raise Exception('cfglog not found:\n'+url)
+def read_cfglog(path, time=[-1, 0], **kwargs):
+    path =  _base.Path(path)
+    par = get_json(path.url_cfglog(), time=time, **kwargs)
+    if not isinstance(par, dict):
+        raise Exception('cfglog not found!')
     return par
 
 
 def read_jpg_url(url, time, skip=0):
     time = _base.TimeInterval(time)
     link = url + '/_signal.jpg?' + str(time) + '&skip=' + str(skip)
-    _debug(link)
+    _sup.debug(link)
     r = get(link)
     return r
 
@@ -256,22 +319,14 @@ def read_jpg_url(url, time, skip=0):
 def read_png_url(url, time, skip=0):
     time = _base.TimeInterval(time)
     link = url + '/_signal.png?' + str(time) + '&skip=' + str(skip)
-    _debug(link)
+    _sup.debug(link)
     r = get(link)
     return r
 
 
 def read_raw_url(url, time, skip=0):
     time = _base.TimeInterval(time)
-    link = url + '/_signal.png?' + str(time) + '&skip=' + str(skip)
-    _debug(link)
+    link = url + '/_signal.json?' + str(time) + '&skip=' + str(skip)
+    _sup.debug(link)
     r = get(link)
     return r
-
-
-def _debug(msg):
-    import inspect
-    try:
-        print(inspect.stack()[1][3] + ': ' + str(msg))
-    except:
-        print(msg)
