@@ -109,7 +109,7 @@ def read_signal(path, time, t0=0, **kwargs):
             rawset = _readraw(path, time, **kwargs)
             rawset[2] = exc.message
     else:
-        key = _getkey(path, time, **kwargs)
+        key = _cache.getkey(path, time, **kwargs)
         rawset = SQcache.get(key)
         if rawset is None:
             _sup.debug('get web-archive: '+key)
@@ -121,59 +121,59 @@ def read_signal(path, time, t0=0, **kwargs):
     return _base.createSignal(rawset[0], rawset[1], t0, rawset[2])
 
 
-def _getkey(path, time, **kwargs):
-    path = _base.Path(path)
-    time = _base.TimeInterval(time)
-    key = path.path()
-    if 'channel' in kwargs.keys():
-        key+= '/'+str(int(kwargs['channel']))
-    key +='?'+','.join(map(str,[time.fromT,time.uptoT]))
-    return key
-
-
 def _readraw(path, time, **kwargs):
     try:
         stream = get_json(path.url_data(), time=time, **kwargs)
     except _ver.urllib.HTTPError:
         return [[],[],None]
-    return [_base.tonumpy(stream['values']),stream['dimensions'],str(stream.get('unit', 'unknown'))]
+    return [_base.tonumpy(stream['values']),_np.array(stream['dimensions']),str(stream.get('unit', 'unknown'))]
 
 
-def _readchunks(path, time, chunk=60E9, **kwargs):
-    chunk = int(chunk)
-    def task(returns,idx,times,i):
-        while i<len(returns):
-            if returns[i] is None:
-                returns[i] = _readraw(path, times[i], **kwargs)
-                if (returns[i] is None) or (len(returns[i][1])<9):
-                    return
-            i = idx[0] = idx[0]+1
-    time = _base.TimeInterval(time)
-    if (time.uptoT-time.fromT)/chunk>1024:
-        exc = Exception('BadChunkSize: %d a %d' % (int((time.uptoT-time.fromT)/chunk)+1, chunk))
-        print(exc)
-        raise exc
+def _readchunks(path, time, chunk=None, **kwargs):
     path = _base.Path(path)
-    start= int(time.fromT.ns/chunk)*chunk
-    times= [_base.TimeInterval([s,s+chunk-1]) for s in range(start,time.uptoT.ns+1,chunk)]
-    idxs = list(range(len(times)))
-    keys = [_getkey(path, times[i], **kwargs) for i in idxs]
-    sets = [SQcache.get(key) for key in keys]
-    load = [s is None for s in sets]
-    tmax = 64
-    idx = [tmax-1]
-    threads = [Thread(target=task, args=(sets, idx, times, i)) for i in range(min(tmax,sum(load)))]
-    now = _base.Time('now')
-    for thread in threads: thread.start()
-    for thread in threads: thread.join()
-    if sum(load)+tmax-idx[0]>10:
-        exc = Exception('BadChunkSize: %d of %d a %d' % (sum(load), len(idxs), chunk))
-        print(exc)
-        raise exc
-    for i in idxs:
-        if load[i] and sets[i] is not None and times[i].uptoT<now:
-            SQcache.set(keys[i],sets[i])
-    sets = [s for s in sets if s is not None]
+    hsh = hash(path)
+    if chunk is None:
+        chunk = SQcache.getchk(hsh)
+    else:
+        chunk = int(chunk)
+    time = _base.TimeInterval(time)
+    if chunk is None:
+        return _readraw(path, time, **kwargs)
+    else:
+        def task(out,times,idx,i):
+            while i<len(out):
+                time = [ times[out[i][0]][0] , times[out[i][1]][1] ]
+                out[i][2] = _readraw(path, time, **kwargs)
+                i = idx[0] = idx[0]+1
+        start= int(time.fromT.ns/chunk)*chunk
+        times= [[s,s+chunk-1] for s in range(start,time.uptoT.ns+1,chunk)]
+        idxs = list(range(len(times)))
+        keys = [_cache.getkey(hsh, times[i], False, **kwargs) for i in idxs]
+        sets = [SQcache.get(key) for key in keys]
+        load = [s is None for s in sets]
+        blck = []
+        gab = True
+        for i in idxs:
+            if load[i]:
+                if gab:
+                    blck.append([i,i,[]])
+                else:
+                    blck[-1][1] = i
+            gab = not load[i]
+        tmax = 64
+        idx = [tmax-1]
+        threads = [Thread(target=task, args=(blck, times, idx, i)) for i in range(min(tmax,len(blck)))]
+        last = getLast(path,time)['upto']
+        for thread in threads: thread.start()
+        for thread in threads: thread.join()
+        for b in blck:
+            for i in range(b[0],b[1]+1):
+                sel = _np.where((b[2][1]>=times[i][0]) & (b[2][1]<=times[i][1]))[0]
+                sets[i] = [b[2][0][sel],b[2][1][sel],b[2][2]]
+        for i in idxs[:-1]:  # cache all but most recen
+            if load[i] and sets[i] is not None and times[i][1]<last:
+                SQcache.set(keys[i],sets[i],604800)  # last one week
+        sets = [s for s in sets if s is not None]
     dat = _np.concatenate(tuple(s[0] for s in sets))
     dim = _np.concatenate(tuple(s[1] for s in sets))
     start= 0
@@ -182,6 +182,7 @@ def _readchunks(path, time, chunk=60E9, **kwargs):
     while dim[stop-1]>time.uptoT.ns: stop-=1
     dat = dat[start:stop]
     dim = dim[start:stop]
+    SQcache.setchk(hsh,chunk)
     return [dat, dim, sets[-1][2]]
 
 
@@ -202,6 +203,12 @@ def get_json(url, **kwargs):
                         handler.headers.get('content-type'))
     return _json.load(reader(handler), strict=False)
 
+def getLast(path, time):
+    j = get_json(_base.filter(path, time))
+    last = _ver.tostr(j['_links']['children'][-1]['href']).split('?')[1].split('&')
+    last = [s.split('=') for s in last]
+    last = dict((s[0],int(s[1])) for s in last)
+    return last
 
 def post(url, headers={}, data=None, json=None):
     if json is not None:

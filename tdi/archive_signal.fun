@@ -18,7 +18,7 @@ fun public archive_signal (as_is _node, optional _timein, optional _chunkin)
     IF ( _notashot )
         _time = (PRESENT(_timein) ? KIND(_timein)==* : 1) ? [-1800., 0, 0] : _timein;
     ELSE
-        _time = DATA(COMPILE("\TIME"));
+        _time = DATA(COMPILE("\\TIME"));
     _idx = IF_ERROR(EXECUTE(_path // ":$IDX"), * );
     _urlpar = (KIND(_idx) == *) ? _path // ":$URL" : GETNCI(GETNCI(_path,"PARENT"),"MINPATH") // ":$URL";
     _url = EXECUTE( _urlpar );
