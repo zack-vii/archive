@@ -17,7 +17,7 @@ if _ver.has_buffer:
 else:
     _unpack = lambda x: _ver.pickle.loads(x)#_mds.Data.deserialize(_ver.pickle.loads(x))
 _pack = lambda x: _ver.buffer(_ver.pickle.dumps(x))
-filepath = _ver.tmpdir+'archive_cache'+str(_ver.pyver[0])
+_filepath = _ver.tmpdir+'archive_cache'+str(_ver.pyver[0])
 
 class cache():
     _new_dat = (
@@ -35,21 +35,11 @@ class cache():
     _set_dat = 'REPLACE INTO data (hsh, chn, frm, upt, dat, exp) VALUES (?, ?, ?, ?, ?, ?)'
     _upd_exp = 'UPDATE data SET exp = ? WHERE hsh = ? and chn = ? and frm = ? and upt = ?'
     _get_dat = 'SELECT dat FROM data WHERE hsh = ? and chn = ? and frm = ? and upt = ?'
-    _all_dat = 'SELECT dat FROM data WHERE hsh = ? and chn = ? and upt >= ? and frm <= ?'
+    _all_dat = 'SELECT dat, frm, upt FROM data WHERE hsh = ? and chn = ? and upt >= ? and frm <= ? ORDER BY frm ASC'
     _del_dat = 'DELETE FROM data WHERE hsh = ? and chn = ? and frm = ? and upt = ?'
     _cln_dat = 'DELETE FROM data WHERE exp < ?'
-    _new_chk = (
-            'CREATE TABLE IF NOT EXISTS chunk'
-            '('
-            '  hsh INT PRIMARY KEY UNIQUE,'
-            '  chk INT'
-            ')'
-            )
-    _set_chk = 'REPLACE INTO chunk (hsh, chk) VALUES (?, ?)'
-    _get_chk = 'SELECT chk FROM chunk WHERE hsh = ?'
 
-
-    def __init__(self, path=filepath, default_timeout=3600):
+    def __init__(self, path=_filepath, default_timeout=3600):
         self.path = _os.path.abspath(path)
         self.default_timeout = default_timeout
         self.connection_cache = None
@@ -61,7 +51,6 @@ class cache():
             if isnew:
                 with conn:
                     conn.execute(self._new_dat)
-                    conn.execute(self._new_chk)
                 try:
                     _os.chmod(self.path, 0o666)  # -rw-rw-rw-
                 except:
@@ -69,21 +58,11 @@ class cache():
             self.connection_cache = conn
         return self.connection_cache
 
-    def getchk(self, hsh):
-        with self._get_conn() as conn:
-            for row in conn.execute(self._get_chk, (hsh,)):
-                return row[0]
-        return None
-
-    def setchk(self, hsh, chunk):
-        with self._get_conn() as conn:
-            conn.execute(self._set_chk, (hsh, int(chunk)))
-
     def gets(self, key):
-        rv = []
         with self._get_conn() as conn:
-            for row in conn.execute(self._all_dat, tuple(key)):
-                rv.append(_unpack(row[0]))
+            rv = conn.execute(self._all_dat, tuple(key)).fetchall()
+            for i in _ver.xrange(len(rv)):
+                rv[i] = [_unpack(rv[i][0]),rv[i][1],rv[i][2]]
         return rv
 
     def get(self, key):
@@ -97,6 +76,7 @@ class cache():
     def delete(self, key):
         with self._get_conn() as conn:
             conn.execute(self._del_dat, tuple(key))
+            conn.commit()
 
     def set(self, key, data, timeout=None):
         if not timeout:
@@ -105,6 +85,7 @@ class cache():
         expire = time() + timeout
         with self._get_conn() as conn:
             conn.execute(self._set_dat, tuple(key+[data, expire]))
+            conn.commit()
 
     def update(self, key, timeout=None):
         if not timeout:
@@ -112,10 +93,19 @@ class cache():
         expire = time() + timeout
         with self._get_conn() as conn:
             conn.execute(self._upd_exp, tuple([expire]+key))
+            conn.commit()
 
     def clean(self):
         with self._get_conn() as conn:
             conn.execute(self._cln_dat, (time(),))
+            conn.commit()
+        self.vacuum()
+
+    def vacuum(self):
+        if _os.path.getsize(self.path)>2<<29:
+            with self._get_conn() as conn:
+                conn.execute('VACUUM')
+                conn.commit()
 
     def close(self):
         _os.unlink(self.path)

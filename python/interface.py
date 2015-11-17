@@ -22,6 +22,7 @@ from . import support as _sup
 from . import version as _ver
 
 SQcache = _cache.cache()
+_defaultCache = True
 
 class URLException(Exception):
     def __init__(self,value):
@@ -101,22 +102,16 @@ def read_signal(path, time, t0=0, **kwargs):
     path = _base.Path(path)
     time = _base.TimeInterval(time)
     _cache.cache().clean()
-    chunk = kwargs.pop('chunk', None)
-    if chunk:
+    cache = kwargs.pop('cache', _defaultCache)
+    if cache:
         try:
-            rawset = _readchunks(path, time, chunk, **kwargs)
+            rawset = _readchunks(path, time, **kwargs)
         except Exception as exc:
             rawset = _readraw(path, time, **kwargs)
             rawset[2] = exc.message
     else:
-        key = _cache.getkey(path, time, **kwargs)
-        rawset = SQcache.get(key)
-        if rawset is None:
-            _sup.debug('get web-archive: '+key)
-            cacheable = time.uptoT>_base.Time('now') or time.uptoT<0
-            rawset = _readraw(path, time, **kwargs)
-            if cacheable and rawset is not None:
-                SQcache.set(key, rawset)
+        _sup.debug('get web-archive: '+path.path())
+        rawset = _readraw(path, time, **kwargs)
     if rawset is None: return None
     return _base.createSignal(rawset[0], rawset[1], t0, rawset[2])
 
@@ -129,62 +124,81 @@ def _readraw(path, time, **kwargs):
     return [_base.tonumpy(stream['values']),_np.array(stream['dimensions']),str(stream.get('unit', 'unknown'))]
 
 
-def _readchunks(path, time, chunk=None, **kwargs):
+def _readchunks(path, time, **kwargs):
     path = _base.Path(path)
     hsh = hash(path)
-    if chunk is None:
-        chunk = SQcache.getchk(hsh)
-    else:
-        chunk = int(chunk)
-    time = _base.TimeInterval(time)
-    if chunk is None:
-        return _readraw(path, time, **kwargs)
-    else:
-        def task(out,times,idx,i):
-            while i<len(out):
-                time = [ times[out[i][0]][0] , times[out[i][1]][1] ]
-                out[i][2] = _readraw(path, time, **kwargs)
-                i = idx[0] = idx[0]+1
-        start= int(time.fromT.ns/chunk)*chunk
-        times= [[s,s+chunk-1] for s in range(start,time.uptoT.ns+1,chunk)]
-        idxs = list(range(len(times)))
-        keys = [_cache.getkey(hsh, times[i], False, **kwargs) for i in idxs]
-        sets = [SQcache.get(key) for key in keys]
-        load = [s is None for s in sets]
-        blck = []
-        gab = True
-        for i in idxs:
-            if load[i]:
-                if gab:
-                    blck.append([i,i,[]])
-                else:
-                    blck[-1][1] = i
-            gab = not load[i]
-        tmax = 64
+    time = _base.TimeInterval(time).ns[0:2]
+    def task(out, times, idxs, idx, i):
+        while i<len(idxs):
+            out[idxs[i]] = _readraw(path, times[i], **kwargs)
+            i = idx[0] = idx[0]+1
+    # load all chunk in interval from cache
+    sets = SQcache.gets(_cache.getkey(hsh, time, False, **kwargs))
+    # find missing intervals
+    blck = []
+    idxs = []
+    times = []
+    tfrom = time[0]
+    for i in _ver.xrange(len(sets)):
+        if sets[i][1] > tfrom:  # insert container for new data
+            blck.append([])
+            idxs.append(i)
+            times.append([tfrom, sets[i][1]-1])
+        blck.append(sets[i][0])
+        tfrom = sets[i][2]+1 #  from
+    if tfrom<=time[1]:
+        idxs.append(len(blck))
+        blck.append([])
+        times.append([tfrom, time[1]])
+
+    del(sets)
+    if len(idxs):  # not all data in cache
+        def _cachechunk(data,btime,last):
+            """stores chunks in cache 250-500 samples"""
+            def store(pos,end,time,data):
+                key = _cache.getkey(hsh, time, False, **kwargs)
+                SQcache.set(key,[data[0].T[pos:end].T,data[1][pos:end],data[2]],604800)
+            pos = 0
+            length = len(data[1])
+            t = [btime[0],0]  # from
+            while length-pos>750:
+                t[1] = data[1][pos+500].tolist()-1  # to
+                if t[1]>=last:
+                    return
+                store(pos,pos+500,t,data)
+                t[0] = t[1]+1  # from
+                pos += 500
+            t[1] = btime[1]  # to
+            if t[1]<last:
+                store(pos,length,t,data)
+        # read and cache new data
+        last = getLast(path)['upto']
+        tmax = 32
         idx = [tmax-1]
-        threads = [Thread(target=task, args=(blck, times, idx, i)) for i in range(min(tmax,len(blck)))]
-        last = getLast(path,time)['upto']
+        threads = [Thread(target=task, args=(blck, times, idxs, idx, i)) for i in range(min(tmax,len(blck)))]
         for thread in threads: thread.start()
         for thread in threads: thread.join()
-        for b in blck:
-            for i in range(b[0],b[1]+1):
-                sel = _np.where((b[2][1]>=times[i][0]) & (b[2][1]<=times[i][1]))[0]
-                sets[i] = [b[2][0][sel],b[2][1][sel],b[2][2]]
-        for i in idxs[:-1]:  # cache all but most recen
-            if load[i] and sets[i] is not None and times[i][1]<last:
-                SQcache.set(keys[i],sets[i],604800)  # last one week
-        sets = [s for s in sets if s is not None]
-    dat = _np.concatenate(tuple(s[0] for s in sets))
-    dim = _np.concatenate(tuple(s[1] for s in sets))
+        for i in _ver.xrange(len(idxs)):
+            if len(blck[idxs[i]][0])>0:
+                _cachechunk(blck[idxs[i]],times[i],last)
+        blck = [b for b in blck if len(b[0])>0]
+    # concatenate chunks to data
+    dat = _np.concatenate(tuple(b[0] for b in blck), 1)
+    dim = _np.concatenate(tuple(b[1] for b in blck))
+    unit = 'unknown'
+    for b in blck:
+        if isinstance(b[2],str):
+            unit = b[2]
+            break
+    del(blck)
+    # trim data to time window
     start= 0
     stop = len(dim)
-    while dim[start]<time.fromT.ns: start+=1
-    while dim[stop-1]>time.uptoT.ns: stop-=1
-    dat = dat[start:stop]
+    while dim[start]<time[0]: start+=1
+    while dim[stop-1]>time[1]: stop-=1
+    dat = dat.T[start:stop].T
     dim = dim[start:stop]
-    SQcache.setchk(hsh,chunk)
-    return [dat, dim, sets[-1][2]]
-
+    return [dat, dim, unit]
 
 def get_json(url, **kwargs):
     class reader(object):
@@ -203,7 +217,7 @@ def get_json(url, **kwargs):
                         handler.headers.get('content-type'))
     return _json.load(reader(handler), strict=False)
 
-def getLast(path, time):
+def getLast(path, time=[1,-1]):
     j = get_json(_base.filter(path, time))
     last = _ver.tostr(j['_links']['children'][-1]['href']).split('?')[1].split('&')
     last = [s.split('=') for s in last]

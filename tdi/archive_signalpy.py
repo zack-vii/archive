@@ -1,4 +1,4 @@
-def archive_signalpy(node, time=None, chunk=None):
+def archive_signalpy(node, time=None, cache=None):
     """ use time if tree is archive """
     """ else use TIME node """
     from archive import base, interface
@@ -23,7 +23,7 @@ def archive_signalpy(node, time=None, chunk=None):
             idx = None
             url = node.getNode('$URL').data()
         # request signal
-        signal = interface.read_signal(url, time, time.t0T, chunk=chunk, channel=idx)
+        signal = interface.read_signal(url, time, time.t0T, cache=cache, channel=idx)
         # generate help text (HELP, DESCRIPTION, $NAME)
         try:
             help = node.getNode('HELP').data()

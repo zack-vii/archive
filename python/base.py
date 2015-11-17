@@ -242,8 +242,10 @@ def parms(url, **kwargs):
     return url
 
 def filter(path, time=None):
-    time = TimeInterval() if time is None else TimeInterval(time)
-    return Path(path).url_datastream() + '/_signal.json?'+time.filter()
+    url = Path(path).url_datastream() + '/_signal.json'
+    if time is None:
+        return url
+    return url+'?'+TimeInterval(time).filter()
 
 class Time(_ver.long):
     """
