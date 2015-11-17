@@ -1,3 +1,6 @@
+/*
+Calls the python mds_signl with the url and time from the tree to generate the signal
+*/
 fun public archive_signal (as_is _node, optional _timein, optional _chunkin)
 {
     _notree = IF_ERROR( $EXPT=="" , 1BU );
