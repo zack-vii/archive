@@ -206,7 +206,7 @@ def get_json(url, **kwargs):
             self.value = value
         def read(self,*argin):
             return _ver.tostr(self.value.read(*argin))
-    url = _base.Path(url).url(-1, **kwargs)
+    url = _base.parms(url, **kwargs)
     _sup.debug(url,5)
     headers = {'Accept': 'application/json'}
     handler = get(url, headers)

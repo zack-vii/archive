@@ -70,9 +70,14 @@ class datastream:
 
 
 class browser(_base.Path):
-    def __init__(self, path=_base.Path(), time=_base.TimeInterval()):
-        self.set_path(path)
-        self.set_time(time)
+    def __new__(self, path=_base.Path(), time=_base.TimeInterval()):
+        if isinstance(path, browser):
+            path.set_time(time)
+            return path
+        else:
+            newbrowser = _base.Path.__new__(self, path)
+            newbrowser.set_time(time)
+            return newbrowser
 
     def set_time(self, time=_base.TimeInterval()):
         self._time = _base.TimeInterval(time)
@@ -81,45 +86,45 @@ class browser(_base.Path):
         return self._time
 
     # read
-    def read_data(self, skip=0, nsamples=0, channels=[]):
+    def read_data(self, skip=None, nsamples=None, channel=None):
         return _if.read_signal(self.url_datastream(), self.time(),
-                           0, skip, nsamples, channels)
+                               0, skip, nsamples, channel)
 
-    def read_channel(self, skip=0, nsamples=0):
+    def read_channel(self, skip=None, nsamples=None):
         return _if.read_signal(self.url_channel(), self.time(), 0, skip, nsamples)
 
-    def read_parlog(self, skip=0, nsamples=0):
-        return _if.read_parlog(self.url(5), self.time(), skip, nsamples)
+    def read_parlog(self, skip=None, nsamples=None):
+        return _if.read_parlog(self.url(5), self.time())
 
-    def read_cfglog(self, time=_base.TimeInterval()):
-        return _if.read_cfglog(self.url_cfglog(), time)
+    def read_cfglog(self, skip=None, nsamples=None):
+        return _if.read_cfglog(self.url_cfglog(), self.time)
 
     # get lists
     def list_databases(self):
-        return list_children(self._path, 1)
+        return list_children(self, 1)
 
     def list_views(self):
-        return list_children(self._path, 2)
+        return list_children(self, 2)
 
     def list_projects(self):
-        return list_children(self._path, 3)
+        return list_children(self, 3)
 
     def list_streamgroups(self):
-        return list_children(self._path, 4)
+        return list_children(self, 4)
 
     def list_streams(self):
-        return list_children(self._path, 5)
+        return list_children(self, 5)
 
     def list_channels(self):
         try:
-            return list_children(self._path, 6)
+            return list_children(self, 6)
         except:
             params = self.read_parlog(0, 1)[0]
             if 'chanDescs' in params.keys():
                 cD = params['chanDescs']
                 return [(cD[i]["name"], str(i)) for i in _ver.xrange(len(cD))]
 
-    def list_chnames(self): return list_children(self._path, 7)
+    def list_chnames(self): return list_children(self, 7)
 
     # print lists
     def print_views(self): self._print_list(self.list_views())
