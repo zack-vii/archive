@@ -4,9 +4,9 @@
 from setuptools import setup
 version = '0.1'
 setup(name='archive',
-      description='WebAPI Device support',
+      description='archive-webapi support',
       long_description="""
-      This module provides the WebAPI device support classes
+      This module provides support classes for the archive-webapi
       """,
       author='Timo Schroeder',
       author_email='timo.schroeder@ipp-hgw.mpg.de',
