@@ -1,7 +1,7 @@
 /*
 Calls the python mds_signl with the url and time from the tree to generate the signal
 */
-fun public archive_signal (as_is _node, optional _timein, optional _chunkin)
+fun public archive_signal (as_is _node, optional _timein, optional _cachein)
 {
     _notree = IF_ERROR( $EXPT=="" , 1BU );
     IF(_notree)
@@ -18,7 +18,7 @@ fun public archive_signal (as_is _node, optional _timein, optional _chunkin)
     IF ( _notashot )
         _time = (PRESENT(_timein) ? KIND(_timein)==* : 1) ? [-1800., 0, 0] : _timein;
     ELSE
-        _time = DATA(COMPILE("\TIME"));
+        _time = DATA(COMPILE("\\TIME"));
     _idx = IF_ERROR(EXECUTE(_path // ":$IDX"), * );
     _urlpar = (KIND(_idx) == *) ? _path // ":$URL" : GETNCI(GETNCI(_path,"PARENT"),"MINPATH") // ":$URL";
     _url = EXECUTE( _urlpar );
@@ -26,8 +26,8 @@ fun public archive_signal (as_is _node, optional _timein, optional _chunkin)
                     EXECUTE(_path // ":DESCRIPTION"),
                     EXECUTE(_path // ":$NAME"),
                     *);
-    _chunk = PRESENT(_chunkin) ? _chunkin : *;
-    _signal = pyfun('mds_signal', 'archive', _url, _time, _help, _idx, _chunk);
+    _cache = PRESENT(_cachein) ? _cachein : *;
+    _signal = pyfun('mds_signal', 'archive', _url, _time, _help, _idx, _cache);
     IF(_notree)
        TREECLOSE();
     return(_signal);

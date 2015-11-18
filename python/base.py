@@ -25,17 +25,21 @@ class InsufficientPathException(Exception):
 
 class Path(object):
     _ROOTURL = _rooturl
-
-    def __init__(self, path=_defreadpath):
-        if isinstance(path, (Path)):
-            self._path = path._path
-            self._lev = path._lev
+    def __new__(self, path=_defreadpath):
+        if isinstance(path, Path):
+            return path
         else:
-            self.set_path(str(path))
+            newpath = object.__new__(self)
+            newpath.set_path(str(path))
+            return newpath
 
     def __str__(self):
-        return self.path()
+        return self.path(-1)
     __repr__ = __str__
+
+
+    def __hash__(self):
+        return hash(self.path_datastream()[:-11])
 
     def ping(self, timeout=5):
         timeout = max(1, int(timeout))
@@ -52,19 +56,20 @@ class Path(object):
     def path(self, lev=-1, _path=None):
         if _path is None:
             _path = self._path
-        if not (_path[0] == '/'):
-            if (_path[0:7].lower() == "http://"):
-                _path = '/'.join(_path[7:].split('/')[1:])
-            else:
-                _path = _database + '/' + _path
-        _path = _path.strip('/').split('/')
-        if len(_path) > 4:
-            if not (_path[4].endswith('_DATASTREAM') or
-                    _path[4].endswith('_PARLOG') or
-                    _path[4].endswith('_CFGLOG')):
-                _path[4] = _path[4] + '_DATASTREAM'
+        else:
+            if not (_path[0] == '/'):
+                if (_path[0:7].lower() == "http://"):
+                    _path = '/'.join(_path[7:].split('/')[1:])
+                else:
+                    _path = _database + '/' + _path
+            _path = _path.strip('/').split('/')
+            if len(_path) > 4:
+                if (_path[4].endswith('_PARLOG') or _path[4].endswith('_CFGLOG')):
+                    _path[4] = _path[4][:-7]
+                if not _path[4].endswith('_DATASTREAM'):
+                    _path[4] = _path[4] + '_DATASTREAM'
         if lev == -2:
-            return ['/' + '/'.join(_path), len(_path)]
+            return [_path, len(_path)]
         if lev == -1:
             return '/' + '/'.join(_path)
         else:
@@ -178,9 +183,9 @@ class Path(object):
         return self.path(5)[:-11]+'_PARLOG'
 
     def path_channel(self):
-        if self._lev < 7:
+        if self._lev < 6:
             raise InsufficientPathException
-        return self.path(7)
+        return self.path(6)
 
     # get url
     def url_database(self):
@@ -205,10 +210,12 @@ class Path(object):
         return parms(self._ROOTURL + self.path_cfglog(), **kwargs)
 
     def url_channel(self, **kwargs):
+        if 'channel' in kwargs.keys():
+            return self.url_datastream(**kwargs)
         return parms(self._ROOTURL + self.path_channel(), **kwargs)
 
     def url_data(self, **kwargs):
-        if self._lev > 6:
+        if self._lev > 5:
             return self.url_channel(**kwargs)
         else:
             return self.url_datastream(**kwargs)
@@ -234,33 +241,11 @@ def parms(url, **kwargs):
         url = url+'?'+str(time)#+'&'.join(par)
     return url
 
-class TimeArray(list):
-    def __init__(self,*argin):
-        for i in Time(*argin):
-            self.append(i)
-
-    def __setitem__(self, value):
-        super(TimeArray, self).__setitem__(self, Time(value))
-
-    def __append__(self, value):
-        super(TimeArray, self).__append__(self, Time(value))
-
-    def _ns(self): return [i.ns for i in self]
-
-    def _s(self): return [i.s for i in self]
-
-    def _subsec(self): return [i.subsec for i in self]
-
-    def _utc(self): return [i.utc for i in self]
-
-    def _local(self): return [i.local for i in self]
-
-    ns = property(_ns)
-    s = property(_s)
-    utc = property(_utc)
-    local = property(_local)
-    subsec = property(_subsec)
-
+def filter(path, time=None):
+    url = Path(path).url_datastream() + '/_signal.json'
+    if time is None:
+        return url
+    return url+'?'+TimeInterval(time).filter()
 
 class Time(_ver.long):
     """
@@ -294,7 +279,6 @@ class Time(_ver.long):
             return super(Time, self).__new__(self,
                                             ((seconds*1000+time[6])*1000 +
                                             time[7])*1000+time[8])
-
         if isinstance(time, (_ver.basestring,)):
             if time.startswith('now'):  # now
                 time = time.split('_')
@@ -385,6 +369,42 @@ class Time(_ver.long):
     subsec = property(_subsec)
 
 
+class TimeArray(list):
+    def __new__(self, arg=[]):
+        if isinstance(arg, TimeArray):
+            return arg
+        else:
+            newarr = super(TimeArray, self).__new__(self)
+            for i in arg:
+                 super(TimeArray, self).append(newarr,Time(i))
+            return newarr
+
+    def __init__(self, arg=[]):
+        return
+
+    def __setitem__(self, idx, value):
+        super(TimeArray, self).__setitem__(idx, Time(value))
+
+    def append(self, value):
+        super(TimeArray, self).append(Time(value))
+
+    def _ns(self): return [i.ns for i in self]
+
+    def _s(self): return [i.s for i in self]
+
+    def _subsec(self): return [i.subsec for i in self]
+
+    def _utc(self): return [i.utc for i in self]
+
+    def _local(self): return [i.local for i in self]
+
+    ns = property(_ns)
+    s = property(_s)
+    utc = property(_utc)
+    local = property(_local)
+    subsec = property(_subsec)
+
+
 class TimeInterval(TimeArray):
     """
     isinstance generic
@@ -396,32 +416,31 @@ class TimeInterval(TimeArray):
     upto  >  0 : epoch +X ns
     """
 
-    def __new__(self, arg=True):
+    def __new__(self, arg=[-1800., 'now', -1], constant=True):
         if type(arg) is TimeInterval:
-            return arg  # short cut
-        return list.__new__(self)
-
-    def __init__(self, arg=[-1800., 'now', -1]):
-        if type(arg) is TimeInterval:
-            return  # short cut
-        if isinstance(arg, (_mds.Array, _mds.Ident, _mds.treenode.TreeNode, _tdi.VECTOR)):
-            arg = arg.data()
-        if isinstance(arg, (_np.ndarray,)):
-            arg = arg.tolist()
-        if not isinstance(arg, (list, tuple)):
-            arg = [-1, arg, 0]
-        if len(arg) < 3:
-            if len(arg) < 2:
-                if len(arg) == 0:
-                    arg = [-1800.]
-                arg = list(map(Time,arg))
-                arg += [0] if arg[0] < 0 else arg
-            arg += [-1] if arg[0]<0 else [0]
-        if arg[0]==0: arg[0] = 'now'
-        if arg[1]==0: arg[1] = 'now'
-        super(TimeInterval, self).append(Time(arg[0]))
-        super(TimeInterval, self).append(Time(arg[1]))
-        super(TimeInterval, self).append(Time(arg[2]))
+            newti = arg  # short cut
+        else:
+            if isinstance(arg, (_mds.Array, _mds.Ident, _mds.treenode.TreeNode, _tdi.VECTOR)):
+                arg = arg.data()
+            if isinstance(arg, (_np.ndarray,)):
+                arg = arg.tolist()
+            if not isinstance(arg, (list, tuple)):
+                arg = [-1, arg, 0]
+            if len(arg) < 3:
+                if len(arg) < 2:
+                    if len(arg) == 0:
+                        arg = [-1800.]
+                    arg = list(map(Time,arg))
+                    arg += [0] if arg[0] < 0 else arg
+                arg += [-1] if arg[0]<0 else [0]
+            if arg[0]==0: arg[0] = 'now'
+            if arg[1]==0: arg[1] = 'now'
+            newti = super(TimeInterval, self).__new__(self,arg)
+        if constant:
+            newti[0]=newti.fromT
+            newti[1]=newti.uptoT
+            newti[2]=newti.t0T
+        return newti
 
     def append(self, time): self._setT0(time)
 
@@ -444,6 +463,9 @@ class TimeInterval(TimeArray):
 
     def __str__(self):
         return 'from=' + str(self.fromT) + '&upto=' + str(self.uptoT)
+
+    def filter(self):
+        return 'filterstart=' + str(self.fromT) + '&filterstop=' + str(self.uptoT)
 
     def __repr__(self):
         return 'UTC: [ '+self.fromT.utc+' , '+self.uptoT.utc+' ; '+self.t0T.utc+' ]'

@@ -11,14 +11,18 @@ from . import support as _sup
 from . import version as _ver
 
 
-def mds_signal(url, time, help=None, channel=None, chunk=None):
+def mds_signal(url, time, help=None, channel=None, cache=None):
     print('mds_signal')
     try:
         time = _base.TimeInterval(time)
         t0 = time.t0T
         kwargs = {}
         if not channel is None: kwargs['channel']= int(channel)
-        if not chunk is None:   kwargs['chunk']=   int(chunk)
+        try:
+            cache = cache.data()
+        except:
+            pass
+        if not cache is None:   kwargs['cache']= bool(cache)
         signal = _if.read_signal(url, time, t0, **kwargs)
         signal.setHelp(_ver.tostr(help))
         return signal
@@ -28,12 +32,12 @@ def mds_signal(url, time, help=None, channel=None, chunk=None):
         return user+": "+_sup.error()
 
 
-def mds_channel(streamURL, time, channelNr, help=None):
-    return mds_signal(streamURL, time, help, channelNr)
+def mds_channel(streamURL, time, channelNr, help=None, cache=None):
+    return mds_signal(streamURL, time, help, channelNr, cache=cache)
 
 
-def mds_stream(streamURL, time, help=None):
-    return mds_signal(streamURL, time, help)
+def mds_stream(streamURL, time, help=None, cache=None):
+    return mds_signal(streamURL, time, help, cache=cache)
 
 
 def mds_parlog(streamURL, time):
