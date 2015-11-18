@@ -22,7 +22,7 @@ def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/raw/W7X'):
             node = node.addNode(nname, 'STRUCTURE')
             if re.match(nname) is not None:
                 print(nname)
-                node.addTag(nname)
+                #node.addTag(nname)
             node.addNode('$NAME', 'TEXT').putData(name)
         if url is None:
             url = archive_url(node)
@@ -86,7 +86,7 @@ def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/raw/W7X'):
             node = node.addNode(nname, 'SIGNAL')
             if re.match(nname) is not None:
                 print(nname)
-                node.addTag(nname)
+                #node.addTag(nname)
             node.addNode('$NAME', 'TEXT').putData(name)
         node.putData(archive_stream(node))
         if url is None:

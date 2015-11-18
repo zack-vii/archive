@@ -32,8 +32,8 @@ def mds_signal(url, time, help=None, channel=None, cache=None):
         return user+": "+_sup.error()
 
 
-def mds_channel(streamURL, time, channelNr, help=None, cache=None):
-    return mds_signal(streamURL, time, help, channelNr, cache=cache)
+def mds_channel(streamURL, time, channel, help=None, cache=None):
+    return mds_signal(streamURL, time, help, channel, cache=cache)
 
 
 def mds_stream(streamURL, time, help=None, cache=None):

@@ -1,38 +1,31 @@
 /*
-helper fuction that set the _time variable or unsets it with TIME(0)
+helper fuction that set the _time variable or unsets it.
+TIME(from,upto,orig)
+from = 0: clear _time
+
+parameters are normalised by the TimeToSec function.
+
+from : defines from parameter     defaults to: 3600
+upto : defines upto parameter     defaults to: 'now'
+orig : defines the origin t=0     defaults to: 0 or base of relative
+
+from < 1e9s : from as time before upto orig defaults to upto
+upto < 1e9s : upto as time after from  orig defaults to from
 */
-fun public TIME( optional as_is _in1 , optional _in2 , optional _in3 )
+fun public TIME( optional _from , optional _upto , optional _orig )
 {
-    IF( PRESENT( _in1 ) ? _in1==0 : 0)
+    IF( IF_ERROR( _in1==0 , 0 ) )
     {
         PUBLIC _time=*;
-        DEALLOCATE('_time');
+        DEALLOCATE("_time");
+        RETURN(*);
     }
-    ELSE
-    {
-       IF( PRESENT( _in3 ) )
-          PUBLIC _time = [D_FLOAT( _in1 ), D_FLOAT( _in2 ), D_FLOAT( _in3 ) ];
-       ELSE
-       {
-           IF( PRESENT( _in2 ) )
-               PUBLIC _time = [D_FLOAT( _in1 ), D_FLOAT( _in2 ), D_FLOAT(_in1)];
-           ELSE
-           {
-               IF( EXTRACT(0,1,GETENV("os"))=="W" )
-               {
-                   /* get current time windows */
-                   _t = QUADWORD_UNSIGNED(0);
-                   kernel32->GetSystemTimeAsFileTime(ref(_t));
-                   /* conver 100ns since 1601 to s since 1970 */
-                   _t = ( _t - 0X19db1ded53e8000QU )/1D7;
-               }
-               ELSE
-                   _in2 = cvttime();
-               IF( NOT PRESENT( _in1 ) )
-                   _in1 = 3600;
-               PUBLIC _time = [_t - D_FLOAT(_in1), _t, _t ];
-           }
-       }
-       RETURN(_time);
-    }
+    _now= 0D0;
+    _t0 = 0D0;
+    _t1 = PRESENT( _in1 ) ? TimeToSec( _in1, _now) : 3600D0;
+    _t2 = PRESENT( _in2 ) ? TimeToSec( _in2, _now) : TimeToSec( "NOW" );
+    IF(_t1<=1D9 ? _t2>1D9 : 0) _t1 = (_t0=_t2)-_t1; 
+    IF(_t2<=1D9 ? _t1>1D9 : 0) _t2 = (_t0=_t1)+_t2;
+    _t3 = PRESENT( _orig ) ? TimeToSec( _orig, _now) : _t0;
+    RETURN(PUBLIC _time = [ _t1 , _t2 , _t3 ]);
 }

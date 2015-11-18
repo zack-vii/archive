@@ -230,15 +230,14 @@ def parms(url, **kwargs):
         if 'channel' in kwargs.keys():
             url = url + '/' + str(int(kwargs['channel']))
         url = url + '/_signal.json'
-#        par = [str(time)]
-#        if 'skip' in kwargs.keys():
-#            par.append('skip='+str(int(kwargs['skip'])))
-#        if 'nsamples' in kwargs.keys():
-#            par.append('nSamples='+str(int(kwargs['nsamples'])))
+        par = [str(time)]
+        if 'skip' in kwargs.keys():
+            par.append('skip='+str(int(kwargs['skip'])))
+        if 'nsamples' in kwargs.keys():
+            par.append('nSamples='+str(int(kwargs['nsamples'])))
 #        if 'channels' in kwargs.keys():
 #            par.append('channels='+str(kwargs['channels']).lstrip('[').rstrip(']').replace(' ',''))
-#        if len(par):
-        url = url+'?'+str(time)#+'&'.join(par)
+        url = url+'?'+'&'.join(par)
     return url
 
 def filter(path, time=None):
@@ -416,7 +415,7 @@ class TimeInterval(TimeArray):
     upto  >  0 : epoch +X ns
     """
 
-    def __new__(self, arg=[-1800., 'now', -1], constant=True):
+    def __new__(self, arg=[-1800., 'now_m', -1], constant=True):
         if type(arg) is TimeInterval:
             newti = arg  # short cut
         else:
@@ -433,8 +432,8 @@ class TimeInterval(TimeArray):
                     arg = list(map(Time,arg))
                     arg += [0] if arg[0] < 0 else arg
                 arg += [-1] if arg[0]<0 else [0]
-            if arg[0]==0: arg[0] = 'now'
-            if arg[1]==0: arg[1] = 'now'
+            if arg[0]==0: arg[0] = 'now_m'
+            if arg[1]==0: arg[1] = 'now_m'
             newti = super(TimeInterval, self).__new__(self,arg)
         if constant:
             newti[0]=newti.fromT
