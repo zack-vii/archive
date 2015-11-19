@@ -121,7 +121,10 @@ def _readraw(path, time, **kwargs):
         stream = get_json(path.url_data(), time=time, **kwargs)
     except _ver.urllib.HTTPError:
         return [[],[],None]
-    return [_base.tonumpy(stream['values']),_np.array(stream['dimensions']),str(stream.get('unit', 'unknown'))]
+    data = _base.tonumpy(stream['values'])
+    if len(data.shape)==2:  # multichannel
+        data = data.T.copy()
+    return [data,_np.array(stream['dimensions']),str(stream.get('unit', 'unknown'))]
 
 
 def _readchunks(path, time, **kwargs):
@@ -157,7 +160,7 @@ def _readchunks(path, time, **kwargs):
             """stores chunks in cache 250-500 samples"""
             def store(pos,end,time,data):
                 key = _cache.getkey(hsh, time, False, **kwargs)
-                SQcache.set(key,[data[0].T[pos:end].T,data[1][pos:end],data[2]],604800)
+                SQcache.set(key,[data[0][pos:end],data[1][pos:end],data[2]],604800)
             pos = 0
             length = len(data[1])
             t = [btime[0],0]  # from
@@ -183,8 +186,16 @@ def _readchunks(path, time, **kwargs):
                 _cachechunk(blck[idxs[i]],times[i],last)
         blck = [b for b in blck if len(b[0])>0]
     # concatenate chunks to data
-    dat = _np.concatenate(tuple(b[0] for b in blck), 1)
-    dim = _np.concatenate(tuple(b[1] for b in blck))
+    if len(blck)==1:
+        dat = blck[0][0]
+        dim = blck[0][1]
+    else:
+        try:
+            dat = _np.concatenate(tuple(b[0] for b in blck))
+            dim = _np.concatenate(tuple(b[1] for b in blck))
+        except:
+            dat = dim = _np.array([])
+            return [dat, dim, 'NoData']
     unit = 'unknown'
     for b in blck:
         if isinstance(b[2],str):
@@ -196,7 +207,7 @@ def _readchunks(path, time, **kwargs):
     stop = len(dim)
     while dim[start]<time[0]: start+=1
     while dim[stop-1]>time[1]: stop-=1
-    dat = dat.T[start:stop].T
+    dat = dat[start:stop]
     dim = dim[start:stop]
     return [dat, dim, unit]
 
@@ -219,7 +230,7 @@ def get_json(url, **kwargs):
 
 def getLast(path, time=[1,-1]):
     j = get_json(_base.filter(path, time))
-    last = _ver.tostr(j['_links']['children'][-1]['href']).split('?')[1].split('&')
+    last = _ver.tostr(j['_links']['children'][0]['href']).split('?')[1].split('&')
     last = [s.split('=') for s in last]
     last = dict((s[0],int(s[1])) for s in last)
     return last

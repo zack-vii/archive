@@ -15,14 +15,14 @@ from . import version as _ver
 
 
 def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/raw/W7X'):
+    re = _re.compile('[A-Z]+[0-9]+')
+    cap = _re.compile('[^A-Z]')
     def addProject(T, node, nname, name='', url=None):
-        re = _re.compile('[A-Z]+[0-9]+')
-        cap = _re.compile('[^A-Z]')
         if name != '':
             node = node.addNode(nname, 'STRUCTURE')
             if re.match(nname) is not None:
                 print(nname)
-                #node.addTag(nname)
+                node.addTag(nname)
             node.addNode('$NAME', 'TEXT').putData(name)
         if url is None:
             url = archive_url(node)
@@ -41,8 +41,6 @@ def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/raw/W7X'):
 
 
     def addStreamgroup(T, node, nname, name='', url=None):
-        re = _re.compile('[A-Z]+[0-9]+')
-        cap = _re.compile('[^A-Z]')
         if name != '':
             node = node.addNode(nname, 'STRUCTURE')
             # node is stream group
@@ -69,10 +67,7 @@ def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/raw/W7X'):
                     plogNode = node.addNode(cnname, 'STRUCTURE')
                     if re.match(cnname) is not None:
                         print(cnname)
-                        try:
-                            plogNode.addTag(cnname)
-                        except:
-                            print(cnname)
+                        plogNode.addTag(cnname)
                     plogNode.addNode('$URL', 'TEXT').putData(archive_url(plogNode))
                     plogNode.addNode('$NAME', 'TEXT').putData(stream)
                     addParlog(T, plogNode)
@@ -81,12 +76,11 @@ def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/raw/W7X'):
 
 
     def addStream(T, node, nname, name='', url=None):
-        re = _re.compile('[A-Z]+[0-9]+')
         if name != '':
             node = node.addNode(nname, 'SIGNAL')
             if re.match(nname) is not None:
                 print(nname)
-                #node.addTag(nname)
+                node.addTag(nname)
             node.addNode('$NAME', 'TEXT').putData(name)
         node.putData(archive_stream(node))
         if url is None:

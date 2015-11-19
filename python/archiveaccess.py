@@ -17,6 +17,10 @@ def mds_signal(url, time, help=None, channel=None, cache=None):
         time = _base.TimeInterval(time)
         t0 = time.t0T
         kwargs = {}
+        try:
+            channel = channel.data()
+        except:
+            pass
         if not channel is None: kwargs['channel']= int(channel)
         try:
             cache = cache.data()

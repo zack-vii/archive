@@ -14,18 +14,18 @@ upto < 1e9s : upto as time after from  orig defaults to from
 */
 fun public TIME( optional _from , optional _upto , optional _orig )
 {
-    IF( IF_ERROR( _in1==0 , 0 ) )
+    IF( IF_ERROR( _from==0 , 0 ) )
     {
         PUBLIC _time=*;
         DEALLOCATE("_time");
         RETURN(*);
     }
-    _now= 0D0;
-    _t0 = 0D0;
-    _t1 = PRESENT( _in1 ) ? TimeToSec( _in1, _now) : 3600D0;
-    _t2 = PRESENT( _in2 ) ? TimeToSec( _in2, _now) : TimeToSec( "NOW" );
-    IF(_t1<=1D9 ? _t2>1D9 : 0) _t1 = (_t0=_t2)-_t1; 
-    IF(_t2<=1D9 ? _t1>1D9 : 0) _t2 = (_t0=_t1)+_t2;
-    _t3 = PRESENT( _orig ) ? TimeToSec( _orig, _now) : _t0;
+    _now= 0Q;
+    _t0 = 0Q;
+    _t1 = PRESENT( _from ) ? TimeToNs( _from, _now) : 3600000000000Q;
+    _t2 = PRESENT( _upto ) ? TimeToNs( _upto, _now) : TimeToNs( "NOW" );
+    IF(_t1<=1E18 ? _t2>1E18 : 0) _t1 = (_t0=_t2)-_t1;
+    IF(_t2<=1E18 ? _t1>1E18 : 0) _t2 = (_t0=_t1)+_t2;
+    _t3 = PRESENT( _orig ) ? TimeToNs( _orig, _now) : _t0;
     RETURN(PUBLIC _time = [ _t1 , _t2 , _t3 ]);
 }
