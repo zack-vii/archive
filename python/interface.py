@@ -106,9 +106,9 @@ def read_signal(path, time, t0=0, **kwargs):
     if cache:
         try:
             rawset = _readchunks(path, time, **kwargs)
-        except Exception as exc:
+        except Exception:
+            _sup.error()
             rawset = _readraw(path, time, **kwargs)
-            rawset[2] = exc.message
     else:
         _sup.debug('get web-archive: '+path.path())
         rawset = _readraw(path, time, **kwargs)
