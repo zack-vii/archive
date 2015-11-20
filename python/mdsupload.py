@@ -246,29 +246,44 @@ def _write_signals(path, signals, t0):
             logs.append(_if.write_data(path, data, dimof, t0))
             if logs[-1].getcode() >= 400:
                 print(0,logs[-1].content)
-    elif len(signals) > 1:
-        data = []
-        dimof = []
-        for signal in signals:
-            signal = signal.evaluate()
+        return logs
+    scalar = [[],None]
+    images = []
+    for signal in signals:
+        signal = signal.evaluate()
+        ndims = len(signal.data().shape)
+        sigdimof = _base.TimeArray(signal.dim_of()).ns
+        if ndims==1:
             data.append(signal.data())
-            sigdimof = _base.TimeArray(signal.dim_of()).ns
-            if dimof==[]:
-                dimof = sigdimof
+            if scalar[1] is None:
+                scalar[1] = sigdimof
             else:
                 if not (data[0].dtype==data[-1].dtype):
                     raise(Exception('data types are not equal for all channels'))
-                if not (dimof==sigdimof):
+                if not all(scalar[1]==sigdimof):
                     raise(Exception('dimesions are not equal for all channels'))
-        data = _np.array(data)
-        dimof = _np.array(dimof)
-        N = 100000
-        for chunk in _ver.xrange(int((len(dimof)-1)/N+1)):
-            idx = chunk*N
-            logs.append(_if.write_data(path, data[:,idx:idx+N], dimof[idx:idx+N], t0))
+        elif ndims>1:
+            images.append((signal.data(),sigdimof))
+    del(signals)
+    if scalar[1] is not None:
+        data = _np.array(scalar[0]).T
+        dimof = _np.array(scalar[1])
+        del(scalar)
+        length= len(dimof)
+        idx = 0;
+        while idx<length:
+            N = 5000 if length-idx>7500 else length-idx
+            logs.append(_if.write_data(path, data[idx:idx+N], dimof[idx:idx+N], t0))
             if logs[-1].getcode() >= 400:
-                print(chunk,logs[-1].content)
-        return logs
+                print(idx,idx+N-1,logs[-1].content)
+            idx = idx+N
+    del(scalar)
+    for image in images:
+        data = _np.array(image[0]).T
+        dimof = _np.array(image[1])
+        logs.append(_if.write_data(path, data, dimof, t0))
+
+    return logs
 
 
 def _buildPath(node):
