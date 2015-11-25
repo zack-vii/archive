@@ -317,6 +317,7 @@ class server(object):
         desc = {}
         for d in node.getDescendants():
             desc = _sup.treeToDict(d, desc)
+        desc['physicalQuantity'] = {'type':desc.pop('units','none')}
         desc["name"] = node.getNodeName().lower()
         return desc
 
@@ -340,11 +341,11 @@ class server(object):
         else:
             return self._path._set_stream(str(node.getNodeName()).lower())
 
-    def config(self, node):
+    def config(self, node, override=0):
         if isinstance(node, str):
             node = self.Tree(self.last).getNode(node)
         chanDesc = self.configTree(node)
-        t0 = self.getUpdateTime(node)
+        t0 = self.getUpdateTime(node)+override
         parlog = {'chanDescs': [chanDesc]}
         try:
             _if.write_logurl(self.getParlogPath(node), parlog, t0)
