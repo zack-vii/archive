@@ -185,7 +185,8 @@ def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/raw/W7X'):
 
     name = "raw"
     path = _base.Path(rootpath).url()
-    with _mds.Tree(tree, shot, 'New') as arc:
+    with _mds.Tree(tree, shot, 'new') as arc:
+        arc.getNode('\TOP').setIncludedInPulse(False)
         T = _base.Time(T)
         sys = arc.addNode('$SYSTEM','STRUCTURE')
         sys.addNode('VERSION','TEXT').putData(T.utc)
