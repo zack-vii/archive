@@ -18,11 +18,11 @@ def treeToDict(tree, exclude=[]):
         dic = {}
         dic["usage"] = str(node.usage)
         if dic["usage"] == "SIGNAL":
-            if any(_mds.TdiExecute('[GETNCI($1,"NID_REFERENCE"),GETNCI($1,"PATH_REFERENCE")]',(node,)).tolist()):
-                dic["record"] = _mds.TdiDecompile(node.record)
+            if node.nid_reference or node.path_reference:
+                dic["record"] = _mds.TdiDecompile(node.record).replace('\\','\\\\')
         else:
             try:
-                dic["record"] = _mds.TdiDecompile(node.record)
+                dic["record"] = _mds.TdiDecompile(node.record).replace('\\','\\\\')
             except:
                 pass
         dic["flags"] = _sup.Flags(node)

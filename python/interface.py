@@ -29,14 +29,16 @@ class URLException(Exception):
         return value
 
 
-def write_logurl(url, parms, time):
+def write_logurl(url, parms, T0):
     if url.endswith('CFGLOG'):
         label = 'configuration'
-    else:
+    elif url.endswith('PARLOG'):
         label = 'parms'
+    else:
+        raise Exception('write_logurl: URL must refer to either a CFGLOG or a PARLOG.')
     log = {'label' : label,
            'values': [parms],
-           'dimensions': [_base.TimeInterval(time).fromT.ns,-1]
+           'dimensions': [max(0,_base.Time(T0).ns),-1]
            }
     return(post(url, json=log))  # , data=json.dumps(cfg)
 

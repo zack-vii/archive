@@ -14,7 +14,7 @@ from . import interface as _if
 from . import support as _sup
 from . import version as _ver
 _MDS_shots = _base.Path('raw/W7X/MDSplus/shots')
-_subtrees  = ['QMC','QMR','QRN','QSD','QSQ','QSR','QSW','QSX']
+_subtrees  = 'included'
 _exclude   = ['ACTION', 'TASK', 'SIGNAL']
 
 def setupTiming():
@@ -26,7 +26,7 @@ def setupTiming():
         else:
             return {'name':'T%d' % n,'physicalQuantity':{'type':'ns'}}
     parlog = {'chanDescs':[chanDesc(n) for n in _ver.xrange(7)]}
-    result = _if.write_logurl(_MDS_shots.url_parlog(), parlog, 1)
+    result = _if.write_logurl(_MDS_shots.url_parlog(), parlog, 0)
     print(result.msg)
     return result
 
@@ -34,6 +34,15 @@ def setupTiming():
 def uploadModel(shot, subtrees=_subtrees, treename='W7X', T0=None):
     """uploads full model tree of a given shot into the web archive
     should be executed right after T0"""
+    if shot<0:
+        raise Exception("Shot number must be positive (must not direct to the model).")
+    if isinstance(subtrees,_ver.basestring):
+        if subtrees=='included':
+            subtrees = [str(st.node_name) for st in _sup.getIncluded(treename,-1)]
+        elif subtrees=='all':
+            subtrees = [str(st.node_name) for st in _sup.getSubTrees(treename,-1)]
+        else:
+            subtrees = [subtrees]
     def getModel():
         nodenames = ['ADMIN','TIMING']+subtrees
         w7x = _mds.Tree(treename,-1)
@@ -41,15 +50,16 @@ def uploadModel(shot, subtrees=_subtrees, treename='W7X', T0=None):
         for key in nodenames:
             print('reading %s' % key)
             model[key]=_diff.treeToDict(w7x.getNode(key))
-
+        return model
     if T0 is None:
         T0 = _sup.getTiming(shot, 0)
     else:
         T0 = _base.Time(T0)
     cfglog = getModel()
+    #result = (_MDS_shots.url_cfglog(), cfglog, T0)
     result = _if.write_logurl(_MDS_shots.url_cfglog(), cfglog, T0)
     print(result.msg)
-    return result
+    return result,cfglog
 
 
 def uploadTiming(shot):
@@ -94,9 +104,11 @@ def uploadShot(shot, subtrees=_subtrees, treename='W7X', T0=None, T1=None):
     return(sectionDicts)
 
 
-def _getCfgLog(kks):
+def _getCfgLog(kks,shot,treename='W7X'):
     """generates the base cfglog of a kks subtree
     called by uploadShot"""
+    if isinstance(kks, str):
+        kks = _mds.Tree(treename,shot).getNode(kks)
     cfglog = {}
     for m in kks.getMembers():
         cfglog  = _sup.treeToDict(m, cfglog, _exclude)

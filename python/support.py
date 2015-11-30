@@ -130,8 +130,20 @@ class Flags(int):
             flags = _mds.TdiExecute('GETNCI($,"GET_FLAGS")', (flags,))
         return int.__new__(self, int(flags))
 
-    def _on(self): return not bool(self & 1<<0)
-    def _parent_on(self): return not bool(self & 1<<1)
+    def write(self,n):
+        changed = Flags(Flags(n) ^ self)
+        if changed.state: n.setOn(self.on)
+        if changed.essential: n.setEssential(self.essential)
+        if changed.write_once: n.setWriteOnce(self.write_once)
+        if changed.do_not_compress: n.setDoNotCompress(self.do_not_compress)
+        if changed.compress_on_put: n.setCompressOnPut(self.compress_on_put)
+        if changed.no_write_model: n.setNoWriteModel(self.no_write_model)
+        if changed.no_write_shot: n.setNoWriteShot(self.no_write_shot)
+        if changed.include_in_pulse: n.setIncludedInPulse(self.include_in_pulse)
+        if changed.compress_segments: n.setCompressSegments(self.compress_segments)
+        return Flags(n)
+    def _state(self): return bool(self & 1<<0)
+    def _parent_state(self): return not bool(self & 1<<1)
     def _essential(self): return bool(self & 1<<2)
     def _cached(self): return bool(self & 1<<3)
     def _versions(self): return bool(self & 1<<4)
@@ -148,8 +160,11 @@ class Flags(int):
     def _include_in_pulse(self): return bool(self & 1<<15)
     def _compress_segments(self): return bool(self & 1<<16)
 
-    on = property(_on)
-    parent_on = property(_parent_on)
+    def _on(self): return not self._state()
+    def _parent_on(self): return self._parent_state()
+
+    state = property(_state)
+    parent_state = property(_parent_state)
     essential = property(_essential)
     cached = property(_cached)
     versions = property(_versions)
@@ -166,6 +181,8 @@ class Flags(int):
     include_in_pulse = property(_include_in_pulse)
     compress_segments = property(_compress_segments)
 
+    on = property(_on)
+    parent_on = property(_parent_on)
 
 def getTimestamp(n=1):
     url = 'http://mds-data-1.ipp-hgw.mpg.de/operator/last_trigger/'+str(n)
@@ -265,6 +282,15 @@ def ndims(signal, N=0):
             N = ndims(signal[0], N)
     return N
 
+def getSubTrees(expt='W7X',shot=-1, excludelist=('ARCHIVE',), excludereg=('.*_EVAL',)):
+    rematch = tuple(_re.compile(reg) for reg in excludereg)
+    top = _mds.TreeNode(0,_mds.Tree(expt,shot))
+    subtrees = [c for c in top.getChildren() if c.usage=='SUBTREE' and not (c.node_name in excludelist) and all(re.match(str(c.node_name)) is None for re in rematch)]
+    return subtrees
+
+def getIncluded(*args):
+    subtrees = getSubTrees(*args)
+    return [st for st in subtrees if st.include_in_pulse]
 
 def setTIME(tree,shot):
     tree = _mds.Tree(tree,shot)
