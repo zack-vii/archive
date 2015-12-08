@@ -66,11 +66,11 @@ def _write_scalar(path, data, dimof):
     # path=Path, data=numpy.array, dimof=list of long
     dtype = str(data.dtype)
     if dtype in ['bool','int8','uint8','int16','uint16']:
-        datatype='short'
+        datatype='int'  # 'short'
     elif dtype in ['int32','uint32']:
         datatype='int'
     elif dtype in ['int64','uint64']:
-        datatype='long'
+        datatype='int' #  'long'
     else:
         datatype='float'
     jdict = {'values': data.tolist(), 'datatype':datatype, 'dimensions': dimof}
