@@ -65,8 +65,10 @@ def uploadModel(shot, subtrees=_subtrees, treename='W7X', T0=None):
 def uploadTiming(shot):
     """uploads the timing of a given shot into the web archive
     should be executed soon after T6"""
-    data = _np.uint64(_sup.getTiming(shot))
+    data = _np.int64(_sup.getTiming(shot))
     dim = data[0]
+    if dim<0:
+        raise Exception('T0 is must not be turned off.')
     data[0] = int(shot)
     result = _if.write_data(_MDS_shots, data, dim)
     print(result.msg)

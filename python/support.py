@@ -99,13 +99,6 @@ def getTimeInserted_old(node):
 def getTimeInserted(node):
     return _base.Time(100*(int(_mds.TdiExecute('GETNCI($,"TIME_INSERTED")', (node,)))-35067240000000000), local=True)
 
-def getTiming(shot, n=_ver.range(7)):
-    time = _mds.Tree('W7X', shot).TIMING
-    if isinstance(n, (list, tuple)):
-        return type(n)(time.getNode('T%d:IDEAL' % i).data().tolist() for i in n)
-    else:
-        return time.getNode('T%d:IDEAL' % n).data().tolist()
-
 class Flags(int):
     _STATE             =0x00000001
     _PARENT_STATE      =0x00000002
@@ -183,6 +176,19 @@ class Flags(int):
 
     on = property(_on)
     parent_on = property(_parent_on)
+
+def getTiming(shot, n=_ver.range(7)):
+    def getTn(n):
+        node = time.getNode('T%d:IDEAL' % n)
+        if node.on:
+            return int(node.record)
+        else:
+            return -1
+    time = _mds.Tree('W7X', shot).TIMING
+    if isinstance(n, (list, tuple)):
+        return type(n)(getTn(i) for i in n)
+    else:
+        return getTn(n)
 
 def getTimestamp(n=1):
     url = 'http://mds-data-1.ipp-hgw.mpg.de/operator/last_trigger/'+str(n)
