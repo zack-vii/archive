@@ -14,7 +14,7 @@ from . import support as _sup
 from . import version as _ver
 
 
-def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/raw/W7X'):
+def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/raw/W7X',tags=False):
     re = _re.compile('[A-Z]+[0-9]+')
     cap = _re.compile('[^A-Z]')
     def addProject(T, node, nname, name='', url=None):
@@ -22,7 +22,7 @@ def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/raw/W7X'):
             node = node.addNode(nname, 'STRUCTURE')
             if re.match(nname) is not None:
                 print(nname)
-                node.addTag(nname)
+                if tags: node.addTag(nname)
             node.addNode('$NAME', 'TEXT').putData(name)
         if url is None:
             url = archive_url(node)
@@ -35,18 +35,18 @@ def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/raw/W7X'):
             try:
                 cnname = s.split('.')
                 cnname[0] = cap.sub('', cnname[0])
-                addStreamgroup(T, node, ''.join(cnname), s)
+                addStreamgroup(T, node, ''.join(cnname), s,tags=tags)
             except:
                 _sup.error()
 
 
-    def addStreamgroup(T, node, nname, name='', url=None):
+    def addStreamgroup(T, node, nname, name='', url=None,tags=False):
         if name != '':
             node = node.addNode(nname, 'STRUCTURE')
             # node is stream group
             if re.match(nname) is not None:
                 print(nname)
-                node.addTag(nname)
+                if tags: node.addTag(nname)
             node.addNode('$NAME', 'TEXT').putData(name)
         if url is None:
             url = archive_url(node)
@@ -62,12 +62,12 @@ def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/raw/W7X'):
                 cnname[0] = cap.sub('', cnname[0])
                 cnname = ''.join(cnname)
                 if 'DATASTREAM' in content:
-                    addStream(T, node, cnname, stream)
+                    addStream(T, node, cnname, stream, tags=tags)
                 elif 'PARLOG' in content:
                     plogNode = node.addNode(cnname, 'STRUCTURE')
                     if re.match(cnname) is not None:
                         print(cnname)
-                        plogNode.addTag(cnname)
+                        if tags: plogNode.addTag(cnname)
                     plogNode.addNode('$URL', 'TEXT').putData(archive_url(plogNode))
                     plogNode.addNode('$NAME', 'TEXT').putData(stream)
                     addParlog(T, plogNode)
@@ -75,12 +75,12 @@ def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/raw/W7X'):
                 _sup.error()
 
 
-    def addStream(T, node, nname, name='', url=None):
+    def addStream(T, node, nname, name='', url=None,tags=False):
         if name != '':
             node = node.addNode(nname, 'SIGNAL')
             if re.match(nname) is not None:
                 print(nname)
-                node.addTag(nname)
+                if tags: node.addTag(nname)
             node.addNode('$NAME', 'TEXT').putData(name)
         node.putData(archive_stream(node))
         if url is None:
