@@ -70,7 +70,7 @@ def _write_scalar(path, data, dimof):
     elif dtype in ['int32','uint32']:
         datatype='int'
     elif dtype in ['int64','uint64']:
-        datatype='int' #  'long'
+        datatype='long'
     else:
         datatype='float'
     jdict = {'values': data.tolist(), 'datatype':datatype, 'dimensions': dimof}
