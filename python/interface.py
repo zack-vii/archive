@@ -9,7 +9,7 @@ import os as _os
 import mmap as _mmap
 import json as _json
 import numpy as _np
-from threading import Thread
+import threading as _th
 
 
 try:
@@ -20,8 +20,6 @@ from . import base as _base
 from . import cache as _cache
 from . import support as _sup
 from . import version as _ver
-
-SQcache = _cache.cache()
 _defaultCache = True
 
 class URLException(Exception):
@@ -130,6 +128,7 @@ def _readraw(path, time, **kwargs):
 
 
 def _readchunks(path, time, **kwargs):
+    SQcache = _cache.cache()
     path = _base.Path(path)
     hsh = hash(path)
     time = _base.TimeInterval(time).ns[0:2]
@@ -180,7 +179,7 @@ def _readchunks(path, time, **kwargs):
         last = getLast(path)['upto']
         tmax = 32
         idx = [tmax-1]
-        threads = [Thread(target=task, args=(blck, times, idxs, idx, i)) for i in range(min(tmax,len(blck)))]
+        threads = [_th.Thread(target=task, args=(blck, times, idxs, idx, i)) for i in range(min(tmax,len(blck)))]
         for thread in threads: thread.start()
         for thread in threads: thread.join()
         for i in _ver.xrange(len(idxs)):
