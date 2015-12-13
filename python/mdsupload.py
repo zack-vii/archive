@@ -8,12 +8,12 @@ lev  0       1        2       3       4      5      6      7
 import MDSplus as _mds
 import numpy as _np
 import re as _re
-from . import base as _base
-from . import diff as _diff
-from . import interface as _if
-from . import support as _sup
-from . import version as _ver
-_MDS_shots = _base.Path('raw/W7X/MDSplus/shots')
+from archive import base as _base
+from archive import diff as _diff
+from archive import interface as _if
+from archive import support as _sup
+from archive import version as _ver
+_MDS_shots = _base.Path('raw/W7X/MDSplus/Shots')
 _subtrees  = 'included'
 _exclude   = ['ACTION', 'TASK', 'SIGNAL']
 
@@ -21,10 +21,8 @@ def setupTiming():
     """sets up the parlog of the shots datastream in the web archive
     should be executed only once before frist experiment"""
     def chanDesc(n):
-        if n==0:
-            return {'name':'shot','physicalQuantity':{'type':'none'}}
-        else:
-            return {'name':'T%d' % n,'physicalQuantity':{'type':'ns'}}
+        if n==0:    return {'name':'shot','physicalQuantity':{'type':'none'}}
+        else:       return {'name':'T%d' % n,'physicalQuantity':{'type':'ns'}}
     parlog = {'chanDescs':[chanDesc(n) for n in _ver.xrange(7)]}
     result = _if.write_logurl(_MDS_shots.url_parlog(), parlog, 0)
     print(result.msg)
@@ -37,12 +35,9 @@ def uploadModel(shot, subtrees=_subtrees, treename='W7X', T0=None):
     if shot<0:
         raise Exception("Shot number must be positive (must not direct to the model).")
     if isinstance(subtrees,_ver.basestring):
-        if subtrees=='included':
-            subtrees = [str(st.node_name) for st in _sup.getIncluded(treename,-1)]
-        elif subtrees=='all':
-            subtrees = [str(st.node_name) for st in _sup.getSubTrees(treename,-1)]
-        else:
-            subtrees = [subtrees]
+        if subtrees=='included':    subtrees = [str(st.node_name) for st in _sup.getIncluded(treename,-1)]
+        elif subtrees=='all':       subtrees = [str(st.node_name) for st in _sup.getSubTrees(treename,-1)]
+        else:                       subtrees = [subtrees]
     def getModel():
         nodenames = ['ADMIN','TIMING']+subtrees
         w7x = _mds.Tree(treename,-1)
@@ -51,10 +46,8 @@ def uploadModel(shot, subtrees=_subtrees, treename='W7X', T0=None):
             print('reading %s' % key)
             model[key]=_diff.treeToDict(w7x.getNode(key))
         return model
-    if T0 is None:
-        T0 = _sup.getTiming(shot, 0)
-    else:
-        T0 = _base.Time(T0)
+    if T0 is None:  T0 = _sup.getTiming(shot, 0)
+    else:           T0 = _base.Time(T0)
     cfglog = getModel()
     #result = (_MDS_shots.url_cfglog(), cfglog, T0)
     result = _if.write_logurl(_MDS_shots.url_cfglog(), cfglog, T0)
@@ -67,8 +60,7 @@ def uploadTiming(shot):
     should be executed soon after T6"""
     data = _np.int64(_sup.getTiming(shot))
     dim = data[0]
-    if dim<0:
-        raise Exception('T0 is must not be turned off.')
+    if dim<0:   raise Exception('T0 must not be turned off.')
     data[0] = int(shot)
     result = _if.write_data(_MDS_shots, data, dim)
     print(result.msg)
@@ -78,24 +70,27 @@ def uploadTiming(shot):
 def uploadShot(shot, subtrees=_subtrees, treename='W7X', T0=None, T1=None):
     """uploads the data of all sections of a given shot into the web archive
     should be executed after all data is written to the shot file"""
+    if shot<0:  raise Exception("Shot number must be positive (must not direct to the model).")
+    if isinstance(subtrees,_ver.basestring):
+        if subtrees=='included':    subtrees = [str(st.node_name) for st in _sup.getIncluded(treename,shot)]
+        elif subtrees=='all':       subtrees = [str(st.node_name) for st in _sup.getSubTrees(treename,shot)]
+        else:                       subtrees = [subtrees]
+    print(subtrees)
+    if T0 is None:  T0 = _sup.getTiming(shot, 0)
+    else:           T0 = _base.Time(T0)
+    if T1 is None:  T1 = _sup.getTiming(shot, 0)
+    else:           T1 = _base.Time(T1)
     sectionDicts = []
     w7x = _mds.Tree(treename, shot)
-    if T0 is None:
-        T0 = _sup.getTiming(shot, 0)
-    else:
-        T0 = _base.Time(T0)
-    if T1 is None:
-        T1 = _sup.getTiming(shot, 0)
-    else:
-        T1 = _base.Time(T1)
     path = _base.Path('raw/W7X')
     for subtree in subtrees:
         kks = w7x.getNode(subtree)
-        kkscfg = _getCfgLog(kks)
+        kkscfg = _getCfgLog(kks,shot)
         data = kks.DATA
         for sec in data.getDescendants():
             print(sec)
-            path.streamgroup = subtree.upper()+'_'+sec.getNodeName().lower()
+            section = str(sec.node_name)
+            path.streamgroup = subtree.upper()+'_'+section[0].upper()+section[1:].lower()
             try:
                 cfglog = _sup.treeToDict(sec,kkscfg.copy(),_exclude,'')
                 log_cfglog = _if.write_logurl(path.url_cfglog(), cfglog, T0)
@@ -106,11 +101,10 @@ def uploadShot(shot, subtrees=_subtrees, treename='W7X', T0=None, T1=None):
     return(sectionDicts)
 
 
-def _getCfgLog(kks,shot,treename='W7X'):
+def _getCfgLog(kks,shot=None,treename='W7X'):
     """generates the base cfglog of a kks subtree
     called by uploadShot"""
-    if isinstance(kks, str):
-        kks = _mds.Tree(treename,shot).getNode(kks)
+    if isinstance(kks, str): kks = _mds.Tree(treename,shot).getNode(kks)
     cfglog = {}
     for m in kks.getMembers():
         cfglog  = _sup.treeToDict(m, cfglog, _exclude)
@@ -123,28 +117,29 @@ def _getCfgLog(kks,shot,treename='W7X'):
 def _sectionDict(section, kks, T0, T1, path):
     """generates the parlog for a section under .DATA and upload the data
     called by uploadShot"""
-    signalDict = {}
-    deviceDict = {}
+    """signalDict:   (nid of channel) :{dict of signal}"""
+    """channelLists: (nid of device):[nid of channels]"""
     sectionDict = []
     try:
-        for signal in section.getDescendants():
-            signalDict = _signalDict(signal, signalDict)
         HW = kks.HARDWARE
-        if HW.getNumDescendants()>0:
-            channelLists = _getChannelLists(kks)
-            for dev in HW.getDescendants():
-                if len(channelLists[dev.Nid]):
-                    path.stream = dev.getNodeName().lower()
-                    deviceDict, signalList = _deviceDict(dev, channelLists[dev.Nid], signalDict)
-                    try:
-                        log_parlog = _if.write_logurl(path.url_parlog(), deviceDict, T0)
-                    except:
-                        log_parlog = _sup.error()
-                    log_signal = _write_signals(path, signalList, T1)
-                    sectionDict.append({"path": path.path(),
-                               "deviceDict": deviceDict,
-                               "signalList": signalList,
-                               "log": {'parlog':log_parlog, 'signal':log_signal}})
+        if HW.getNumDescendants()==0: return
+        signalDict = {}
+        deviceDict = {}
+        for signal in section.getDescendants(): signalDict = _signalDict(signal, signalDict)
+        channelLists = _getChannelLists(kks,signalDict)
+        for devnid,channels in channelLists.items():
+            if len(channels)==0: continue
+            device = _mds.TreeNode(devnid)
+            stream = str(device.node_name)
+            path.stream = stream[0].upper()+stream[1:].lower()
+            deviceDict, signalList = _deviceDict(device, channels, signalDict)
+            try:    log_parlog = _if.write_logurl(path.url_parlog(), deviceDict, T0)
+            except: log_parlog = _sup.error()
+            log_signal = _write_signals(path, signalList, T1)
+            sectionDict.append({"path": path.path(),
+                       "deviceDict": deviceDict,
+                       "signalList": signalList,
+                       "log": {'parlog':log_parlog, 'signal':log_signal}})
     except:
         _sup.error()
     return sectionDict
@@ -155,8 +150,7 @@ def _signalDict(signal, signalDict={}):
     called by _sectionDict"""
     if signal.usage == "SIGNAL":
         desc = {}
-        if signal.getNumDescendants()>0:
-            _sup.treeToDict(signal, desc, _exclude)
+        if signal.getNumDescendants()>0: _sup.treeToDict(signal, desc, _exclude)
         desc["name"] = signal.getNodeName().lower()
         nid = signal.getData().Nid
         signalDict[nid] = desc
@@ -169,8 +163,8 @@ def _getChannelLists(kks, channels):
     f = _re.compile('(?<=\.HARDWARE[:\.])([^\.:]+)')
     HW = kks.HARDWARE
     channelLists = dict([device.Nid, []] for device in HW.getDescendants())
-    for channel in channels.keys():
-        deviceName = f.search(str(kks.tree.getNode(channel).FullPath)).group(0)
+    for channel in channels:
+        deviceName = f.search(str(_mds.TreeNode(channel).fullpath)).group(0)
         device = HW.getNode(deviceName)
         channelLists[device.nid].append(channel)
     return channelLists
@@ -181,12 +175,10 @@ def _deviceDict(device, channelList, signalDict={}):
     called by _sectionDict"""
     def _searchSignal(descendant):
         """checks DEVICE:SIGNAL and DEVICE.STRUCTURE:SIGNAL"""
-        if descendant.usage == "SIGNAL":
-            return descendant
+        if descendant.usage == "SIGNAL":        return descendant
         elif descendant.usage == "STRUCTURE":
             for member in descendant.getMembers():
-                if member.usage == 'SIGNAL':
-                    return member
+                if member.usage == 'SIGNAL':    return member
         return None
 
     deviceDict = {}
@@ -196,7 +188,7 @@ def _deviceDict(device, channelList, signalDict={}):
         signal = _searchSignal(descendant)
         if signal is None:  # add to parlog
             _sup.treeToDict(descendant, deviceDict, _exclude)
-        elif signal.Nid in channelList:  # add to signal list
+        elif signal.nid in channelList:  # add to signal list
             chanDescs.append(_chanDesc(descendant, signal, signalDict))
             signalList.append(signal)
     deviceDict["chanDescs"] = chanDescs
@@ -205,25 +197,27 @@ def _deviceDict(device, channelList, signalDict={}):
 
 def _chanDesc(signalroot, signal, signalDict={}):
     """generates the channel descriptor for a given channel"""
-    def mergeSignalDict():
+    def mergeSignalDict(chanDesc):
         if nid in signalDict.keys():
             for key, value in signalDict[nid].items():
                 chanDesc[key] = value
+        return chanDesc
 
     def substituteUnits():
         if 'units' in chanDesc.keys():
             chanDesc["physicalQuantity"]['type'] = _base.Units(chanDesc["units"], 1)
             del(chanDesc["units"])
-    nid = signal.Nid
+        return chanDesc
+    nid = signal.nid
+    print(signal)
     chanDesc = _channelDict(signalroot, nid)
-    chanDesc = mergeSignalDict(nid)
+    chanDesc = mergeSignalDict(chanDesc)
     chanDesc = substituteUnits()
     try:
         units = _base.Units(signal, 1)
         if units != 'unknown':
             chanDesc["physicalQuantity"]['type'] = units
-    except:
-        pass
+    except:pass
     return chanDesc
 
 
@@ -237,6 +231,7 @@ def _channelDict(signalroot, nid):
     for sibling in signalroot.getDescendants():
         if not sibling.Nid == nid:  # in case: DEVICE.STRUCTURE:SIGNAL
             channelDict = _sup.treeToDict(sibling, channelDict, _exclude)
+    return channelDict
 
 
 def _write_signals(path, signals, t0):
@@ -252,14 +247,12 @@ def _write_signals(path, signals, t0):
                 dimof = _base.TimeArray(signal.getSegmentDim(segment)).ns
                 log = _if.write_data(path, data, dimof, t0)
                 logs.append({"segment": segment, "log": log})
-                if logs[-1].getcode() >= 400:
-                    print(segment,logs[-1].content)
+                if logs[-1].getcode() >= 400:   print(segment,logs[-1].content)
         else:
             data = signal.data()
-            dimof = _base.TimeArray(signal.dim_of()).ns
+            dimof = _base.TimeArray(signal.dim_of().data()).ns
             logs.append(_if.write_data(path, data, dimof, t0))
-            if logs[-1].getcode() >= 400:
-                print(0,logs[-1].content)
+            if logs[-1].getcode() >= 400:   print(0,logs[-1].content)
         return logs
     scalar = [[],None]
     images = []
@@ -282,7 +275,6 @@ def _write_signals(path, signals, t0):
     if scalar[1] is not None:
         data = _np.array(scalar[0]).T
         dimof = _np.array(scalar[1])
-        del(scalar)
         length= len(dimof)
         idx = 0;
         while idx<length:
@@ -296,7 +288,6 @@ def _write_signals(path, signals, t0):
         data = _np.array(image[0]).T
         dimof = _np.array(image[1])
         logs.append(_if.write_data(path, data, dimof, t0))
-
     return logs
 
 
@@ -305,10 +296,8 @@ def _buildPath(node):
     called by uploadNode"""
     PathParts = _re.split('::|:|\.|_', node.path.lstrip('\\'))
     KKS = PathParts[0]
-    if PathParts[1] == 'EVAL':
-        view = 'raw'  # will be cocking once supported
-    else:
-        view = 'raw'
+    if PathParts[1] == 'EVAL':  view = 'raw'  # will be cocking once supported
+    else:                       view = 'raw'
     section = PathParts[-2].lower()
     groupname = PathParts[-1].lower()
     path = _base.Path('/'.join([view, 'W7X', KKS+'_'+section, groupname]))
@@ -341,8 +330,6 @@ def uploadNode(node, shot=0, treename='W7X'):
     r[0] = _if.write_logurl(path.url_parlog(), parlog, T0)
     r[1] = _write_signals(path, sig, T1)
     print(r)
-    if not r[0].ok:
-        print(r[0].content)
-    if not r[1].ok:
-        print(r[1].content)
+    if not r[0].ok: print(r[0].content)
+    if not r[1].ok: print(r[1].content)
     return r
