@@ -373,6 +373,7 @@ class TimeArray(list):
         if isinstance(arg, TimeArray):
             return arg
         else:
+            if isinstance(arg, _mds.Dimension): arg = arg.data()
             newarr = super(TimeArray, self).__new__(self)
             for i in arg:
                  super(TimeArray, self).append(newarr,Time(i))
