@@ -17,14 +17,14 @@ _MDS_shots = _base.Path('raw/W7X/MDSplus/Shots')
 _subtrees  = 'included'
 _exclude   = ['ACTION', 'TASK', 'SIGNAL']
 
-def setupTiming():
+def setupTiming(version=0):
     """sets up the parlog of the shots datastream in the web archive
     should be executed only once before frist experiment"""
     def chanDesc(n):
         if n==0:    return {'name':'shot','physicalQuantity':{'type':'none'}}
         else:       return {'name':'T%d' % n,'physicalQuantity':{'type':'ns'}}
     parlog = {'chanDescs':[chanDesc(n) for n in _ver.xrange(7)]}
-    result = _if.write_logurl(_MDS_shots.url_parlog(), parlog, 0)
+    result = _if.write_logurl(_MDS_shots.url_parlog(), parlog, version)
     print(result.msg)
     return result
 
