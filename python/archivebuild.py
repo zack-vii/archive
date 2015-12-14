@@ -13,7 +13,6 @@ from . import interface as _if
 from . import support as _sup
 from . import version as _ver
 
-
 def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/raw/W7X',tags=False):
     re = _re.compile('[A-Z]+[0-9]+')
     cap = _re.compile('[^A-Z]')
@@ -24,8 +23,7 @@ def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/raw/W7X',tags=F
                 print(nname)
                 if tags: node.addTag(nname)
             node.addNode('$NAME', 'TEXT').putData(name)
-        if url is None:
-            url = archive_url(node)
+        if url is None: url = archive_url(node)
         urlNode = node.addNode('$URL', 'TEXT')
         urlNode.putData(url)
         url = str(urlNode.data())
@@ -38,6 +36,18 @@ def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/raw/W7X',tags=F
                 addStreamgroup(T, node, ''.join(cnname), s,tags=tags)
             except:
                 _sup.error()
+    def addShotsDB(tree):
+        mds = tree.addNode('MDS','STRUCTURE')
+        node = mds.addNode('S','SIGNAL')
+        node.putData(archive_stream(node))
+        node.addNode('$NAME','TEXT').putPut('Shots')
+        node.addNode('$URL', 'TEXT').putData(archive_url(node))
+        for i in range(7):
+            ch = node.addNode('CH%d' % i,'SIGNAL')
+            ch.putData(archive_channel(ch))
+            name = 'shot' if i==0 else 'T%d' % i
+            ch.addNode('$NAME','TEXT').putData(name)
+            ch.addNode('$IDX','NUMERIC').putData(i)
 
 
     def addStreamgroup(T, node, nname, name='', url=None,tags=False):
@@ -83,8 +93,7 @@ def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/raw/W7X',tags=F
                 if tags: node.addTag(nname)
             node.addNode('$NAME', 'TEXT').putData(name)
         node.putData(archive_stream(node))
-        if url is None:
-            url = archive_url(node)
+        if url is None: url = archive_url(node)
         node.addNode('$URL', 'TEXT').putData(url)
         chanDescs = addParlog(T, node)
         for i in _ver.xrange(len(chanDescs)):
@@ -136,8 +145,7 @@ def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/raw/W7X',tags=F
     def addChannel(node, nname, idx, chan={}, url=None):
         node = node.addNode(nname, 'SIGNAL')
         node.putData(archive_channel(node))
-        if url == None:
-            url = archive_url(node)
+        if url == None: url = archive_url(node)
         node.addNode('$URL', 'TEXT').putData(url)
         nameNode = node.addNode('$NAME', 'TEXT')
         node.addNode('$IDX', 'NUMERIC').putData(idx)
@@ -195,6 +203,7 @@ def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/raw/W7X',tags=F
         sys.addNode('FUN_PARLOG','TEXT').putData('archive_parlog')
         sys.addNode('FUN_STREAM','TEXT').putData('archive_signal')
         sys.addNode('FUN_CHANNEL','TEXT').putData('archive_signal')
+        addShotsDB(arc)
         addProject(T, arc, name, '', path)
         arc.write()
     _mds.Tree(tree, shot).compressDatafile()
