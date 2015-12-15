@@ -13,6 +13,7 @@ from . import interface as _if
 from . import support as _sup
 from . import version as _ver
 
+
 def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/raw/W7X',tags=False):
     re = _re.compile('[A-Z]+[0-9]+')
     cap = _re.compile('[^A-Z]')
@@ -40,8 +41,8 @@ def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/raw/W7X',tags=F
         mds = tree.addNode('MDS','STRUCTURE')
         node = mds.addNode('S','SIGNAL')
         node.putData(archive_stream(node))
-        node.addNode('$NAME','TEXT').putPut('Shots')
-        node.addNode('$URL', 'TEXT').putData(archive_url(node))
+        node.addNode('$NAME','TEXT').record = 'Shots'
+        node.addNode('$URL', 'TEXT').record = archive_url(node)
         for i in range(7):
             ch = node.addNode('CH%d' % i,'SIGNAL')
             ch.putData(archive_channel(ch))
@@ -116,28 +117,10 @@ def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/raw/W7X',tags=F
             chanDescs = []
         if len(dist):
             for k, v in dist.items():
-                if v is None:
-                    continue
-                try:
-                    k = _sup.fixname12(k)
-                    if isinstance(v, (_ver.basestring, )):
-                        parNode.addNode(k, 'TEXT').putData(_ver.tobytes(v))
-                    elif isinstance(v, (int, float)):
-                        parNode.addNode(k, 'NUMERIC').putData(v)
-                    elif isinstance(v, (list,)) and isinstance(v[0], (int, float)):
-                        parNode.addNode(k, 'NUMERIC').putData(v)
-                    elif isinstance(v, (dict,)):
-                        pn = parNode.addNode(k, 'ANY')
-                        if not '['+str(len(v)-1)+']' in v.keys():
-                            pn.putData(str(v))
-                        else:
-                            v = [v['['+str(i)+']'] for i in _ver.xrange(len(v))]
-                            try:
-                                pn.putData(v)
-                            except:
-                                pn.putData([str(i) for i in v])
+                if v is None: continue
+                try:    addField(parNode,k,v)
                 except:
-                    print(node.MinPath,k,v)
+                    print(parNode.MinPath,k,v)
                     _sup.error()
         return chanDescs
 
@@ -159,18 +142,35 @@ def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/raw/W7X',tags=F
                 elif k == 'name':
                     nameNode.putData(_ver.tobytes(v))
                 else:
-                    k = _sup.fixname12(k)
-                    if isinstance(v, (str, )):
-                        node.addNode(k, 'TEXT').putData(_ver.tobytes(v))
-                    elif isinstance(v, (int, float, list)):
-                        node.addNode(k, 'NUMERIC').putData(v)
-                    else:
-                        node.addNode(k, 'TEXT').putData(_ver.tobytes(v))
+                    addField(node,k,v)
             except:
                 print(k)
                 print(v)
                 _sup.error()
 
+    def addField(node,name,v):
+        k = _sup.fixname12(name)
+        if isinstance(v, (_ver.basestring, )):
+            node.addNode(k, 'TEXT').putData(_ver.tobytes(v))
+        elif isinstance(v, (int, float)):
+            node.addNode(k, 'NUMERIC').putData(v)
+        elif isinstance(v, (list,)):
+            if isinstance(v[0], _ver.numbers):
+                node.addNode(k, 'NUMERIC').putData(v)
+            else:
+                node.addNode(k, 'ANY').putData(v)
+        elif isinstance(v, (dict,)):
+            if not '['+str(len(v)-1)+']' in v.keys():
+                node.addNode(k, 'ANY').putData(str(v))
+            else:
+                v = [v['['+str(i)+']'] for i in _ver.xrange(len(v))]
+                try:
+                    if all(isinstance(vi, _ver.numbers) for vi in v):
+                        node.addNode(k, 'NUMERIC').putData(v)
+                    else:
+                        node.addNode(k, 'ANY').putData(v)
+                except:
+                    node.addNode(k, 'ANY').putData([str(i) for i in v])
 
     def archive_url(node):
         return _mds.TdiCompile('EXT_FUNCTION(*,$SYSTEM:FUN_URL,$)', (node, ))
@@ -194,7 +194,7 @@ def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/raw/W7X',tags=F
     name = "raw"
     path = _base.Path(rootpath).url()
     with _mds.Tree(tree, shot, 'new') as arc:
-        arc.getNode('\TOP').setIncludedInPulse(False)
+        arc.getNode('\TOP').setIncludeInPulse(False)
         T = _base.Time(T)
         sys = arc.addNode('$SYSTEM','STRUCTURE')
         sys.addNode('VERSION','TEXT').putData(T.utc)
