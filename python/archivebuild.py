@@ -13,6 +13,20 @@ from . import interface as _if
 from . import support as _sup
 from . import version as _ver
 
+def addValue(tree='archive', shot=-1):
+    valueDB = {
+        'CDSD104:DMD236:CH0':'116.76 * $VALUE^2 - 42.133 * $VALUE + 146.64',  #  Charly 1
+        'CDSD103:DMD230:CH4':'45.399 * $VALUE^2 + 62.879 * $VALUE + 67.552',  #  Charly 5
+        'CDSD108:DMD240:CH0':'29.842 * $VALUE^2 + 190.34 * $VALUE + 26.759',  #  Alpha 1
+        'CDSD108:DMD240:CH8':'32.902 * $VALUE^2 + 8.9552 * $VALUE + 112.58',  #  Bravo 1
+        'CDSD101:DMD229:CH0':'17.327 * $VALUE^2 + 124.39 * $VALUE + 72.739',  #  Delta 5
+        'CDSD106:DMD237:CH8':'107.2  * $VALUE^2 + 148.65 * $VALUE + 96.27' ,  #  Bravo 5
+        }
+    with _mds.Tree(tree,shot,'edit') as arc:
+        for k,v in valueDB.iteritems():
+            try: arc.getNode(k).addNode('$VALUE','TEXT').record = v
+            except Exception as exc: print(exc)
+        arc.write()
 
 def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/raw/W7X',tags=False):
     re = _re.compile('[A-Z]+[0-9]+')
@@ -37,6 +51,7 @@ def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/raw/W7X',tags=F
                 addStreamgroup(T, node, ''.join(cnname), s,tags=tags)
             except:
                 _sup.error()
+
     def addShotsDB(tree):
         mds = tree.addNode('MDS','STRUCTURE')
         node = mds.addNode('S','SIGNAL')
@@ -206,4 +221,5 @@ def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/raw/W7X',tags=F
         addShotsDB(arc)
         addProject(T, arc, name, '', path)
         arc.write()
+    addValue(tree, shot)
     _mds.Tree(tree, shot).compressDatafile()

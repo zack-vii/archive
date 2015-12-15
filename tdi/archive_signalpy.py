@@ -9,10 +9,8 @@ def archive_signalpy(node, time=None, cache=None):
            node = Tree('archive',-1).getNode(node)
         # use _time variable if Tree is ARCHIVE
         if node.tree.shot == -1:
-            try:
-                time = base.TimeInterval(time)
-            except:
-                time = base.TimeInterval([-1800.,0,0])
+            try:    time = base.TimeInterval(time)
+            except: time = base.TimeInterval([-1800.,0,0])
         else:
             time = base.TimeInterval(node.getNode('\TIME').data())
         # load channels by datastream + index
@@ -22,16 +20,15 @@ def archive_signalpy(node, time=None, cache=None):
         except:
             idx = None
             url = node.getNode('$URL').data()
+        try:    value = node.getNode('$VALUE').data()
+        except: value = None
         # request signal
-        signal = interface.read_signal(url, time, time.t0T, cache=cache, channel=idx)
+        signal = interface.read_signal(url, time, time.t0T, channel=idx, value=value, cache=cache)
         # generate help text (HELP, DESCRIPTION, $NAME)
-        try:
-            help = node.getNode('HELP').data()
+        try:        help = node.getNode('HELP').data()
         except:
-            try:
-                help = node.getNode('DESCRIPTION').data()
-            except:
-                help = node.getNode('$NAME').data()
+            try:    help = node.getNode('DESCRIPTION').data()
+            except: help = node.getNode('$NAME').data()
         signal.setHelp(str(help))
         return(signal)
     except:

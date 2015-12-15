@@ -542,7 +542,7 @@ def Units(units=None, force=False):
     raise Exception("Units must be one of '"+"', '".join(_units)+"'")
 
 
-def createSignal(dat, dim, t0, unit=None, addim=[], units=[], help=None):
+def createSignal(dat, dim, t0, unit=None, addim=[], units=[], help=None, value='$VALUE'):
     def _dim(time,t0):
         if len(time):
             t0 = _mds.Int64(t0)
@@ -575,7 +575,7 @@ def createSignal(dat, dim, t0, unit=None, addim=[], units=[], help=None):
         addim[i] = _addim(addim[i], units[i])
     if unit is not None:
         dat.setUnits(unit)
-    sig = _mds.Signal(dat, None, dim, *addim)
+    sig = _mds.Signal(_mds.Data.compile(value), dat, dim, *addim)
     if help:
         sig.setHelp(help)
     return sig
