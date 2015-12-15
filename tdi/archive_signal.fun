@@ -25,7 +25,7 @@ fun public archive_signal (as_is _node, optional _timein, optional _cachein)
     _help= IF_ERROR(EXECUTE(_path // ":HELP"),
                     EXECUTE(_path // ":DESCRIPTION"),
                     EXECUTE(_path // ":$NAME"),
-                    *);
+                    _path);
     _cache = PRESENT(_cachein) ? _cachein : *;
     _signal = pyfun('mds_signal', 'archive', _url, _time, _help, _idx, _cache);
     IF(_notree)
