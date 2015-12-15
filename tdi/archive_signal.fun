@@ -20,7 +20,6 @@ fun public archive_signal (as_is _node, optional _timein, optional _cachein)
     ELSE
         _time = DATA(COMPILE("\\TIME"));
     _idx = IF_ERROR(EXECUTE(_path // ":$IDX"), * );
-    _value = IF_ERROR(EXECUTE(_path // ":$VALUE"), * );
     _urlpar = (KIND(_idx) == *) ? _path // ":$URL" : GETNCI(GETNCI(_path,"PARENT"),"MINPATH") // ":$URL";
     _url = EXECUTE( _urlpar );
     _help= IF_ERROR(EXECUTE(_path // ":HELP"),
@@ -28,7 +27,9 @@ fun public archive_signal (as_is _node, optional _timein, optional _cachein)
                     EXECUTE(_path // ":$NAME"),
                     _path);
     _cache = PRESENT(_cachein) ? _cachein : *;
-    _signal = pyfun('mds_signal', 'archive', _url, _time, _help, _idx, _value, _cache);
+    _value = IF_ERROR(EXECUTE(_path // ":$VALUE") , * );
+    _scaling = IF_ERROR(EXECUTE(_path // ":AIDEVSCALING") , * );
+    _signal = pyfun('mds_signal', 'archive', _url, _time, _help, _idx, _value, _scaling, _cache);
     IF(_notree)
        TREECLOSE();
     return(_signal);

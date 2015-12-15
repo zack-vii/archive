@@ -113,7 +113,7 @@ def read_signal(path, time, t0=0, **kwargs):
         _sup.debug('get web-archive: '+path.path())
         rawset = _readraw(path, time, **kwargs)
     if rawset is None: return None
-    return _base.createSignal(rawset[0], rawset[1], t0, rawset[2])
+    return _base.createSignal(rawset[0], rawset[1], t0, rawset[2],**kwargs)
 
 
 def _readraw(path, time, **kwargs):

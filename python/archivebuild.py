@@ -15,17 +15,18 @@ from . import version as _ver
 
 def addValue(tree='archive', shot=-1):
     valueDB = {
-        'CDSD104:DMD236:CH0':'116.76 * $VALUE^2 - 42.133 * $VALUE + 146.64',  #  Charly 1
-        'CDSD103:DMD230:CH4':'45.399 * $VALUE^2 + 62.879 * $VALUE + 67.552',  #  Charly 5
-        'CDSD108:DMD240:CH0':'29.842 * $VALUE^2 + 190.34 * $VALUE + 26.759',  #  Alpha 1
-        'CDSD108:DMD240:CH8':'32.902 * $VALUE^2 + 8.9552 * $VALUE + 112.58',  #  Bravo 1
-        'CDSD101:DMD229:CH0':'17.327 * $VALUE^2 + 124.39 * $VALUE + 72.739',  #  Delta 5
-        'CDSD106:DMD237:CH8':'107.2  * $VALUE^2 + 148.65 * $VALUE + 96.27' ,  #  Bravo 5
+        'CDSD104:DMD236:CH0':'Build_With_Units(polyval($VALUE, [146.64D0,42.133D0,116.76D0]),"kW")',  #  Charly 1
+        'CDSD103:DMD230:CH4':'Build_With_Units(polyval($VALUE, [67.552D0,62.879D0,45.399D0]),"kW")',  #  Charly 5
+        'CDSD108:DMD240:CH0':'Build_With_Units(polyval($VALUE, [26.759D0,190.34D0,29.842D0]),"kW")',  #  Alpha 1
+        'CDSD108:DMD240:CH8':'Build_With_Units(polyval($VALUE, [112.58D0,8.9552D0,32.902D0]),"kW")',  #  Bravo 1
+        'CDSD101:DMD229:CH0':'Build_With_Units(polyval($VALUE, [72.739D0,124.39D0,17.327D0]),"kW")',  #  Delta 5
+        'CDSD106:DMD237:CH8':'Build_With_Units(polyval($VALUE, [96.27D0 ,148.65D0,107.2D0 ]),"kW")',  #  Bravo 5
         }
     with _mds.Tree(tree,shot,'edit') as arc:
         for k,v in valueDB.iteritems():
-            try: arc.getNode(k).addNode('$VALUE','TEXT').record = v
-            except Exception as exc: print(exc)
+            node = arc.getNode(k)
+            try:    node.addNode('$VALUE','TEXT').record = v
+            except: node.getNode('$VALUE').record = v
         arc.write()
 
 def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/raw/W7X',tags=False):
@@ -133,7 +134,7 @@ def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/raw/W7X',tags=F
         if len(dist):
             for k, v in dist.items():
                 if v is None: continue
-                try:    addField(parNode,k,v)
+                try: addField(parNode,k,v)
                 except:
                     print(parNode.MinPath,k,v)
                     _sup.error()
@@ -149,8 +150,7 @@ def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/raw/W7X',tags=F
         node.addNode('$IDX', 'NUMERIC').putData(idx)
         for k, v in chan.items():
             try:
-                if k == 'physicalQuantity':
-                    pass
+                if k == 'physicalQuantity': pass
                 elif k == 'active':
                     v = int(v)
                     node.setOn(v != 0)
@@ -166,26 +166,27 @@ def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/raw/W7X',tags=F
     def addField(node,name,v):
         k = _sup.fixname12(name)
         if isinstance(v, (_ver.basestring, )):
-            node.addNode(k, 'TEXT').putData(_ver.tobytes(v))
+            pn = node.addNode(k, 'TEXT').putData(_ver.tobytes(v))
         elif isinstance(v, (int, float)):
-            node.addNode(k, 'NUMERIC').putData(v)
+            pn = node.addNode(k, 'NUMERIC').putData(v)
         elif isinstance(v, (list,)):
             if isinstance(v[0], _ver.numbers):
-                node.addNode(k, 'NUMERIC').putData(v)
+                pn = node.addNode(k, 'NUMERIC').putData(_mds.makeArray(v))
             else:
-                node.addNode(k, 'ANY').putData(v)
+                pn = node.addNode(k, 'ANY').putData(v)
         elif isinstance(v, (dict,)):
             if not '['+str(len(v)-1)+']' in v.keys():
-                node.addNode(k, 'ANY').putData(str(v))
+                pn = node.addNode(k, 'ANY').putData(str(v))
             else:
                 v = [v['['+str(i)+']'] for i in _ver.xrange(len(v))]
-                try:
-                    if all(isinstance(vi, _ver.numbers) for vi in v):
-                        node.addNode(k, 'NUMERIC').putData(v)
-                    else:
-                        node.addNode(k, 'ANY').putData(v)
-                except:
-                    node.addNode(k, 'ANY').putData([str(i) for i in v])
+                if all(isinstance(vi, _ver.numbers) for vi in v):
+                    pn = node.addNode(k, 'NUMERIC').putData(_mds.makeArray(v))
+                else:
+                    try:
+                        pn = node.addNode(k, 'ANY').putData(v)
+                    except:
+                        pn.putData([str(i) for i in v])
+        pn.addNode('$NAME','TEXT').record = name
 
     def archive_url(node):
         return _mds.TdiCompile('EXT_FUNCTION(*,$SYSTEM:FUN_URL,$)', (node, ))

@@ -10,9 +10,8 @@ from . import interface as _if
 from . import support as _sup
 from . import version as _ver
 
-
-def mds_signal(url, time, help=None, channel=None, value=None, cache=None):
-    print('mds_signal')
+def mds_signal(url, time, help=None, channel=None, value=None, scaling=None, cache=None):
+    print('mds_signal',url,time,help,channel,value,scaling,cache)
     try:
         time = _base.TimeInterval(time)
         t0 = time.t0T
@@ -26,6 +25,9 @@ def mds_signal(url, time, help=None, channel=None, value=None, cache=None):
         try:    value = value.data()
         except: pass
         if not value is None:   kwargs['value']= str(value)
+        try:    scaling = scaling.data()
+        except: pass
+        if not value is None:   kwargs['scaling']= list(scaling)
         signal = _if.read_signal(url, time, t0, **kwargs)
         signal.setHelp(_ver.tostr(help))
         return signal
@@ -35,7 +37,7 @@ def mds_signal(url, time, help=None, channel=None, value=None, cache=None):
         return user+": "+_sup.error()
 
 
-def mds_channel(streamURL, time, channel, help=None, value=None, cache=None):
+def mds_channel(streamURL, time, channel, help=None, value=None, scaling=None, cache=None):
     return mds_signal(streamURL, time, help, channel, value, cache=cache)
 
 
