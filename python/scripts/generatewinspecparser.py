@@ -33,7 +33,7 @@ _lengths = {
 def generate(filepath='M:\header.txt'):
     with open(filepath,'r') as f:
         for line in f:
-            try:double
+            try:
                 transline(line.rstrip('\n'))
             except:
                 print(line)
