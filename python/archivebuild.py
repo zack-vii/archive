@@ -15,12 +15,17 @@ from . import version as _ver
 
 def addValue(tree='archive', shot=-1):
     valueDB = {
-        'CDSD104:DMD236:CH0':'Build_With_Units(polyval($VALUE, [146.64D0,42.133D0,116.76D0]),"kW")',  #  Charly 1
-        'CDSD103:DMD230:CH4':'Build_With_Units(polyval($VALUE, [67.552D0,62.879D0,45.399D0]),"kW")',  #  Charly 5
-        'CDSD108:DMD240:CH0':'Build_With_Units(polyval($VALUE, [26.759D0,190.34D0,29.842D0]),"kW")',  #  Alpha 1
-        'CDSD108:DMD240:CH8':'Build_With_Units(polyval($VALUE, [112.58D0,8.9552D0,32.902D0]),"kW")',  #  Bravo 1
-        'CDSD101:DMD229:CH0':'Build_With_Units(polyval($VALUE, [72.739D0,124.39D0,17.327D0]),"kW")',  #  Delta 5
-        'CDSD106:DMD237:CH8':'Build_With_Units(polyval($VALUE, [96.27D0 ,148.65D0,107.2D0 ]),"kW")',  #  Bravo 5
+        'CDSD104:DMD236:CH0' :'Build_With_Units(polyval($VALUE, [146.64,42.133,116.76]),"kW")',  # RF_C1
+        'CDSD101:DMD229:CH0' :'Build_With_Units(polyval($VALUE, [67.552,62.879,45.399]),"kW")',  # RF_C5
+        'CDSD101:DMD229:CH8' :'Build_With_Units(polyval($VALUE, [72.739,124.39,17.327]),"kW")',  # RF_D5
+        'CDSD108:DMD240:CH0' :'Build_With_Units(polyval($VALUE, [26.759,190.34,29.842]),"kW")',  # RF_A1
+        'CDSD108:DMD240:CH8' :'Build_With_Units(polyval($VALUE, [112.58,8.9552,32.902]),"kW")',  # RF_B1
+        'CDSD106:DMD237:CH8' :'Build_With_Units(polyval($VALUE, [96.270,148.65,107.20]),"kW")',  # RF_B5
+        'CDSD104:DMD236:CH6' :'Build_With_Units(polyval($VALUE, [33.512,712.72]),"kW")',  # Bolo_C1
+        'CDSD101:DMD229:CH6' :'Build_With_Units(polyval($VALUE,[-43.156,684.25]),"kW")',  # Bolo_C5
+        'CDSD101:DMD229:CH14':'Build_With_Units(polyval($VALUE,[-10.469,161.96]),"kW")',  # Bolo_D5
+        'CDSD108:DMD240:CH6' :'Build_With_Units(polyval($VALUE,[-0.3427,1319.2]),"kW")',  # Bolo_A1
+        'CDSD106:DMD237:CH14':'Build_With_Units(polyval($VALUE, [85.734,996.06]),"kW")',  # Bolo_B5
         }
     with _mds.Tree(tree,shot,'edit') as arc:
         for k,v in valueDB.iteritems():
