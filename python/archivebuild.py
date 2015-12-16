@@ -25,8 +25,9 @@ def addValue(tree='archive', shot=-1):
     with _mds.Tree(tree,shot,'edit') as arc:
         for k,v in valueDB.iteritems():
             node = arc.getNode(k)
-            try:    node.addNode('$VALUE','TEXT').record = v
-            except: node.getNode('$VALUE').record = v
+            try:    vnode = node.addNode('$VALUE','AXIS')
+            except: vnode = node.getNode('$VALUE')
+            vnode.record = _mds.TdiCompile(v)
         arc.write()
 
 def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/raw/W7X',tags=False):

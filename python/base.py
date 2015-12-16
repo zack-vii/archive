@@ -581,8 +581,11 @@ def createSignal(dat, dim, t0, unit=None, addim=[], units=[], help=None, value=N
     else:
         if value is None: value='$VALUE'
         if scaling is None:
-            value = _mds.Data.compile(value)
+            if isinstance(value, _ver.basestring):
+                value = _mds.Data.compile(value)
         else:
+            if not isinstance(value, _ver.basestring):
+                value = value.decompile()
             value = _mds.Data.compile(value.replace('$VALUE',' polyval($VALUE,'+_mds.makeArray(scaling).decompile()+') '))
     sig = _mds.Signal(value, dat, dim, *addim)
     if help:
