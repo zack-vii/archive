@@ -115,8 +115,8 @@ def getkey(path, time, chk=True, **kwargs):
     if chk:
         time = _base.TimeInterval(time).ns[0:2]
         path = _base.Path(path)
-    chn = kwargs.get('channel',-1)
-    frm = time[0]
-    upt = time[1]
+    chn = int(kwargs.get('channel',-1))
+    frm = int(time[0])
+    upt = int(time[1])
     hsh = hash(path);
     return [hsh,chn,frm,upt]
