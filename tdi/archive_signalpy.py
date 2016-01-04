@@ -7,24 +7,27 @@ def archive_signalpy(node, time=None, cache=None):
     try:
         if not isinstance(node, (TreeNode)):
            node = Tree('archive',-1).getNode(node)
-        # use _time variable if Tree is ARCHIVE
+        """ use _time variable if Tree is ARCHIVE """
         if node.tree.shot == -1:
             try:    time = base.TimeInterval(time)
             except: time = base.TimeInterval([-1800.,0,0])
         else:
             time = base.TimeInterval(node.getNode('\TIME').data())
-        # load channels by datastream + index
-        try:
-            idx = node.getNode('$IDX').data()
+        """handle arguments"""
+        kwargs = {}
+        if cache is not None: kwargs['cache'] = cache
+        try: # load channels by datastream + index
+            kwargs['channel'] = node.getNode('$IDX').data()
             url = node.getParent().getNode('$URL').data()
         except:
-            idx = None
             url = node.getNode('$URL').data()
-        try:    value = node.getNode('$VALUE').data()
-        except: value = None
-        # request signal
-        signal = interface.read_signal(url, time, time.t0T, channel=idx, value=value, cache=cache)
-        # generate help text (HELP, DESCRIPTION, $NAME)
+        try:    kwargs['value'] = node.getNode('$VALUE').data()
+        except: pass
+        try:    kwargs['scaling'] = node.getNode('AIDEVSCALING').data()
+        except: pass
+        """ request signal """
+        signal = interface.read_signal(url, time, time.t0T, **kwargs)
+        """ generate help text (HELP, DESCRIPTION, $NAME) """
         try:        help = node.getNode('HELP').data()
         except:
             try:    help = node.getNode('DESCRIPTION').data()
@@ -32,7 +35,7 @@ def archive_signalpy(node, time=None, cache=None):
         signal.setHelp(str(help))
         return(signal)
     except:
-        # generate dummy signal with error message as help text
+        """ generate dummy signal with error message as help text """
         import getpass
         from archive import support
         user = getpass.getuser()
