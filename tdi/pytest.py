@@ -1,5 +1,6 @@
 import time
 import MDSplus
+import sys
 from threading import Thread
 a = 0
 worker = None
@@ -10,20 +11,20 @@ def pytest ( arg ):
     except: pass
     try:    arg = int(arg)
     except: arg = 0
+    sys.stdout.write('('+repr(a)+','+repr(arg)+')\n')
     if arg==5:
         MDSplus.TdiExecute('pytest(-1)')
     if arg>0:
-        print(a,arg)
         threads = [Thread(target=MDSplus.TdiExecute, args=('pytest($-1)',(arg,))) for i in range(1)]
         for thread in threads: thread.start()
         for thread in threads: thread.join()
-        print(a,arg)
     elif arg==0:
         MDSplus.TdiExecute('pytest(-2)')
     elif arg==-1:
         start()
     else:
         stop()
+    sys.stdout.write('('+repr(a)+','+repr(arg)+')\n')
 if __name__=='__main__':
     x = pytest(5)
 
@@ -36,6 +37,8 @@ def start():
 
 def stop():
     global worker
+    if worker is None:
+        return
     worker.stop()
     worker.join()
 
@@ -46,10 +49,10 @@ class Asynch(Thread):
         self.daemon = True
 
     def run(self):
-        print('start')
+        sys.stdout.write('started\n')
         while not self.stopReq:
             time.sleep(1)
-        print('stop')
+        sys.stdout.write('stopped\n')
 
     def stop(self):
         self.stopReq = True
