@@ -18,16 +18,16 @@ def mds_signal(url, time, help=None, channel=None, value=None, scaling=None, cac
         kwargs = {}
         try:    channel = channel.data()
         except: pass
-        if not channel is None: kwargs['channel']= int(channel)
+        if channel is not None: kwargs['channel']= int(channel)
         try:    cache = cache.data()
         except: pass
-        if not cache is None:   kwargs['cache']= bool(cache)
+        if cache is not None:   kwargs['cache']= bool(cache)
         try:    value = value.data()
         except: pass
-        if not value is None:   kwargs['value']= str(value)
+        if value is not None:   kwargs['value']= str(value)
         try:    scaling = scaling.data()
         except: pass
-        if not value is None:   kwargs['scaling']= list(scaling)
+        if scaling is not None:   kwargs['scaling']= list(scaling)
         signal = _if.read_signal(url, time, t0, **kwargs)
         signal.setHelp(_ver.tostr(help))
         return signal
