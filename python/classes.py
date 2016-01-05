@@ -70,20 +70,50 @@ class datastream:
 
 
 class browser(_base.Path):
-    def __new__(self, path=_base.Path(), time=_base.TimeInterval()):
-        if isinstance(path, browser):
-            path.set_time(time)
+    def __new__(cls, path=_base._defreadpath, time=None):
+        if type(path) is browser:
+            if time is not None: path.set_time(time)
             return path
-        else:
-            newbrowser = _base.Path.__new__(self, path)
-            newbrowser.set_time(time)
-            return newbrowser
+        elif isinstance(path, _base.Path):
+            path = path.path
+        newbrowser = super(browser,cls).__new__(cls, path)
+        newbrowser.set_time(time)
+        return newbrowser
 
-    def set_time(self, time=_base.TimeInterval()):
-        self._time = _base.TimeInterval(time)
+    def set_time(self, time=None):
+        self._time = _base.TimeInterval() if time is None else _base.TimeInterval(time)
 
     def time(self):
         return self._time
+
+    def _set_project(self, project):
+        if isinstance(project, int):
+            project = self.list_projects()[project]
+        super(browser,self)._set_project(project)
+        return self
+
+    def _set_streamgroup(self, streamgroup):
+        if isinstance(streamgroup, int):
+            streamgroup = self.list_streamgroups()[streamgroup]
+        super(browser,self)._set_streamgroup(streamgroup)
+        return self
+
+    def _set_stream(self, stream):
+        if isinstance(stream, int):
+            stream = self.list_streams().keys()[stream]
+        super(browser,self)._set_stream(stream)
+        return self
+
+    def _set_channel(self, channel, name=None):
+        if name is None:
+            name = self.list_channels()[channel]
+        super(browser,self)._set_channel(channel, name)
+        return self
+
+    project = property(_base.Path._get_project, _set_project)
+    streamgroup = property(_base.Path._get_streamgroup, _set_streamgroup)
+    stream = property(_base.Path._get_stream, _set_stream)
+    channel = property(_base.Path._get_channel, _set_channel)
 
     # read
     def read_data(self, skip=None, nsamples=None, channel=None):
@@ -126,6 +156,8 @@ class browser(_base.Path):
 
     def list_chnames(self): return list_children(self, 7)
 
+    def list_scales(self): return list_children(self, 8)
+
     # print lists
     def print_views(self): self._print_list(self.list_views())
 
@@ -148,6 +180,7 @@ class browser(_base.Path):
 
 def list_children(url, lev=-1):
     from re import compile, escape, I
+    f = '(?:|/\\?filterstart)'
     if lev < 0:
         [url, lev] = _base.Path(url).url(-2)
     else:
@@ -158,34 +191,33 @@ def list_children(url, lev=-1):
         rec = compile(escape(url) + '/([^/]+)()', I)
         NAME = []
     elif lev == 5:  # stream for channel in stream group
-        rec = compile(escape(url) + '/([^/]+)_(DATASTREAM|PARLOG|CFGLOG)' +
-                      '(?:|/\\?filterstart)', I)
+        rec = compile(escape(url) + '/([^/]+)_(DATASTREAM|PARLOG|CFGLOG)'+f, I)
         NAME = {}
     elif lev == 6:  # search for channel in stream
-        rec = compile(escape(url) + '/([^/]+)/([^\\?]+)(?:|\\?filterstart)', I)
+        rec = compile(escape(url) + '/([^/]+)/([^/\\?]+)'+f, I)
         NAME = {}
-    elif lev >= 7:  # search for channel on index
-        rec = compile(escape(url) + '/([^/]+)()(?:|/\\?filterstart)', I)
+    elif lev == 7:  # search for channel on index or scaled
+        rec = compile(escape(url) + '/([^/]+)()'+f, I)
         NAME = []
-    json = _if.get_json(url)
+    elif lev == 8:  # search for scales
+        rec = compile(escape(url) + '/([^/]+)()'+f, I)
+        NAME = []
+    json = _if.get_json(url+'/')
     children = json['_links']['children']
     for c in children:
         m = rec.search(c['href'])
         if m is not None:
-            (k, v) = (m.group(1), m.group(2))
-            if lev in [5, 6]:
-                if lev == 6:
-                    NAME[v] = int(k)
-                elif k in NAME.keys():
+            (k, v) = (str(m.group(1)), str(m.group(2)))
+            if lev == 6:
+                NAME[int(k)] = v
+            elif lev == 5:
+                if k in NAME.keys():
                     NAME[k].append(v)
                 else:
                     NAME[k] = [v]
             else:
                 NAME.append(k)
-    if lev in [5, 6]:
-        return NAME.keys(), NAME.values()
-    else:
-        return NAME
+    return NAME
 
 
 def get_obj_url(url):

@@ -118,5 +118,12 @@ def getkey(path, time, chk=True, **kwargs):
     chn = int(kwargs.get('channel',-1))
     frm = int(time[0])
     upt = int(time[1])
-    hsh = hash(path);
+    if isinstance(path,int):
+        hsh = path;
+    else:
+        hsh = gethash(path, **kwargs)
     return [hsh,chn,frm,upt]
+
+def gethash(path, **kwargs):
+    scl = kwargs.get('scaled',None)
+    return hash(path) if scl is None else hash(str(path)+'/'+scl)

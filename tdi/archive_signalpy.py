@@ -2,8 +2,8 @@ def archive_signalpy(node, time=None, cache=None):
     """ use time if tree is archive """
     """ else use TIME node """
     from archive import base, interface
-    from MDSplus import TreeNode, Tree
-    print('archive_signal')
+    from MDSplus import TreeNode, Tree, Data
+    print('archive_signalpy')
     try:
         if not isinstance(node, (TreeNode)):
            node = Tree('archive',-1).getNode(node)
@@ -15,16 +15,28 @@ def archive_signalpy(node, time=None, cache=None):
             time = base.TimeInterval(node.getNode('\TIME').data())
         """handle arguments"""
         kwargs = {}
+        if str(node.node_name)[0]=='$':
+            kwargs['scaled'] = str(node.node_name)[1:].lower()
+            node = node.getParent()
+        else:
+            try:    kwargs['scaling'] = node.getNode('AIDEVSCALING').data()
+            except: pass
+            try:
+                kwargs['value'] = node.getNode('$VALUE').data()
+            except:
+                try:
+                    gain = node.getNode('GAIN').data()
+                    zero = node.getNode('ZEROOFFSET').data()
+                    if gain!=1. or zero!=0.:
+                        kwargs['value'] = Data.compile('$VALUE*$+$',(gain,zero))
+                except Exception as exc:
+                    print(exc)
         if cache is not None: kwargs['cache'] = cache
         try: # load channels by datastream + index
             kwargs['channel'] = node.getNode('$IDX').data()
             url = node.getParent().getNode('$URL').data()
         except:
             url = node.getNode('$URL').data()
-        try:    kwargs['value'] = node.getNode('$VALUE').data()
-        except: pass
-        try:    kwargs['scaling'] = node.getNode('AIDEVSCALING').data()
-        except: pass
         """ request signal """
         signal = interface.read_signal(url, time, time.t0T, **kwargs)
         """ generate help text (HELP, DESCRIPTION, $NAME) """

@@ -130,7 +130,7 @@ def _readraw(path, time, **kwargs):
 def _readchunks(path, time, **kwargs):
     SQcache = _cache.cache()
     path = _base.Path(path)
-    hsh = hash(path)
+    hsh = _cache.gethash(path, **kwargs)
     time = _base.TimeInterval(time).ns[0:2]
     def task(out, times, idxs, idx, i):
         while i<len(idxs):
@@ -323,6 +323,7 @@ def read_parlog(path, time=[-1, 0], **kwargs):
     if not isinstance(par, dict):
         raise Exception('parlog not found!')
     par = par['values'][-1]
+    if par is None: return None
     if 'chanDescs' in par.keys():
         cD = par['chanDescs']
         if isinstance(cD, dict):

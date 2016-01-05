@@ -22,9 +22,9 @@ def addValue(tree='archive', shot=-1):
         'CDSD108:DMD240:CH8' :'Build_With_Units(polyval($VALUE, [112.58,8.9552,32.902]),"kW")',  # RF_B1
         'CDSD106:DMD237:CH8' :'Build_With_Units(polyval($VALUE, [96.270,148.65,107.20]),"kW")',  # RF_B5
         'CDSD104:DMD236:CH6' :'Build_With_Units(polyval($VALUE, [33.512,712.72]),"kW")',  # Bolo_C1
-        'CDSD101:DMD229:CH6' :'Build_With_Units(polyval($VALUE,[-43.156,684.25]),"kW")',  # Bolo_C5
-        'CDSD101:DMD229:CH14':'Build_With_Units(polyval($VALUE,[-10.469,161.96]),"kW")',  # Bolo_D5
-        'CDSD108:DMD240:CH6' :'Build_With_Units(polyval($VALUE,[-0.3427,1319.2]),"kW")',  # Bolo_A1
+        'CDSD101:DMD229:CH6' :'Build_With_Units(polyval($VALUE, [-43.156,684.25]),"kW")', # Bolo_C5
+        'CDSD101:DMD229:CH14':'Build_With_Units(polyval($VALUE, [-10.469,161.96]),"kW")', # Bolo_D5
+        'CDSD108:DMD240:CH6' :'Build_With_Units(polyval($VALUE, [-0.3427,1319.2]),"kW")', # Bolo_A1
         'CDSD106:DMD237:CH14':'Build_With_Units(polyval($VALUE, [85.734,996.06]),"kW")',  # Bolo_B5
         }
     with _mds.Tree(tree,shot,'edit') as arc:
@@ -35,21 +35,19 @@ def addValue(tree='archive', shot=-1):
             vnode.record = _mds.TdiCompile(v)
         arc.write()
 
-def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/raw/W7X',tags=False):
+def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/codac/W7X',tags=False):
     re = _re.compile('[A-Z]+[0-9]+')
     cap = _re.compile('[^A-Z]')
     def addProject(T, node, nname, name='', url=None):
         if name != '':
             node = node.addNode(nname, 'STRUCTURE')
             if re.match(nname) is not None:
-                print(nname)
+                _sup.debug(nname,1)
                 if tags: node.addTag(nname)
             node.addNode('$NAME', 'TEXT').putData(name)
         if url is None: url = archive_url(node)
-        urlNode = node.addNode('$URL', 'TEXT')
-        urlNode.putData(url)
-        url = str(urlNode.data())
-        b = _cls.browser(url)
+        urlNode = node.addNode('$URL', 'TEXT').putData(url)
+        b = _cls.browser(str(urlNode.data()))
         streamgroups = b.list_streamgroups()
         for s in streamgroups:
             try:
@@ -78,18 +76,16 @@ def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/raw/W7X',tags=F
             node = node.addNode(nname, 'STRUCTURE')
             # node is stream group
             if re.match(nname) is not None:
-                print(nname)
+                _sup.debug(nname,2)
                 if tags: node.addTag(nname)
             node.addNode('$NAME', 'TEXT').putData(name)
         if url is None:
             url = archive_url(node)
-        urlNode = node.addNode('$URL', 'TEXT')
-        urlNode.putData(url)
+        urlNode = node.addNode('$URL', 'TEXT').putData(url)
         node.addNode('$CFGLOG', 'ANY').putData(archive_cfglog(node))
-        url = str(urlNode.data())
-        b = _cls.browser(url)
-        streams, contents = b.list_streams()
-        for stream, content in zip(streams, contents):
+        b = _cls.browser(str(urlNode.data()))
+        streams = b.list_streams()
+        for stream, content in streams.items():
             try:
                 cnname = stream.split('.')
                 cnname[0] = cap.sub('', cnname[0])
@@ -99,7 +95,7 @@ def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/raw/W7X',tags=F
                 elif 'PARLOG' in content:
                     plogNode = node.addNode(cnname, 'STRUCTURE')
                     if re.match(cnname) is not None:
-                        print(cnname)
+                        _sup.debug(cnname,2)
                         if tags: plogNode.addTag(cnname)
                     plogNode.addNode('$URL', 'TEXT').putData(archive_url(plogNode))
                     plogNode.addNode('$NAME', 'TEXT').putData(stream)
@@ -112,7 +108,7 @@ def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/raw/W7X',tags=F
         if name != '':
             node = node.addNode(nname, 'SIGNAL')
             if re.match(nname) is not None:
-                print(nname)
+                _sup.debug(nname,2)
                 if tags: node.addTag(nname)
             node.addNode('$NAME', 'TEXT').putData(name)
         node.putData(archive_stream(node))
@@ -142,7 +138,7 @@ def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/raw/W7X',tags=F
                 if v is None: continue
                 try: addField(parNode,k,v)
                 except:
-                    print(parNode.MinPath,k,v)
+                    _sup.debug((parNode.MinPath,k,v),1)
                     _sup.error()
         return chanDescs
 
@@ -152,8 +148,8 @@ def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/raw/W7X',tags=F
         node.putData(archive_channel(node))
         if url == None: url = archive_url(node)
         node.addNode('$URL', 'TEXT').putData(url)
-        nameNode = node.addNode('$NAME', 'TEXT')
         node.addNode('$IDX', 'NUMERIC').putData(idx)
+        nameNode = node.addNode('$NAME', 'TEXT')
         for k, v in chan.items():
             try:
                 if k == 'physicalQuantity': pass
@@ -165,9 +161,13 @@ def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/raw/W7X',tags=F
                 else:
                     addField(node,k,v)
             except:
-                print(k)
-                print(v)
+                _sup.debug((node.MinPath,k,v),1)
                 _sup.error()
+        addScale(node,'scaled')
+
+    def addScale(node, nname, url=None):
+        node = node.addNode('$'+nname,'SIGNAL')
+        node.putData(archive_scaled(node))
 
     def addField(node,name,v):
         k = _sup.fixname12(name)
@@ -181,9 +181,7 @@ def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/raw/W7X',tags=F
             else:
                 pn = node.addNode(k, 'ANY').putData(v)
         elif isinstance(v, (dict,)):
-            if not '['+str(len(v)-1)+']' in v.keys():
-                pn = node.addNode(k, 'ANY').putData(str(v))
-            else:
+            if '['+str(len(v)-1)+']' in v.keys():
                 v = [v['['+str(i)+']'] for i in _ver.xrange(len(v))]
                 if all(isinstance(vi, _ver.numbers) for vi in v):
                     pn = node.addNode(k, 'NUMERIC').putData(_mds.makeArray(v))
@@ -192,28 +190,34 @@ def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/raw/W7X',tags=F
                         pn = node.addNode(k, 'ANY').putData(v)
                     except:
                         pn.putData([str(i) for i in v])
+            else:
+                try:
+                    pn = node.addNode(k, 'STRUCTURE')
+                    for vk,vv in v.items():
+                        addField(pn,vk,vv)
+                except:
+                    pn.setUsage('ANY').putData(str(v))
         pn.addNode('$NAME','TEXT').record = name
 
     def archive_url(node):
         return _mds.TdiCompile('EXT_FUNCTION(*,$SYSTEM:FUN_URL,$)', (node, ))
 
-
     def archive_channel(channelNode):
         return _mds.TdiCompile('EXT_FUNCTION(*,$SYSTEM:FUN_CHANNEL,$,_time)', (channelNode, ))
 
+    def archive_scaled(scaledNode):
+        return _mds.TdiCompile('EXT_FUNCTION(*,$SYSTEM:FUN_SCALED,$,_time)', (scaledNode, ))
 
     def archive_stream(streamNode):
         return _mds.TdiCompile('EXT_FUNCTION(*,$SYSTEM:FUN_STREAM,$,_time)', (streamNode, ))
 
-
     def archive_parlog(streamNode):
         return _mds.TdiCompile('EXT_FUNCTION(*,$SYSTEM:FUN_PARLOG,$,_time)', (streamNode, ))
-
 
     def archive_cfglog(streamgroupNode):
         return _mds.TdiCompile('EXT_FUNCTION(*,$SYSTEM:FUN_CFGLOG,$,_time)', (streamgroupNode, ))
 
-    name = "raw"
+    name = "codac"
     path = _base.Path(rootpath).url()
     with _mds.Tree(tree, shot, 'new') as arc:
         arc.getNode('\TOP').setIncludeInPulse(False)
@@ -223,8 +227,9 @@ def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/raw/W7X',tags=F
         sys.addNode('FUN_URL','TEXT').putData('archive_url')
         sys.addNode('FUN_CFGLOG','TEXT').putData('archive_cfglog')
         sys.addNode('FUN_PARLOG','TEXT').putData('archive_parlog')
-        sys.addNode('FUN_STREAM','TEXT').putData('archive_signal')
-        sys.addNode('FUN_CHANNEL','TEXT').putData('archive_signal')
+        sys.addNode('FUN_STREAM','TEXT').putData('archive_signalpy')
+        sys.addNode('FUN_CHANNEL','TEXT').putData('archive_signalpy')
+        sys.addNode('FUN_SCALED','TEXT').putData('archive_signalpy')
         addShotsDB(arc)
         addProject(T, arc, name, '', path)
         arc.write()

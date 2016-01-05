@@ -12,9 +12,9 @@ import os as _os
 import re as _re
 import time as _time
 from . import version as _ver
-_defreadpath = ('raw/W7X/MDSplus')
+_defreadpath = 'codac/W7X/MDSplus'
 _rooturl = 'http://archive-webapi.ipp-hgw.mpg.de'
-_database = 'Test'
+_database = 'ArchiveDB'
 _server = 'mds-data-1.ipp-hgw.mpg.de'
 
 
@@ -25,11 +25,11 @@ class InsufficientPathException(Exception):
 
 class Path(object):
     _ROOTURL = _rooturl
-    def __new__(self, path=_defreadpath):
-        if isinstance(path, Path):
+    def __new__(cls, path=_defreadpath):
+        if type(path) is Path:
             return path
         else:
-            newpath = object.__new__(self)
+            newpath = super(Path,cls).__new__(cls)
             newpath.set_path(str(path))
             return newpath
 
@@ -87,7 +87,7 @@ class Path(object):
         return self
 
     def _set_view(self, view):
-        if type(view) is int:
+        if isinstance(view, int):
             if view <= 0:
                 view = 'raw'
             elif view == 1:
@@ -98,25 +98,22 @@ class Path(object):
         return self
 
     def _set_project(self, project):
-        if type(project) is int:
-            project = self.list_projects()[project]
         self.set_path(self.path(2), project)
         return self
 
     def _set_streamgroup(self, streamgroup):
-        if type(streamgroup) is int:
-            streamgroup = self.list_streamgroups()[streamgroup]
         self.set_path(self.path(3), streamgroup)
         return self
 
     def _set_stream(self, stream):
-        if type(stream) is int:
-            stream = self.list_streams()[stream]
         self.set_path(self.path(4), stream)
         return self
 
-    def _set_channel(self, channel, index=0):
-        self.set_path(self.path(5), str(index), channel)
+    def _set_channel(self, channel, name):
+        if name is None:
+            self.set_path(self.path(5), str(channel))
+        else:
+            self.set_path(self.path(5), str(channel), name)
         return self
 
     # get
@@ -229,6 +226,8 @@ def parms(url, **kwargs):
         time = TimeInterval(kwargs['time'])
         if 'channel' in kwargs.keys():
             url = url + '/' + str(int(kwargs['channel']))
+        if 'scaled' in kwargs.keys():
+            url = url + '/' + str(kwargs['scaled'])
         url = url + '/_signal.json'
         par = [str(time)]
         if 'skip' in kwargs.keys():
@@ -256,8 +255,8 @@ class Time(_ver.long):
     _s2ns = 1000000000
     _ms2ns = 1000000
     _us2ns = 1000
-    def __new__(self, time='now', units=None, local=False):
-        if isinstance(time, Time):
+    def __new__(cls, time='now', units=None, local=False):
+        if type(time) is Time:
             return time
         if isinstance(time, (_mds.treenode.TreeNode)):
             return Time(time.evaluate(),units,local)
@@ -275,20 +274,20 @@ class Time(_ver.long):
                            _time.timezone)
             if local:
                 seconds += int((_time.gmtime(seconds).tm_hour-_time.localtime(seconds).tm_hour)*3600)
-            return super(Time, self).__new__(self,
+            return super(Time, cls).__new__(cls,
                                             ((seconds*1000+time[6])*1000 +
                                             time[7])*1000+time[8])
         if isinstance(time, (_ver.basestring,)):
             if time.startswith('now'):  # now
                 time = time.split('_')
                 if len(time)<2 or time[1]=='ms':
-                    return super(Time, self).__new__(self, int(_time.time()*1000)*1000000)
+                    return super(Time, cls).__new__(cls, int(_time.time()*1000)*1000000)
                 if time[1]=='s':
-                    return super(Time, self).__new__(self, int(_time.time())*self._s2ns)
+                    return super(Time, cls).__new__(cls, int(_time.time())*cls._s2ns)
                 if time[1]=='m':
-                    return super(Time, self).__new__(self, int(_time.time()/60)*60*self._s2ns)
+                    return super(Time, cls).__new__(cls, int(_time.time()/60)*60*cls._s2ns)
                 if time[1]=='h':
-                    return super(Time, self).__new__(self, int(_time.time()/3600)*3600*self._s2ns)
+                    return super(Time, cls).__new__(cls, int(_time.time()/3600)*3600*cls._s2ns)
             else:  # '2009-02-13T23:31:30.123456789Z'
                 time = _re.findall('[0-9]+', time)
                 if len(time) == 7:  # we have subsecond precision
@@ -304,24 +303,24 @@ class Time(_ver.long):
 #        if isinstance(time, (_np.ScalarType)):
         if units is None:
             if _np.array(time).dtype==float:
-                time = time*self._s2ns
+                time = time*cls._s2ns
         else:
             units = units.lower()
             if units =='ns':
                 pass
             elif units =='us':
-                time = time*self._us2ns
+                time = time*cls._us2ns
             elif units =='ms':
-                time = time*self._ms2ns
+                time = time*cls._ms2ns
             elif units =='s':
-                time = time*self._s2ns
+                time = time*cls._s2ns
             elif units =='m':
-                time = time*self._m2ns
+                time = time*cls._m2ns
             elif units =='h':
-                time = time*self._h2ns
+                time = time*cls._h2ns
             elif units =='d':
-                time = time*self._d2ns
-        return super(Time, self).__new__(self, time)
+                time = time*cls._d2ns
+        return super(Time, cls).__new__(cls, time)
 
 
     def __add__(self, y):
@@ -369,14 +368,14 @@ class Time(_ver.long):
 
 
 class TimeArray(list):
-    def __new__(self, arg=[]):
-        if isinstance(arg, TimeArray):
+    def __new__(cls, arg=[]):
+        if type(arg) is TimeArray:
             return arg
         else:
             if isinstance(arg, _mds.Dimension): arg = arg.data()
-            newarr = super(TimeArray, self).__new__(self)
+            newarr = super(TimeArray, cls).__new__(cls)
             for i in arg:
-                 super(TimeArray, self).append(newarr,Time(i))
+                 super(TimeArray, cls).append(newarr,Time(i))
             return newarr
 
     def __init__(self, arg=[]):
@@ -416,7 +415,7 @@ class TimeInterval(TimeArray):
     upto  >  0 : epoch +X ns
     """
 
-    def __new__(self, arg=[-1800., 'now_m', -1], constant=True):
+    def __new__(cls, arg=[-1800., 'now_m', -1], constant=True):
         if type(arg) is TimeInterval:
             newti = arg  # short cut
         else:
@@ -435,7 +434,7 @@ class TimeInterval(TimeArray):
                 arg += [-1] if arg[0]<0 else [0]
             if arg[0]==0: arg[0] = 'now_m'
             if arg[1]==0: arg[1] = 'now_m'
-            newti = super(TimeInterval, self).__new__(self,arg)
+            newti = super(TimeInterval, cls).__new__(cls,arg)
         if constant:
             newti[0]=newti.fromT
             newti[1]=newti.uptoT

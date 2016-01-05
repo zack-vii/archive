@@ -10,12 +10,15 @@ import MDSplus as _mds
 import numpy as _np
 import re as _re
 import time as _time
+import os as _os
 from . import base as _base
 from . import version as _ver
 
+debuglevel = int(_os.getenv('DEBUG_ARCHIVE','0'))
+
 
 def version():
-    return '2015.08.08.12.00'
+    return '2015.01.05.16.00'
 
 
 def nowstr():
@@ -214,7 +217,7 @@ def error(out=None):
         import traceback
         trace = 'python error:\n'+traceback.format_exc()
         for line in trace.split('\n'):
-            print(line)
+            debug(line)
         return(trace)
     else:
         import sys
@@ -308,8 +311,8 @@ def setTIME(tree,shot):
     for i in range(7):
         setT(i)
 
-def debug(msg, lv=0):
-    if lv>3:
+def debug(msg, lv=1):
+    if lv<=debuglevel:
         import inspect
         try:
             print(inspect.stack()[1][3] + ': ' + str(msg))
