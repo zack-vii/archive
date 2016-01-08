@@ -293,8 +293,8 @@ def ndims(signal, N=0):
 
 def getSubTrees(expt='W7X',shot=-1, excludelist=('ARCHIVE',), excludereg=('.*_EVAL',)):
     rematch = tuple(_re.compile(reg) for reg in excludereg)
-    top = _mds.TreeNode(0,_mds.Tree(expt,shot))
-    subtrees = [c for c in top.getChildren() if c.usage=='SUBTREE' and not (c.node_name in excludelist) and all(re.match(str(c.node_name)) is None for re in rematch)]
+    tree = _mds.Tree(expt,shot)
+    subtrees = [_mds.TreeNode(c.nid,tree) for c in tree.top.getChildren() if c.usage=='SUBTREE' and not (c.node_name in excludelist) and all(re.match(str(c.node_name)) is None for re in rematch)]
     return subtrees
 
 def getIncluded(*args):
