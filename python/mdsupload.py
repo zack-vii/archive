@@ -13,7 +13,8 @@ from archive import diff as _diff
 from archive import interface as _if
 from archive import support as _sup
 from archive import version as _ver
-_MDS_shots = _base.Path('raw/W7X/MDSplus/Shots')
+_MDS_shotdb = _base.Path('/Test/raw/W7X/MDSplus/Shots')
+_MDS_shotrt = _base.Path('/Test/raw/W7X')
 _subtrees  = 'included'
 _exclude   = ['ACTION', 'TASK', 'SIGNAL']
 
@@ -24,7 +25,7 @@ def setupTiming(version=0):
         if n==0:    return {'name':'shot','physicalQuantity':{'type':'none'}}
         else:       return {'name':'T%d' % n,'physicalQuantity':{'type':'ns'}}
     parlog = {'chanDescs':[chanDesc(n) for n in _ver.xrange(7)]}
-    result = _if.write_logurl(_MDS_shots.url_parlog(), parlog, version)
+    result = _if.write_logurl(_MDS_shotdb.url_parlog(), parlog, version)
     print(result.msg)
     return result
 
@@ -49,8 +50,8 @@ def uploadModel(shot, subtrees=_subtrees, treename='W7X', T0=None):
     if T0 is None:  T0 = _sup.getTiming(shot, 0)
     else:           T0 = _base.Time(T0)
     cfglog = getModel()
-    #result = (_MDS_shots.url_cfglog(), cfglog, T0)
-    result = _if.write_logurl(_MDS_shots.url_cfglog(), cfglog, T0)
+    #result = (_MDS_shotdb.url_cfglog(), cfglog, T0)
+    result = _if.write_logurl(_MDS_shotdb.url_cfglog(), cfglog, T0)
     print(result.msg)
     return result,cfglog
 
@@ -62,7 +63,7 @@ def uploadTiming(shot):
     dim = data[0]
     if dim<0:   raise Exception('T0 must not be turned off.')
     data[0] = int(shot)
-    result = _if.write_data(_MDS_shots, data, dim)
+    result = _if.write_data(_MDS_shotdb, data, dim)
     print(result.msg)
     return result
 
@@ -82,7 +83,7 @@ def uploadShot(shot, subtrees=_subtrees, treename='W7X', T0=None, T1=None):
     else:           T1 = _base.Time(T1)
     sectionDicts = []
     w7x = _mds.Tree(treename, shot)
-    path = _base.Path('raw/W7X')
+    path = _MDS_shotrt
     for subtree in subtrees:
         kks = w7x.getNode(subtree)
         kkscfg = _getCfgLog(kks,shot)
