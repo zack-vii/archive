@@ -13,31 +13,31 @@ import archive as a;a.winspec.putSPE('CAMERA0', "M:\Test107 10frames full image.
 import struct as _struct
 import numpy as _np
 import MDSplus as _mds
-from . import version as _ver
 
-def putSPE(nodename, filepath, dim, shot=0):
+def putSPE(filepath, tstart, nodepath='\\QSQ::TOP.HARDWARE.TRIAX:FRAMES', expt='QSQ', shot=0):
     content = read(filepath)
-    writedata(nodename, content.data, dim, shot)
-    writeparlog(nodename, content.parlog, shot)
+    exposure = content.parlog['timing']['alt_exposure']
+    frames = content.parlog['data']['frames']
+    # we drop the first frame which is exposed undefined before T1
+    dim = [tstart+i*exposure for i in range(frames-1)]
+    writedata(content.data[1:], dim, nodepath, expt, shot)
+    writeparlog(content.parlog, nodepath, expt, shot)
 
 
-def writedata(nodename, data, dims, shot=0):
+def writedata(data, dims, nodepath, expt, shot):
     """ data: list of images """
     """ dims: array of double seconds based on T1 """
-    w7x   = _mds.Tree('W7X', shot)
-    triax  = w7x.getNode('.QSQ.HARDWARE.TRIAX')
-    node = triax.getNode(nodename)
+    tree   = _mds.Tree(expt, shot)
+    node = tree.getNode(nodepath)
     node.deleteData()
     for i in range(len(data)):
         dim = _mds.Float64Array(dims[i])
         dim.setUnits('s')
         node.makeSegment(dims[i], dims[i], dim, _mds.makeArray(data[i]), -1)
 
-def writeparlog(parlog, shot=0, nodename='IMAGES', treename='QSQ'):
-    w7x   = _mds.Tree('W7X', shot)
-    tree  = w7x.getNode(treename)
-    triax = tree.DATA.HEBEAM
-    node = triax.getNode(nodename)
+def writeparlog(parlog, nodepath, expt, shot):
+    tree   = _mds.Tree(expt, shot)
+    node = tree.getNode(nodepath)
     def dicttotree(dic, node):
         for k,v in dic.items():
             print(node.getPath()+':'+k[0:12])
@@ -50,53 +50,6 @@ def writeparlog(parlog, shot=0, nodename='IMAGES', treename='QSQ'):
                 newnode.putData(_mds.makeScalar(v))
 
     dicttotree(parlog, node)
-
-def generateNode(parlog, shot=-1, nodename='IMAGES', treename='QSQ'):
-    """Creates the DATA node of the IMAGES with its sub-structure using parlog"""
-    with _mds.Tree(treename, shot, 'edit') as tree:
-        # triax = tree.getNodeWild('HARDWARE.TRIAX')
-        triax = tree.getNodeWild('DATA.HEBEAM')
-        if len(triax):
-            triax = triax[0]
-        else:
-            # triax = tree.getNode('HARDWARE').addNode('TRIAX','STRUCTURE')
-            triax = tree.DATA.addNode('HEBEAM','STRUCTURE')
-        node = triax.getNodeWild(nodename)
-        if len(node):
-            node = node[0]
-            #raise Exception('Node '+str(node[0].getPath())+' already exists.' )
-        else:
-            node = triax.addNode(nodename,'SIGNAL')
-        node.putData(tree.getNode('HARDWARE.TRIAX:CAMERA'+nodename[-1]))
-
-        def dicttotree(dic, path):
-            def addnode(path, usage):
-                try:
-                    node.addNode(path, usage)
-                    print('creating '+path.upper())
-                except Exception as exc:
-                    if not str(exc).startswith('%TREE-W-ALREADY_THERE'):
-                        raise exc
-                    print('updating '+path.upper())
-            for k,v in dic.items():
-                newpath = path+':'+k[0:12]
-                if isinstance(v, dict):
-                    addnode(newpath, 'STRUCTURE')
-                    dicttotree(v, newpath)
-                    tree.write()
-                else:
-                    v = _np.array(v)
-                    if v.dtype.descr[0][1][1] in 'SU':
-                        addnode(newpath, 'TEXT')
-                    elif v.dtype.descr[0][1][1] in 'if':
-                        addnode(newpath, 'NUMERIC')
-                    else:
-                        addnode(newpath, 'ANY')
-                    # node.getNode(newpath).putData(v.tolist())
-        dicttotree(parlog, '')
-        tree.write()
-
-
 
 class read(object):
     def __init__(self, spefilename):
@@ -183,11 +136,11 @@ class read(object):
         #  y dimension of CCD or detector.
         detector['y_dimension'] = _struct.unpack_from('H', header, offset=18)[0]
         #  date
-        exptime['date'] = _ver.tostr(_struct.unpack_from('10s', header, offset=20)[0]).rstrip('\x00')
+        exptime['date'] = str(_struct.unpack_from('10s', header, offset=20)[0]).rstrip('\x00')
         #  On/Off
         virtchip['enabled'] = _struct.unpack_from('H', header, offset=30)[0]>0
         #  Spare_1
-        # self.parlog['Spare_1'] = _ver.tostr(_struct.unpack_from('2s', header, offset=32)[0]).rstrip('\x00')
+        # self.parlog['Spare_1'] = str(_struct.unpack_from('2s', header, offset=32)[0]).rstrip('\x00')
         #  Old number of scans - should always be -1
         # self.parlog['noscan'] = _struct.unpack_from('h', header, offset=34)[0]
         #  Detector Temperature Set
@@ -296,9 +249,9 @@ class read(object):
         timing['is_custom'] = _struct.unpack_from('H', header, offset=170)[0]>0
 
         #  ExperimentTimeLocal
-        exptime['local'] = _ver.tostr(_struct.unpack_from('7s', header, offset=172)[0]).rstrip('\x00')
+        exptime['local'] = str(_struct.unpack_from('7s', header, offset=172)[0]).rstrip('\x00')
         #  Experiment UTC Time as hhmmss\0
-        exptime['utc'] = _ver.tostr(_struct.unpack_from('7s', header, offset=179)[0]).rstrip('\x00')
+        exptime['utc'] = str(_struct.unpack_from('7s', header, offset=179)[0]).rstrip('\x00')
 
         #  User Units for Exposure
         timing['exposr_units'] = _struct.unpack_from('h', header, offset=186)[0]
@@ -318,11 +271,11 @@ class read(object):
         #  gain
         self.parlog['gain'] = _struct.unpack_from('H', header, offset=198)[0]
         #  File Comments
-        self.parlog['comments'] = _ver.tostr(_struct.unpack_from('5s', header, offset=200)[0]).rstrip('\x00')
+        self.parlog['comments'] = str(_struct.unpack_from('5s', header, offset=200)[0]).rstrip('\x00')
         #  geometric ops: rotate 0x01,reverse,0x02, flip 0x04
         data['geometric'] = _struct.unpack_from('H', header, offset=600)[0]
         #  intensity display string
-        data['x_label'] = _ver.tostr(_struct.unpack_from('16s', header, offset=602)[0]).rstrip('\x00')
+        data['x_label'] = str(_struct.unpack_from('16s', header, offset=602)[0]).rstrip('\x00')
         #  cleans
         cleans['cleans'] = _struct.unpack_from('H', header, offset=618)[0]
         #  number of skips per clean.
@@ -361,25 +314,25 @@ class read(object):
         #  T/F Triggered Timing Option
         trigger['mode'] = _struct.unpack_from('H', header, offset=676)[0]>0
         #  Spare_2
-        # self.parlog['Spare_2'] = _ver.tostr(_struct.unpack_from('10s', header, offset=678)[0]).rstrip('\x00')
+        # self.parlog['Spare_2'] = str(_struct.unpack_from('10s', header, offset=678)[0]).rstrip('\x00')
         #  Version of SW creating this file
-        version['software'] = _ver.tostr(_struct.unpack_from('16s', header, offset=688)[0]).rstrip('\x00')
+        version['software'] = str(_struct.unpack_from('16s', header, offset=688)[0]).rstrip('\x00')
         #  1 = new120 (Type II),2 = old120 (Type I ),3 = ST130,4 = ST121,5 = ST138,6 = DC131 (PentaMax),7 = ST133 (MicroMax/SpectroMax),8 = ST135 (GPIB),9 = VICCD,10 = ST116 (GPIB),11 = OMA3 (GPIB),12 = OMA4,
         self.parlog['type'] = _struct.unpack_from('h', header, offset=704)[0]
         #  1 if flat field was applied.
         flatfield['applied'] = _struct.unpack_from('H', header, offset=706)[0]>0
         #  Spare_3
-        # self.parlog['Spare_3'] = _ver.tostr(_struct.unpack_from('16s', header, offset=708)[0]).rstrip('\x00')
+        # self.parlog['Spare_3'] = str(_struct.unpack_from('16s', header, offset=708)[0]).rstrip('\x00')
         #  Kinetics Trigger Mode
         trigger['kinetic_mode'] = _struct.unpack_from('h', header, offset=724)[0]
         #  Data label.
-        data['d_label'] = _ver.tostr(_struct.unpack_from('16s', header, offset=726)[0]).rstrip('\x00')
+        data['d_label'] = str(_struct.unpack_from('16s', header, offset=726)[0]).rstrip('\x00')
         #  Spare_4
-        # self.parlog['Spare_4'] = _ver.tostr(_struct.unpack_from('436s', header, offset=742)[0]).rstrip('\x00')
+        # self.parlog['Spare_4'] = str(_struct.unpack_from('436s', header, offset=742)[0]).rstrip('\x00')
         #  Name of Pulser File with Pulse Widths/Delays (for Z-Slice)
-        pulser['filename'] = _ver.tostr(_struct.unpack_from('120s', header, offset=1178)[0]).rstrip('\x00')
+        pulser['filename'] = str(_struct.unpack_from('120s', header, offset=1178)[0]).rstrip('\x00')
         #  Name of Absorbance File (if File Mode)
-        absorbance['filename'] = _ver.tostr(_struct.unpack_from('120s', header, offset=1298)[0]).rstrip('\x00')
+        absorbance['filename'] = str(_struct.unpack_from('120s', header, offset=1298)[0]).rstrip('\x00')
         #  Number of Times experiment repeated
         self.parlog['exp_repeats'] = _struct.unpack_from('L', header, offset=1418)[0]
         #  Number of Time experiment accumulated
@@ -407,7 +360,7 @@ class read(object):
         #  min intensity of data (future)
         # data['minimum'] = _struct.unpack_from('f', header, offset=1454)[0]
         #  y axis label.
-        data['y_label'] = _ver.tostr(_struct.unpack_from('16s', header, offset=1458)[0]).rstrip('\x00')
+        data['y_label'] = str(_struct.unpack_from('16s', header, offset=1458)[0]).rstrip('\x00')
         #  shutter type.
         shutter['type'] = _struct.unpack_from('H', header, offset=1474)[0]
         #  shutter compensation time.
@@ -423,7 +376,7 @@ class read(object):
         #  May be more than the 10 allowed in this header (if 0, assume 1)
         roi['total'] = _struct.unpack_from('h', header, offset=1488)[0]
         #  Spare_5
-        # self.parlog['Spare_5'] = _ver.tostr(_struct.unpack_from('16s', header, offset=1490)[0]).rstrip('\x00')
+        # self.parlog['Spare_5'] = str(_struct.unpack_from('16s', header, offset=1490)[0]).rstrip('\x00')
         #  if multiple controller system will have controller number data came from. This is a future item.
         self.parlog['controller'] = _struct.unpack_from('H', header, offset=1506)[0]
         #  Which software package created this file
@@ -442,11 +395,11 @@ class read(object):
         roiy['group'] = [(_struct.unpack_from('H', header, offset=1522 + i*12)[0]) for i in roilist]
 
         #  Flat field file name.
-        flatfield['filename'] = _ver.tostr(_struct.unpack_from('120s', header, offset=1632)[0]).rstrip('\x00')
+        flatfield['filename'] = str(_struct.unpack_from('120s', header, offset=1632)[0]).rstrip('\x00')
         #  background sub. file name.
-        background['filename'] = _ver.tostr(_struct.unpack_from('120s', header, offset=1752)[0]).rstrip('\x00')
+        background['filename'] = str(_struct.unpack_from('120s', header, offset=1752)[0]).rstrip('\x00')
         #  blemish file name.
-        blemish['filename'] = _ver.tostr(_struct.unpack_from('120s', header, offset=1872)[0]).rstrip('\x00')
+        blemish['filename'] = str(_struct.unpack_from('120s', header, offset=1872)[0]).rstrip('\x00')
         #  version of this file header
         version['header'] = _struct.unpack_from('f', header, offset=1992)[0]
         #  Reserved for YT information
@@ -467,9 +420,9 @@ class read(object):
         #  reserved
         #  calib_x['reserved1'] = _struct.unpack_from('b', header, offset=3017)[0]
         #  special string for scaling
-        calib_x['string'] = _ver.tostr(_struct.unpack_from('40s', header, offset=3018)[0]).rstrip('\x00')
+        calib_x['string'] = str(_struct.unpack_from('40s', header, offset=3018)[0]).rstrip('\x00')
         #  reserved
-        #  calib_x['reserved2'] = _ver.tostr(_struct.unpack_from('40s', header, offset=3058)[0]).rstrip('\x00')
+        #  calib_x['reserved2'] = str(_struct.unpack_from('40s', header, offset=3058)[0]).rstrip('\x00')
         #  flag if calibration is valid
         calib_x['valid'] = _struct.unpack_from('B', header, offset=3098)[0]>0
         #  current input units for "calib_value"
@@ -493,9 +446,9 @@ class read(object):
         #  If set to 200, valid label below
         calib_x['label_valid'] = _struct.unpack_from('B', header, offset=3320)[0]==200
         #  Calibration label (NULL term'd)
-        calib_x['label'] = _ver.tostr(_struct.unpack_from('81s', header, offset=3321)[0]).rstrip('\x00')
+        calib_x['label'] = str(_struct.unpack_from('81s', header, offset=3321)[0]).rstrip('\x00')
         #  Calibration Expansion area
-        calib_x['expansion'] = _ver.tostr(_struct.unpack_from('87s', header, offset=3402)[0]).rstrip('\x00')
+        calib_x['expansion'] = str(_struct.unpack_from('87s', header, offset=3402)[0]).rstrip('\x00')
 
 
         #  offset for absolute data scaling
@@ -507,9 +460,9 @@ class read(object):
         #  reserved
         #  calib_y['reserved1'] = _struct.unpack_from('b', header, offset=3506)[0]
         #  special string for scaling
-        calib_y['string'] = _ver.tostr(_struct.unpack_from('40s', header, offset=3507)[0]).rstrip('\x00')
+        calib_y['string'] = str(_struct.unpack_from('40s', header, offset=3507)[0]).rstrip('\x00')
         #  reserved
-        #  calib_y['reserved2'] = _ver.tostr(_struct.unpack_from('40s', header, offset=3547)[0]).rstrip('\x00')
+        #  calib_y['reserved2'] = str(_struct.unpack_from('40s', header, offset=3547)[0]).rstrip('\x00')
         #  flag if calibration is valid
         calib_y['valid'] = _struct.unpack_from('B', header, offset=3587)[0]>0
         #  current input units for "calib_value"
@@ -533,14 +486,14 @@ class read(object):
         #  If set to 200, valid label below
         calib_y['label_valid'] = _struct.unpack_from('B', header, offset=3809)[0]==200
         #  Calibration label (NULL term'd)
-        calib_y['label'] = _ver.tostr(_struct.unpack_from('81s', header, offset=3810)[0]).rstrip('\x00')
+        calib_y['label'] = str(_struct.unpack_from('81s', header, offset=3810)[0]).rstrip('\x00')
         #  Calibration Expansion area
-        calib_y['expansion'] = _ver.tostr(_struct.unpack_from('87s', header, offset=3891)[0]).rstrip('\x00')
+        calib_y['expansion'] = str(_struct.unpack_from('87s', header, offset=3891)[0]).rstrip('\x00')
 
         #  special Intensity scaling string
-        # calib['int_string'] = _ver.tostr(_struct.unpack_from('40s', header, offset=3978)[0]).rstrip('\x00')
+        # calib['int_string'] = str(_struct.unpack_from('40s', header, offset=3978)[0]).rstrip('\x00')
         #  empty block to reach 4100 bytes
-        #  self.parlog['Spare_6'] = _ver.tostr(_struct.unpack_from('76s', header, offset=4018)[0]).strip('\x00')
+        #  self.parlog['Spare_6'] = str(_struct.unpack_from('76s', header, offset=4018)[0]).strip('\x00')
         #  avalanche gain was used
         avalanche['enabled'] = _struct.unpack_from('H', header, offset=4094)[0]>0
         #  avalanche gain value
