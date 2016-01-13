@@ -37,12 +37,12 @@ def addValue(tree='archive', shot=-1):
 
 def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/codac/W7X',tags=False):
     re = _re.compile('[A-Z]+[0-9]+')
-    cap = _re.compile('[^A-Z]')
+    cap = _re.compile('[^A-Z0-9]')
     def addProject(T, node, nname, name='', url=None):
+        _sup.debug(nname,1)
         if name != '':
             node = node.addNode(nname, 'STRUCTURE')
             if re.match(nname) is not None:
-                _sup.debug(nname,1)
                 if tags: node.addTag(nname)
             node.addNode('$NAME', 'TEXT').putData(name)
         if url is None: url = archive_url(node)
@@ -72,11 +72,11 @@ def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/codac/W7X',tags
 
 
     def addStreamgroup(T, node, nname, name='', url=None,tags=False):
+        _sup.debug(nname,2)
         if name != '':
             node = node.addNode(nname, 'STRUCTURE')
             # node is stream group
             if re.match(nname) is not None:
-                _sup.debug(nname,2)
                 if tags: node.addTag(nname)
             node.addNode('$NAME', 'TEXT').putData(name)
         if url is None:
@@ -105,10 +105,10 @@ def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/codac/W7X',tags
 
 
     def addStream(T, node, nname, name='', url=None,tags=False):
+        _sup.debug(nname,2)
         if name != '':
             node = node.addNode(nname, 'SIGNAL')
             if re.match(nname) is not None:
-                _sup.debug(nname,2)
                 if tags: node.addTag(nname)
             node.addNode('$NAME', 'TEXT').putData(name)
         node.putData(archive_stream(node))
@@ -128,18 +128,18 @@ def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/codac/W7X',tags
         except:
             _sup.error()
             return []
+        if not isinstance(dist, dict): return []
         if 'chanDescs' in dist.keys():
             chanDescs = dist['chanDescs']
             del(dist['chanDescs'])
         else:
             chanDescs = []
-        if len(dist):
-            for k, v in dist.items():
-                if v is None: continue
-                try: addField(parNode,k,v)
-                except:
-                    _sup.debug((parNode.MinPath,k,v),1)
-                    _sup.error()
+        for k, v in dist.items():
+            if v is None: continue
+            try: addField(parNode,k,v)
+            except:
+                _sup.debug((parNode.MinPath,k,v),1)
+                _sup.error()
         return chanDescs
 
 
@@ -192,11 +192,13 @@ def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/codac/W7X',tags
                         pn.putData([str(i) for i in v])
             else:
                 try:
-                    pn = node.addNode(k, 'STRUCTURE')
+                    pn = node.addNode(k,'TEXT')
                     for vk,vv in v.items():
                         addField(pn,vk,vv)
+                    try: pn.setUsage('STRUCTURE')
+                    except: _sup.debug(pn.minpath,2)
                 except:
-                    pn.setUsage('ANY').putData(str(v))
+                    pn.putData(str(v))
         pn.addNode('$NAME','TEXT').record = name
 
     def archive_url(node):
