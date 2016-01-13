@@ -99,13 +99,11 @@ class cache():
         with self._get_conn() as conn:
             conn.execute(self._cln_dat, (time(),))
             conn.commit()
-        self.vacuum()
 
     def vacuum(self):
-        if _os.path.getsize(self.path)>2<<29:
-            with self._get_conn() as conn:
-                conn.execute('VACUUM')
-                conn.commit()
+        with self._get_conn() as conn:
+            conn.execute('VACUUM')
+            conn.commit()
 
     def close(self):
         _os.unlink(self.path)
