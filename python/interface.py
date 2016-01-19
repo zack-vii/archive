@@ -236,7 +236,7 @@ def get_program(time=None):
             t = j['trigger'].get(str(i))
             trigger[i] = t[0] if len(t)>0 else 0
         return {
-        'id':tuple(map(int,str(j['id']).split('.'))),
+        'id':list(map(int,str(j['id']).split('.'))),
         'name':str(j['name']),
         'time':_base.TimeInterval([j['from'],j['upto'],j['trigger']['1'][0]]),
         'description':str(j['description']),
