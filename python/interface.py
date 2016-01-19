@@ -229,6 +229,22 @@ def get_json(url, **kwargs):
                         handler.headers.get('content-type'))
     return _json.load(reader(handler), strict=False)
 
+def get_program(time=None):
+    def convertProgram(j):
+        trigger = range(7)
+        for i in trigger:
+            t = j['trigger'].get(str(i))
+            trigger[i] = t[0] if len(t)>0 else 0
+        return {
+        'id':tuple(map(int,str(j['id']).split('.'))),
+        'name':str(j['name']),
+        'time':_base.TimeInterval([j['from'],j['upto'],j['trigger']['1'][0]]),
+        'description':str(j['description']),
+        'trigger':_base.TimeArray(trigger)}
+    time = _base.TimeInterval(time)
+    jlist = get_json(_base._rooturl+'/programs.json?'+str(time))
+    return [convertProgram(j) for j in jlist.get('programs',[])]
+
 def getLast(path, time=[1,-1]):
     j = get_json(_base.filter(path, time))
     last = _ver.tostr(j['_links']['children'][0]['href']).split('?')[1].split('&')

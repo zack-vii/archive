@@ -219,6 +219,9 @@ def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/codac/W7X',tags
     def archive_cfglog(streamgroupNode):
         return _mds.TdiCompile('EXT_FUNCTION(*,$SYSTEM:FUN_CFGLOG,$,_time)', (streamgroupNode, ))
 
+    def archive_program(programNode):
+        return _mds.TdiCompile('EXT_FUNCTION(*,$SYSTEM:FUN_PROGRAM,$,_time)', (programNode, ))
+
     name = "codac"
     path = _base.Path(rootpath).url()
     with _mds.Tree(tree, shot, 'new') as arc:
@@ -227,11 +230,18 @@ def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/codac/W7X',tags
         sys = arc.addNode('$SYSTEM','STRUCTURE')
         sys.addNode('VERSION','TEXT').putData(T.utc)
         sys.addNode('FUN_URL','TEXT').putData('archive_url')
+        sys.addNode('FUN_PROGRAM','TEXT').putData('archive_program')
         sys.addNode('FUN_CFGLOG','TEXT').putData('archive_cfglog')
         sys.addNode('FUN_PARLOG','TEXT').putData('archive_parlog')
         sys.addNode('FUN_STREAM','TEXT').putData('archive_signalpy')
         sys.addNode('FUN_CHANNEL','TEXT').putData('archive_signalpy')
         sys.addNode('FUN_SCALED','TEXT').putData('archive_signalpy')
+        prog = arc.addNode('$PROGRAM','STRUCTURE')
+        n = prog.addNode('ID','NUMERIC');n.putData(archive_program(n))
+        n = prog.addNode('TIME','NUMERIC');n.putData(archive_program(n))
+        n = prog.addNode('NAME','TEXT');n.putData(archive_program(n))
+        n = prog.addNode('DESCRIPTION','TEXT');n.putData(archive_program(n))
+        n = prog.addNode('TRIGGER','NUMERIC');n.putData(archive_program(n))
         addShotsDB(arc)
         addProject(T, arc, name, '', path)
         arc.write()

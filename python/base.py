@@ -375,7 +375,10 @@ class TimeArray(list):
             if isinstance(arg, _mds.Dimension): arg = arg.data()
             newarr = super(TimeArray, cls).__new__(cls)
             for i in arg:
-                 super(TimeArray, cls).append(newarr,Time(i))
+                if i is None:
+                    super(TimeArray, cls).append(newarr,None)
+                else:
+                    super(TimeArray, cls).append(newarr,Time(i))
             return newarr
 
     def __init__(self, arg=[]):
@@ -387,15 +390,15 @@ class TimeArray(list):
     def append(self, value):
         super(TimeArray, self).append(Time(value))
 
-    def _ns(self): return [i.ns for i in self]
+    def _ns(self): return [i.ns if i is not None else None for i in self]
 
-    def _s(self): return [i.s for i in self]
+    def _s(self): return [i.s if i is not None else None for i in self]
 
-    def _subsec(self): return [i.subsec for i in self]
+    def _subsec(self): return [i.subsec if i is not None else None for i in self]
 
-    def _utc(self): return [i.utc for i in self]
+    def _utc(self): return [i.utc if i is not None else None for i in self]
 
-    def _local(self): return [i.local for i in self]
+    def _local(self): return [i.local if i is not None else None for i in self]
 
     ns = property(_ns)
     s = property(_s)
@@ -415,7 +418,8 @@ class TimeInterval(TimeArray):
     upto  >  0 : epoch +X ns
     """
 
-    def __new__(cls, arg=[-1800., 'now_m', -1], constant=True):
+    def __new__(cls, arg=None, constant=True):
+        if arg is None: arg = [-1800., 'now_m', -1]
         if type(arg) is TimeInterval:
             newti = arg  # short cut
         else:
