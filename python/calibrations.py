@@ -1,16 +1,24 @@
 def ECEcalib(sig, ecechannel, freq=None, calibdata=None):
     from archive import Time
+    from os import listdir, sys
+    # paths to configuration files
+    path_win = '//x-drive/Diagnostic-logbooks/QME-ECE'
+    path_lx  = '/smb/QME-ECE'
+    conf_dir = 'Config-files'
+    cali_dir = 'Calibration-files'
+    para_dir = 'Parameter-files'
+    path_root = path_win if sys.platform=='win32' else path_lx    
+        
     def findSuitableFile(tstamp, dirname):
-        from os import listdir
         from json import load
+        dirpath = path_root+'/'+dirname
         # selects the json file that is valid for the time of interest
-        jsonfiles =  [f for f in listdir(dirname) if f.endswith('.json')]
+        jsonfiles =  [f for f in listdir(dirpath) if f.endswith('.json')]
         jsonfiles.reverse()  # newest first
         valid = False
         # read valid_since fields
         for i,filename in enumerate(jsonfiles):
-            fullpath = dirname+'\\'+filename
-            with open(fullpath) as f:
+            with open(dirpath+'/'+filename) as f:
                 out = load(f)
             try:
                 valid = Time(out['Valid_Since']).ns<tstamp
@@ -19,7 +27,7 @@ def ECEcalib(sig, ecechannel, freq=None, calibdata=None):
             if valid: break
         # get the latest version that is anterior to the time of interest
         if valid:
-            return fullpath,out
+            return dirname+'/'+filename,out
         return None,{}
 
     def getOffset(sig):
@@ -38,17 +46,13 @@ def ECEcalib(sig, ecechannel, freq=None, calibdata=None):
         return value/i
     timestamp = Time(sig.args[2][0][2])
     print(timestamp.local)
-    # paths to configuration files
-    path_conf = '\\\\x-drive\\Diagnostic-logbooks\\QME-ECE\\Config-files'
-    path_cali = '\\\\x-drive\\Diagnostic-logbooks\\QME-ECE\\Calibration-files'
-    path_para = '\\\\x-drive\\Diagnostic-logbooks\\QME-ECE\\Parameter-files'
     # find the files that apply to the time of interest
-    conf_file,cfg = findSuitableFile(timestamp, path_conf)
+    conf_file,cfg = findSuitableFile(timestamp, conf_dir)
     if conf_file is None: return
-    cali_file,cal = findSuitableFile(timestamp, path_cali)
+    cali_file,cal = findSuitableFile(timestamp, cali_dir)
     if cali_file is None: return
-    para_file,par = findSuitableFile(timestamp, path_para)
-    if para_file is None: return
+    para_file,par = findSuitableFile(timestamp, para_dir)
+    if para_file is None: return None,None,None,{}
     # get frequencies and bittovolt
     freqGHz     = float(cfg['Data']['Channel%02d'%ecechannel]['Frequency'])
     conf_factor = float(cfg['Data']['Channel%02d'%ecechannel]['Bit_To_Volt'])
@@ -69,5 +73,8 @@ def ECEcalib(sig, ecechannel, freq=None, calibdata=None):
     offset = getOffset(sig)
     factor = conf_factor*cali_factor*para_factor
     # construct output
-    out = {'freq':freqGHz,'cfg':conf_file,'cal':cali_file,'par':para_file}
+    out = {'freq':freqGHz,
+    'cfg':path_root+'/'+conf_file,
+    'cal':path_root+'/'+cali_file,
+    'par':path_root+'/'+para_file}
     return offset,factor,'keV',out

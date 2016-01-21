@@ -4,6 +4,7 @@ def ECEcalib(node, _unit=None, _freq=None, _calib=None):
     sig = node.evaluate()
     ecechannel = int(node.getNode('$IDX').data())+1
     offset,factor,unit,info = calibrations.ECEcalib(sig,ecechannel)
+    if offset is None: return
     # construct output
     if isinstance(_unit,Ident):
         String(unit).setTdiVar(_unit.name)
