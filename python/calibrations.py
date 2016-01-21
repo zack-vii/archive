@@ -1,6 +1,6 @@
-def ECEcalib(sig, ecechannel, timestamp, freq=None, calibdata=None):
+def ECEcalib(sig, ecechannel, freq=None, calibdata=None):
+    from archive import Time
     def findSuitableFile(tstamp, dirname):
-        from archive import Time
         from os import listdir
         from json import load
         # selects the json file that is valid for the time of interest
@@ -26,7 +26,7 @@ def ECEcalib(sig, ecechannel, timestamp, freq=None, calibdata=None):
         dim = sig.dim_of()
         time = dim.data()
         data = sig.data()
-        value = 0
+        value = 0.
         if   dim.getUnits()=='ns': tlim = time[0]+5e6
         elif dim.getUnits()=='s':  tlim = time[0]+5e-3
         else:
@@ -36,7 +36,8 @@ def ECEcalib(sig, ecechannel, timestamp, freq=None, calibdata=None):
             if t>tlim: break  # this way i is number of accumulated samples
             value+= data[i]
         return value/i
-
+    timestamp = Time(sig.args[2][0][2])
+    print(timestamp.local)
     # paths to configuration files
     path_conf = '\\\\x-drive\\Diagnostic-logbooks\\QME-ECE\\Config-files'
     path_cali = '\\\\x-drive\\Diagnostic-logbooks\\QME-ECE\\Calibration-files'
@@ -68,6 +69,5 @@ def ECEcalib(sig, ecechannel, timestamp, freq=None, calibdata=None):
     offset = getOffset(sig)
     factor = conf_factor*cali_factor*para_factor
     # construct output
-    out = {'freq':freqGHz,
-    'Cfiles':{'configuration':conf_file,'calibration':cali_file,'parameter':para_file}}
-    return [offset,factor],out
+    out = {'freq':freqGHz,'cfg':conf_file,'cal':cali_file,'par':para_file}
+    return offset,factor,'keV',out

@@ -1,27 +1,14 @@
-from MDSplus import TreeNode, Tree, TdiCompile
-from archive import TimeInterval, calibrations
-def ECE(node, time=None):
-    """ if tree is archive use time """
-    """ else use TIME node """
-    print('archive_program')
+def ECE(node):
+    from MDSplus import TdiCompile, Float32
+    from archive import calibrations
+    print('get calibrated ECE signal')
     try:
-        if not isinstance(node, (TreeNode)):
-            node = Tree('archive',-1).getNode(node)
-        """ use _time variable if Tree is ARCHIVE """
-        if node.tree.shot == -1:
-            try:    time = TimeInterval(time)
-            except: time = TimeInterval([-1800.,0,0])
-        else:
-            time = TimeInterval(node.getNode('\TIME').data())
-        ecechannel = int(node.getNode('$IDX').data())+1
-        timestamp = time.t0T.ns
         sig = node.evaluate()
-        caldata = calibrations.ECEcalib(sig,ecechannel,timestamp)
-        offset = caldata['offset']
-        factor = caldata['factor']
+        ecechannel = int(node.getNode('$IDX').data())+1
+        offset,factor,unit,info = calibrations.ECEcalib(sig,ecechannel)
         args = list(sig.args)
         args[1] = args[0]
-        args[0] = TdiCompile('Build_With_Units(($VALUE-$)*$,"eV")',(offset,factor))
+        args[0] = TdiCompile('Build_With_Units(($VALUE-$)*$,$)',(Float32(offset),Float32(factor),unit))
         sig.args = tuple(args)
         return sig
     except:
