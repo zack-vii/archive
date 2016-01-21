@@ -2,7 +2,7 @@ def archive_signalpy(node, time=None, cache=None):
     """ use time if tree is archive """
     """ else use TIME node """
     from archive import base, interface
-    from MDSplus import TreeNode, Tree, Data
+    from MDSplus import TreeNode, Tree, Data, mdsExceptions
     print('archive_signalpy')
     try:
         if not isinstance(node, (TreeNode)):
@@ -30,7 +30,8 @@ def archive_signalpy(node, time=None, cache=None):
                     if gain!=1. or zero!=0.:
                         kwargs['value'] = Data.compile('$VALUE*$+$',(gain,zero))
                 except Exception as exc:
-                    print(exc)
+                    if not isinstance(exc,mdsExceptions.TreeNNF):
+                        print(exc)
         if cache is not None: kwargs['cache'] = cache
         try: # load channels by datastream + index
             kwargs['channel'] = node.getNode('$IDX').data()
