@@ -26,6 +26,8 @@ def addValue(tree='archive', shot=-1):
         'CDSD101:DMD229:CH14':'Build_With_Units(polyval($VALUE, [-10.469,161.96]),"kW")', # Bolo_D5
         'CDSD108:DMD240:CH6' :'Build_With_Units(polyval($VALUE, [-0.3427,1319.2]),"kW")', # Bolo_A1
         'CDSD106:DMD237:CH14':'Build_With_Units(polyval($VALUE, [85.734,996.06]),"kW")',  # Bolo_B5
+        'CDSD106:DMD237:CH14':'Build_With_Units(polyval($VALUE, [85.734,996.06]),"kW")',  # Bolo_B5
+        'CDSD16007:DRPD17547:CH0': ('ECEcalib','Build_With_Units(($VALUE-$)*$,"eV")','offset','factor')
         }
     with _mds.Tree(tree,shot,'edit') as arc:
         for k,v in valueDB.iteritems():

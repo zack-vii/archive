@@ -13,8 +13,8 @@ from archive import diff as _diff
 from archive import interface as _if
 from archive import support as _sup
 from archive import version as _ver
-_MDS_shotdb = _base.Path('/Test/raw/W7X/MDSplus/Shots')
-_MDS_shotrt = _base.Path('/Test/raw/W7X')
+_MDS_shotdb = _base.Path('/Test/raw/W7X/MDSplus/Shots')  # raw/W7X/MDSplus/Shots
+_MDS_shotrt = _base.Path('/Test/raw/W7X')  # raw/W7X
 _subtrees  = 'included'
 _exclude   = ['ACTION', 'TASK', 'SIGNAL']
 
@@ -93,8 +93,9 @@ def uploadShot(shot, subtrees=_subtrees, treename='W7X', T0=None, T1=None):
             section = str(sec.node_name)
             path.streamgroup = subtree.upper()+'_'+section[0].upper()+section[1:].lower()
             try:
+                if _sup.debuglevel>=3: print('treeToDict',sec,kkscfg,_exclude,'')
                 cfglog = _sup.treeToDict(sec,kkscfg.copy(),_exclude,'')
-                log_cfglog = _if.write_logurl(path.url_cfglog(), cfglog, T0)
+                log_cfglog=cfglog#log_cfglog = _if.write_logurl(path.url_cfglog(), cfglog, T0)
             except:
                 log_cfglog = _sup.error(1)
             sectionDict = _sectionDict(sec, kks, T0, T1, path)
@@ -134,8 +135,10 @@ def _sectionDict(section, kks, T0, T1, path):
             stream = str(device.node_name)
             path.stream = stream[0].upper()+stream[1:].lower()
             deviceDict, signalList = _deviceDict(device, channels, signalDict)
-            try:    log_parlog = _if.write_logurl(path.url_parlog(), deviceDict, T0)
-            except: log_parlog = _sup.error()
+            if _sup.debuglevel>=3: print(deviceDict, signalList)
+            log_parlog = (deviceDict, signalList)
+            #try:    log_parlog = _if.write_logurl(path.url_parlog(), deviceDict, T0)
+            #except: log_parlog = _sup.error()
             log_signal = _write_signals(path, signalList, T1)
             sectionDict.append({"path": path.path(),
                        "deviceDict": deviceDict,
@@ -241,28 +244,35 @@ def _write_signals(path, signals, t0):
     logs = []
     t0 = _base.Time(t0).ns
     if len(signals) == 1:
+        if _sup.debuglevel>=3: print('one signal',signals[0])
         signal = signals[0]
         if signal.isSegmented():
+            if _sup.debuglevel>=3: print('is segmented',signal.getNumSegments())
             for segment in _ver.xrange(signal.getNumSegments()):
                 data = signal.getSegment(segment).data()
                 dimof = _base.TimeArray(signal.getSegmentDim(segment)).ns
-                log = _if.write_data(path, data, dimof, t0)
+                if _sup.debuglevel>=3: print('image',path, data, dimof, t0)
+                log=''#log = _if.write_data(path, data, dimof, t0)
                 logs.append({"segment": segment, "log": log})
-                if logs[-1].getcode() >= 400:   print(segment,logs[-1].content)
+                #log.getcode() >= 400:   print(segment,log.content)
         else:
+            if _sup.debuglevel>=3: print('is not segmented')
             data = signal.data()
             dimof = _base.TimeArray(signal.dim_of().data()).ns
             logs.append(_if.write_data(path, data, dimof, t0))
             if logs[-1].getcode() >= 400:   print(0,logs[-1].content)
         return logs
+    if _sup.debuglevel>=3: print('%d signal' % len(signals))
     scalar = [[],None]
     images = []
     for signal in signals:
+        if _sup.debuglevel>=3: print('signal',signal)
         signal = signal.evaluate()
-        ndims = len(signal.data().shape)
-        sigdimof = _base.TimeArray(signal.dim_of()).ns
+        sigdata = signal.data()
+        ndims = len(sigdata.shape)
+        sigdimof = (signal.dim_of().data()*1E9).astype('uint64')
         if ndims==1:
-            data.append(signal.data())
+            data.append(sigdata)
             if scalar[1] is None:
                 scalar[1] = sigdimof
             else:
@@ -271,8 +281,9 @@ def _write_signals(path, signals, t0):
                 if not all(scalar[1]==sigdimof):
                     raise(Exception('dimesions are not equal for all channels'))
         elif ndims>1:
-            images.append((signal.data(),sigdimof))
+            images.append((sigdata,sigdimof))
     del(signals)
+    if _sup.debuglevel>=3: print('scalar',scalar)
     if scalar[1] is not None:
         data = _np.array(scalar[0]).T
         dimof = _np.array(scalar[1])
@@ -288,7 +299,8 @@ def _write_signals(path, signals, t0):
     for image in images:
         data = _np.array(image[0]).T
         dimof = _np.array(image[1])
-        logs.append(_if.write_data(path, data, dimof, t0))
+        if _sup.debuglevel>=3: print('image',path, data, dimof, t0)
+        #logs.append(_if.write_data(path, data, dimof, t0))
     return logs
 
 
