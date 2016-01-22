@@ -1,4 +1,4 @@
-def ECEcalib(sig, ecechannel, freq=None, calibdata=None):
+def ECEcalib(sig, ecechannel):
     from archive import Time
     from os import listdir, sys
     # paths to configuration files
@@ -44,8 +44,7 @@ def ECEcalib(sig, ecechannel, freq=None, calibdata=None):
             if t>tlim: break  # this way i is number of accumulated samples
             value+= data[i]
         return value/i
-    timestamp = Time(sig.args[2][0][2])
-    print(timestamp.local)
+    timestamp = Time(sig.args[2][0][2]).ns
     # find the files that apply to the time of interest
     conf_file,cfg = findSuitableFile(timestamp, conf_dir)
     if conf_file is None: return
