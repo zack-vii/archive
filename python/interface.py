@@ -161,7 +161,7 @@ def _readchunks(path, time, **kwargs):
             """stores chunks in cache 250-500 samples"""
             def store(pos,end,time,data):
                 key = _cache.getkey(hsh, time, False, **kwargs)
-                SQcache.set(key,[data[0][pos:end],data[1][pos:end],data[2]],604800)
+                SQcache.set(key,[data[0][pos:end],data[1][pos:end],data[2]],200000)
             pos = 0
             length = len(data[1])
             t = [btime[0],0]  # from

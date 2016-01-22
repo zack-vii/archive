@@ -66,12 +66,10 @@ class cache():
         return rv
 
     def get(self, key):
-        rv = None
         with self._get_conn() as conn:
             for row in conn.execute(self._get_dat, tuple(key)):
-                rv = _unpack(row[0])
-                break;
-        return rv
+                return _unpack(row[0])
+
 
     def delete(self, key):
         with self._get_conn() as conn:
