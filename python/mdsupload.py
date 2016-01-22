@@ -322,8 +322,8 @@ def _write_signals(path, signals, t0):
 
 def getDataName(datanode):
     """converts 'ABCD_12XY' to 'Abcd_12Xy"""
-    match = _re.match('([A-Z]*)(?:([^A-Z]*)([A-Z]+))+',str(datanode.node_name))
-    return ''.join([s[0]+s[1:].lower() for s in match.groups() if len(s)>0])
+    f = _re.findall('([^A-Z]*)([A-Z]*)',str(datanode.node_name))
+    return ''.join([i[0]+(i[1][0]+i[1][1:].lower() if i[1] else '') for i in f])
 
 def _buildPath(node):
     """generates a path out of a treepath
