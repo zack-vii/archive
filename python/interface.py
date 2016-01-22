@@ -46,7 +46,7 @@ def write_data(path, data, dimof, t0=0):
     if not isinstance(data, _np.ndarray):
         raise Exception('write_data: data must be numpy.ndarray')
     dimof = _np.array(dimof)
-    if dimof.dtype == float:
+    if dimof.dtype in ['float32','float64']:
         dimof = (dimof*1e9).astype('uint64')
     dimof = dimof + t0
     if dimof.ndim == 0:  # we need to add one level

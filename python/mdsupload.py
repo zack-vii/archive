@@ -133,8 +133,8 @@ def _sectionDict(section, kks, T0, T1, path):
             if len(channels)==0: continue
             sectionDict.append({"log":{}})
             device = _mds.TreeNode(devnid)
-            stream = str(device.node_name)
-            path.stream = stream[0].upper()+stream[1:].lower()
+            stream = getDataName(device)
+            path.stream = stream
             sectionDict[-1]["path"]=path.path()
             deviceDict, signalList = _deviceDict(device, channels, signalDict)
             sectionDict[-1]["deviceDict"]= deviceDict,
@@ -157,7 +157,7 @@ def _signalDict(signal, signalDict={}):
         try:
             desc = {}
             if signal.getNumDescendants()>0: _sup.treeToDict(signal, desc, _exclude)
-            desc["name"] = signal.getNodeName().lower()
+            desc["name"] = getDataName(signal)
             nid = signal.record.nid
             signalDict[nid] = desc
         except AttributeError:
@@ -235,7 +235,7 @@ def _channelDict(signalroot, nid):
     """collects the parameters of a channel
     called by _chanDesc"""
     channelDict = {}
-    channelDict['name'] = signalroot.getNodeName().lower()
+    channelDict['name'] = getDataName(signalroot)
     channelDict["active"] = int(signalroot.isOn())
     channelDict["physicalQuantity"] = {'type': 'unknown'}
     for sibling in signalroot.getDescendants():
@@ -250,14 +250,15 @@ def _write_signals(path, signals, t0):
     logs = []
     t0 = _base.Time(t0).ns
     if len(signals) == 1:
-        if _sup.debuglevel>=3: print('one signal',signals[0])
+        if _sup.debuglevel>=2: print('one signal',signals[0])
         signal = signals[0]
         if signal.isSegmented():
-            if _sup.debuglevel>=3: print('is segmented',signal.getNumSegments())
-            for segment in _ver.xrange(signal.getNumSegments()):
+            nSeg = signal.getNumSegments()
+            if _sup.debuglevel>=2: print('is segmented',nSeg)
+            for segment in _ver.xrange(nSeg):
                 data = signal.getSegment(segment).data()
-                dimof = _base.TimeArray(signal.getSegmentDim(segment)).ns
-                if _sup.debuglevel>=3: print('image',path, data, dimof, t0)
+                dimof = signal.getSegmentDim(segment)
+                if _sup.debuglevel>=2: print('image',path, data, dimof, t0)
                 try:
                     log = _if.write_data(path, data, dimof, t0)
                     if log.getcode() >= 400:   print(segment,log.content)
@@ -272,7 +273,7 @@ def _write_signals(path, signals, t0):
             log = _if.write_data(path, data, dimof, t0)
             if log.getcode() >= 400:   print(0,log.content)
         return [log]
-    if _sup.debuglevel>=3: print('%d signal' % len(signals))
+    if _sup.debuglevel>=2: print('%d signal' % len(signals))
     scalar = [[],None]
     images = []
     for signal in signals:
@@ -312,11 +313,17 @@ def _write_signals(path, signals, t0):
     for image in images:
         data = _np.array(image[0]).T
         dimof = _np.array(image[1])
+        print(data.shape,dimof.shape)
         if _sup.debuglevel>=3: print('image',path, data, dimof, t0)
         try:     logs.append(_if.write_data(path, data, dimof, t0))
         except:  logs.append(None)
     return logs
 
+
+def getDataName(datanode):
+    """converts 'ABCD_12XY' to 'Abcd_12Xy"""
+    match = _re.match('([A-Z]*)(?:([^A-Z]*)([A-Z]+))+',str(datanode.node_name))
+    return ''.join([s[0]+s[1:].lower() for s in match.groups() if len(s)>0])
 
 def _buildPath(node):
     """generates a path out of a treepath
