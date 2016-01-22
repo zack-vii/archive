@@ -260,7 +260,7 @@ def post(url, headers={}, data=None, json=None):
         _sup.debug(data.name)
         data = _mmap.mmap(data.fileno(), 0, access=_mmap.ACCESS_READ)
     else:
-        _sup.debug(data)
+        _sup.debug(data,5)
         data = _ver.tobytes(data)
     _sup.debug(url)
     result = get(url, headers, data)

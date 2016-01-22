@@ -50,7 +50,7 @@ def uploadModel(shot, subtrees=_subtrees, treename='W7X', T0=None):
     if T0 is None:  T0 = _sup.getTiming(shot, 0)
     else:           T0 = _base.Time(T0)
     cfglog = getModel()
-    #result = (_MDS_shotdb.url_cfglog(), cfglog, T0)
+    result = (_MDS_shotdb.url_cfglog(), cfglog, T0)
     result = _if.write_logurl(_MDS_shotdb.url_cfglog(), cfglog, T0)
     print(result.msg)
     return result,cfglog
@@ -95,7 +95,7 @@ def uploadShot(shot, subtrees=_subtrees, treename='W7X', T0=None, T1=None):
             try:
                 if _sup.debuglevel>=3: print('treeToDict',sec,kkscfg,_exclude,'')
                 cfglog = _sup.treeToDict(sec,kkscfg.copy(),_exclude,'')
-                log_cfglog=cfglog#log_cfglog = _if.write_logurl(path.url_cfglog(), cfglog, T0)
+                log_cfglog = _if.write_logurl(path.url_cfglog(), cfglog, T0)
             except:
                 log_cfglog = _sup.error(1)
             sectionDict = _sectionDict(sec, kks, T0, T1, path)
@@ -122,30 +122,31 @@ def _sectionDict(section, kks, T0, T1, path):
     """signalDict:   (nid of channel) :{dict of signal}"""
     """channelLists: (nid of device):[nid of channels]"""
     sectionDict = []
-    try:
-        HW = kks.HARDWARE
-        if HW.getNumDescendants()==0: return
-        signalDict = {}
-        deviceDict = {}
-        for signal in section.getDescendants(): signalDict = _signalDict(signal, signalDict)
-        channelLists = _getChannelLists(kks,signalDict)
-        for devnid,channels in channelLists.items():
+    HW = kks.HARDWARE
+    if HW.getNumDescendants()==0: return
+    signalDict = {}
+    deviceDict = {}
+    for signal in section.getDescendants(): signalDict = _signalDict(signal, signalDict)
+    channelLists = _getChannelLists(kks,signalDict)
+    for devnid,channels in channelLists.items():
+        try:
             if len(channels)==0: continue
+            sectionDict.append({"log":{}})
             device = _mds.TreeNode(devnid)
             stream = str(device.node_name)
             path.stream = stream[0].upper()+stream[1:].lower()
+            sectionDict[-1]["path"]=path.path()
             deviceDict, signalList = _deviceDict(device, channels, signalDict)
+            sectionDict[-1]["deviceDict"]= deviceDict,
+            sectionDict[-1]["signalList"]= signalList,
             if _sup.debuglevel>=3: print(deviceDict, signalList)
-            log_parlog = (deviceDict, signalList)
-            #try:    log_parlog = _if.write_logurl(path.url_parlog(), deviceDict, T0)
-            #except: log_parlog = _sup.error()
+            try:    log_parlog = _if.write_logurl(path.url_parlog(), deviceDict, T0)
+            except: log_parlog = _sup.error()
+            sectionDict[-1]["log"]['parlog']=log_parlog
             log_signal = _write_signals(path, signalList, T1)
-            sectionDict.append({"path": path.path(),
-                       "deviceDict": deviceDict,
-                       "signalList": signalList,
-                       "log": {'parlog':log_parlog, 'signal':log_signal}})
-    except:
-        _sup.error()
+            sectionDict[-1]["log"]['signal']=log_signal
+        except:
+            _sup.error()
     return sectionDict
 
 
@@ -153,11 +154,16 @@ def _signalDict(signal, signalDict={}):
     """collects the properties of a signal node and assiciates it with a channel nid
     called by _sectionDict"""
     if signal.usage == "SIGNAL":
-        desc = {}
-        if signal.getNumDescendants()>0: _sup.treeToDict(signal, desc, _exclude)
-        desc["name"] = signal.getNodeName().lower()
-        nid = signal.getData().Nid
-        signalDict[nid] = desc
+        try:
+            desc = {}
+            if signal.getNumDescendants()>0: _sup.treeToDict(signal, desc, _exclude)
+            desc["name"] = signal.getNodeName().lower()
+            nid = signal.record.nid
+            signalDict[nid] = desc
+        except AttributeError:
+            print(signal.record)
+        except:
+            _sup.error()
     return signalDict
 
 
@@ -252,16 +258,20 @@ def _write_signals(path, signals, t0):
                 data = signal.getSegment(segment).data()
                 dimof = _base.TimeArray(signal.getSegmentDim(segment)).ns
                 if _sup.debuglevel>=3: print('image',path, data, dimof, t0)
-                log=''#log = _if.write_data(path, data, dimof, t0)
+                try:
+                    log = _if.write_data(path, data, dimof, t0)
+                    if log.getcode() >= 400:   print(segment,log.content)
+                except:
+                    log = _sup.error(1)
                 logs.append({"segment": segment, "log": log})
-                #log.getcode() >= 400:   print(segment,log.content)
         else:
             if _sup.debuglevel>=3: print('is not segmented')
-            data = signal.data()
+            try:     data = signal.data()
+            except:  return []
             dimof = _base.TimeArray(signal.dim_of().data()).ns
-            logs.append(_if.write_data(path, data, dimof, t0))
-            if logs[-1].getcode() >= 400:   print(0,logs[-1].content)
-        return logs
+            log = _if.write_data(path, data, dimof, t0)
+            if log.getcode() >= 400:   print(0,log.content)
+        return [log]
     if _sup.debuglevel>=3: print('%d signal' % len(signals))
     scalar = [[],None]
     images = []
@@ -272,11 +282,11 @@ def _write_signals(path, signals, t0):
         ndims = len(sigdata.shape)
         sigdimof = (signal.dim_of().data()*1E9).astype('uint64')
         if ndims==1:
-            data.append(sigdata)
+            scalar[0].append(sigdata)
             if scalar[1] is None:
                 scalar[1] = sigdimof
             else:
-                if not (data[0].dtype==data[-1].dtype):
+                if not (scalar[0][0].dtype==scalar[0][-1].dtype):
                     raise(Exception('data types are not equal for all channels'))
                 if not all(scalar[1]==sigdimof):
                     raise(Exception('dimesions are not equal for all channels'))
@@ -290,17 +300,21 @@ def _write_signals(path, signals, t0):
         length= len(dimof)
         idx = 0;
         while idx<length:
-            N = 5000 if length-idx>7500 else length-idx
-            logs.append(_if.write_data(path, data[idx:idx+N], dimof[idx:idx+N], t0))
-            if logs[-1].getcode() >= 400:
-                print(idx,idx+N-1,logs[-1].content)
+            N = 10000 if length-idx>15000 else length-idx
+            try:
+                logs.append(_if.write_data(path, data[idx:idx+N].T, dimof[idx:idx+N], t0))
+                if logs[-1].getcode() >= 400:
+                    print(idx,idx+N-1,logs[-1].content)
+            except:
+                pass
             idx = idx+N
     del(scalar)
     for image in images:
         data = _np.array(image[0]).T
         dimof = _np.array(image[1])
         if _sup.debuglevel>=3: print('image',path, data, dimof, t0)
-        #logs.append(_if.write_data(path, data, dimof, t0))
+        try:     logs.append(_if.write_data(path, data, dimof, t0))
+        except:  logs.append(None)
     return logs
 
 
@@ -338,7 +352,7 @@ def uploadNode(node, shot=0, treename='W7X'):
         else:  # replace
             sig = [node]
             parlog = {"chanDescs": [_chanDesc(node, node)]}
-#    parlog["shot"] = int(shot)
+    parlog["shot"] = int(shot)
     r = [None, None]
     r[0] = _if.write_logurl(path.url_parlog(), parlog, T0)
     r[1] = _write_signals(path, sig, T1)
