@@ -94,13 +94,13 @@ def uploadShot(shot, subtrees=_subtrees, treename='W7X', T0=None, T1=None, force
             path.streamgroup = section
             Tx = checkLogUpto(path.cfglog,T0)
             if Tx<0 or Tx>T0 or force:
+                sectionDict = _sectionDict(sec, kks, T0, T1, path)
                 try:
                     if _sup.debuglevel>=3: print('treeToDict',sec,kkscfg,_exclude,'')
                     cfglog = _sup.treeToDict(sec,kkscfg.copy(),_exclude,'')
                     log_cfglog = _if.write_logurl(path.url_cfglog(), cfglog, T0, Tx)
                 except:
                     log_cfglog = _sup.error(1)
-                sectionDict = _sectionDict(sec, kks, T0, T1, path)
                 sectionDicts.append({'sectionDict': sectionDict, "cfglog": log_cfglog})
             else:
                 print('cfglog already written: skip')
@@ -146,11 +146,11 @@ def _sectionDict(section, kks, T0, T1, path):
                 sectionDict[-1]["deviceDict"]= deviceDict,
                 sectionDict[-1]["signalList"]= signalList,
                 if _sup.debuglevel>=3: print(deviceDict, signalList)
+                log_signal = _write_signals(path, signalList, T1)
+                sectionDict[-1]["log"]['signal']=log_signal
                 try:    log_parlog = _if.write_logurl(path.url_parlog(), deviceDict, T0, Tx)
                 except: log_parlog = _sup.error()
                 sectionDict[-1]["log"]['parlog']=log_parlog
-                log_signal = _write_signals(path, signalList, T1)
-                sectionDict[-1]["log"]['signal']=log_signal
         except:
             _sup.error()
     return sectionDict
