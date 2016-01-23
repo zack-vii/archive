@@ -237,6 +237,14 @@ def parms(url, **kwargs):
 #        if 'channels' in kwargs.keys():
 #            par.append('channels='+str(kwargs['channels']).lstrip('[').rstrip(']').replace(' ',''))
         url = url+'?'+'&'.join(par)
+    else:
+        par = []
+        if 'filterstart' in kwargs.keys():
+            par.append('filterstart='+str(int(kwargs['filterstart'])))           
+        if 'filterstop' in kwargs.keys():
+            par.append('filterstop='+str(int(kwargs['filterstop'])))
+        if par:
+            url = url+'?'+'&'.join(par)
     return url
 
 def filter(path, time=None):
