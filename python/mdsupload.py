@@ -95,12 +95,15 @@ def uploadShot(shot, subtrees=_subtrees, treename='W7X', T0=None, T1=None, force
             Tx = checkLogUpto(path.cfglog,T0)
             if Tx<0 or Tx>T0 or force:
                 sectionDict = _sectionDict(sec, kks, T0, T1, path)
-                try:
-                    if _sup.debuglevel>=3: print('treeToDict',sec,kkscfg,_exclude,'')
-                    cfglog = _sup.treeToDict(sec,kkscfg.copy(),_exclude,'')
-                    log_cfglog = _if.write_logurl(path.url_cfglog(), cfglog, T0, Tx)
-                except:
-                    log_cfglog = _sup.error(1)
+                if Tx<0 or Tx>T0:
+                    try:
+                        if _sup.debuglevel>=3: print('treeToDict',sec,kkscfg,_exclude,'')
+                        cfglog = _sup.treeToDict(sec,kkscfg.copy(),_exclude,'')
+                        log_cfglog = _if.write_logurl(path.url_cfglog(), cfglog, T0, Tx)
+                    except:
+                        log_cfglog = _sup.error(1)
+                else:
+                    log_cfglog = 'not written, force=True'
                 sectionDicts.append({'sectionDict': sectionDict, "cfglog": log_cfglog})
             else:
                 print('cfglog already written: skip')
