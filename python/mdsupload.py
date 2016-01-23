@@ -68,7 +68,7 @@ def uploadTiming(shot):
     return result
 
 
-def uploadShot(shot, subtrees=_subtrees, treename='W7X', T0=None, T1=None):
+def uploadShot(shot, subtrees=_subtrees, treename='W7X', T0=None, T1=None, force=False):
     """uploads the data of all sections of a given shot into the web archive
     should be executed after all data is written to the shot file"""
     if shot<0:  raise Exception("Shot number must be positive (must not direct to the model).")
@@ -89,17 +89,21 @@ def uploadShot(shot, subtrees=_subtrees, treename='W7X', T0=None, T1=None):
         kkscfg = _getCfgLog(kks,shot)
         data = kks.DATA
         for sec in data.getDescendants():
-            print(sec)
-            section = str(sec.node_name)
-            path.streamgroup = subtree.upper()+'_'+section[0].upper()+section[1:].lower()
-            try:
-                if _sup.debuglevel>=3: print('treeToDict',sec,kkscfg,_exclude,'')
-                cfglog = _sup.treeToDict(sec,kkscfg.copy(),_exclude,'')
-                log_cfglog = _if.write_logurl(path.url_cfglog(), cfglog, T0)
-            except:
-                log_cfglog = _sup.error(1)
-            sectionDict = _sectionDict(sec, kks, T0, T1, path)
-            sectionDicts.append({'sectionDict': sectionDict, "cfglog": log_cfglog})
+            section = subtree.upper()+'_'+getDataName(sec.node_name)
+            print(shot,sec,section)
+            path.streamgroup = section
+            Tx = checkLogUpto(path.cfglog,T0)
+            if Tx<0 or Tx>T0 or force:
+                try:
+                    if _sup.debuglevel>=3: print('treeToDict',sec,kkscfg,_exclude,'')
+                    cfglog = _sup.treeToDict(sec,kkscfg.copy(),_exclude,'')
+                    log_cfglog = _if.write_logurl(path.url_cfglog(), cfglog, T0, Tx)
+                except:
+                    log_cfglog = _sup.error(1)
+                sectionDict = _sectionDict(sec, kks, T0, T1, path)
+                sectionDicts.append({'sectionDict': sectionDict, "cfglog": log_cfglog})
+            else:
+                print('cfglog already written: skip')
     return(sectionDicts)
 
 
@@ -135,16 +139,18 @@ def _sectionDict(section, kks, T0, T1, path):
             device = _mds.TreeNode(devnid)
             stream = getDataName(device)
             path.stream = stream
-            sectionDict[-1]["path"]=path.path()
-            deviceDict, signalList = _deviceDict(device, channels, signalDict)
-            sectionDict[-1]["deviceDict"]= deviceDict,
-            sectionDict[-1]["signalList"]= signalList,
-            if _sup.debuglevel>=3: print(deviceDict, signalList)
-            try:    log_parlog = _if.write_logurl(path.url_parlog(), deviceDict, T0)
-            except: log_parlog = _sup.error()
-            sectionDict[-1]["log"]['parlog']=log_parlog
-            log_signal = _write_signals(path, signalList, T1)
-            sectionDict[-1]["log"]['signal']=log_signal
+            Tx = checkLogUpto(path.cfglog,T0)
+            if Tx<0 or Tx>T0:
+                sectionDict[-1]["path"]=path.path()
+                deviceDict, signalList = _deviceDict(device, channels, signalDict)
+                sectionDict[-1]["deviceDict"]= deviceDict,
+                sectionDict[-1]["signalList"]= signalList,
+                if _sup.debuglevel>=3: print(deviceDict, signalList)
+                try:    log_parlog = _if.write_logurl(path.url_parlog(), deviceDict, T0, Tx)
+                except: log_parlog = _sup.error()
+                sectionDict[-1]["log"]['parlog']=log_parlog
+                log_signal = _write_signals(path, signalList, T1)
+                sectionDict[-1]["log"]['signal']=log_signal
         except:
             _sup.error()
     return sectionDict
@@ -367,3 +373,15 @@ def uploadNode(node, shot=0, treename='W7X'):
     if not r[0].ok: print(r[0].content)
     if not r[1].ok: print(r[1].content)
     return r
+
+def checkLogUpto(path,Tfrom):
+    try:
+        p = _if.get_json(path,filterstart=Tfrom-1,filterstop=2000000000000000000)
+        for i in range(5):
+            s = str(p['_links']['children'][-1]['href'])
+            try:
+                return _base.Time(int(_re.findall('(?<=\?from=)([0-9]+)',s)[0])-1)
+            except:
+                p = _if.get_json(s)
+    except:
+        return _base.Time(-1)
