@@ -27,7 +27,7 @@ class URLException(Exception):
         return value
 
 
-def write_logurl(url, parms, T0):
+def write_logurl(url, parms, Tfrom, Tupto=-1):
     if url.endswith('CFGLOG'):
         label = 'configuration'
     elif url.endswith('PARLOG'):
@@ -36,9 +36,16 @@ def write_logurl(url, parms, T0):
         raise Exception('write_logurl: URL must refer to either a CFGLOG or a PARLOG.')
     log = {'label' : label,
            'values': [parms],
-           'dimensions': [max(0,_base.Time(T0).ns),-1]
+           'dimensions': [max(0,_base.Time(Tfrom).ns),_base.Time(Tupto).ns]
            }
-    return(post(url, json=log))  # , data=json.dumps(cfg)
+    try:
+        return(post(url, json=log))
+    except _ver.urllib.HTTPError:
+        log = {'label' : label,
+               'values': [parms],
+               'dimensions': [max(0,_base.Time(Tfrom).ns),_base.Time(Tupto).ns]
+               }
+        
 
 
 def write_data(path, data, dimof, t0=0):
@@ -161,7 +168,7 @@ def _readchunks(path, time, **kwargs):
             """stores chunks in cache 250-500 samples"""
             def store(pos,end,time,data):
                 key = _cache.getkey(hsh, time, False, **kwargs)
-                SQcache.set(key,[data[0][pos:end],data[1][pos:end],data[2]],200000)
+                SQcache.set(key,[data[0][pos:end],data[1][pos:end],data[2]],604800)
             pos = 0
             length = len(data[1])
             t = [btime[0],0]  # from
