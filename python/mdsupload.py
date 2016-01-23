@@ -139,7 +139,7 @@ def _sectionDict(section, kks, T0, T1, path):
             device = _mds.TreeNode(devnid)
             stream = getDataName(device)
             path.stream = stream
-            Tx = checkLogUpto(path.cfglog,T0)
+            Tx = checkLogUpto(path.parlog,T0)
             if Tx<0 or Tx>T0:
                 sectionDict[-1]["path"]=path.path()
                 deviceDict, signalList = _deviceDict(device, channels, signalDict)
