@@ -89,7 +89,7 @@ def uploadShot(shot, subtrees=_subtrees, treename='W7X', T0=None, T1=None, force
         kkscfg = _getCfgLog(kks,shot)
         data = kks.DATA
         for sec in data.getDescendants():
-            section = subtree.upper()+'_'+getDataName(sec.node_name)
+            section = subtree.upper()+'_'+getDataName(sec)
             print(shot,sec,section)
             path.streamgroup = section
             Tx = checkLogUpto(path.cfglog,T0)
