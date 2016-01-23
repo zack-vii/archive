@@ -93,9 +93,9 @@ def uploadShot(shot, subtrees=_subtrees, treename='W7X', T0=None, T1=None, force
             print(shot,sec,section)
             path.streamgroup = section
             Tx = checkLogUpto(path.cfglog,T0)
-            if Tx<0 or Tx>T0 or force:
+            if Tx<0 or Tx!=T0-1 or force:
                 sectionDict = _sectionDict(sec, kks, T0, T1, path)
-                if Tx<0 or Tx>T0:
+                if Tx<0 or Tx!=T0-1:
                     try:
                         if _sup.debuglevel>=3: print('treeToDict',sec,kkscfg,_exclude,'')
                         cfglog = _sup.treeToDict(sec,kkscfg.copy(),_exclude,'')
@@ -143,7 +143,7 @@ def _sectionDict(section, kks, T0, T1, path):
             stream = getDataName(device)
             path.stream = stream
             Tx = checkLogUpto(path.parlog,T0)
-            if Tx<0 or Tx>T0:
+            if Tx<0 or Tx!=T0-1:
                 sectionDict[-1]["path"]=path.path()
                 deviceDict, signalList = _deviceDict(device, channels, signalDict)
                 sectionDict[-1]["deviceDict"]= deviceDict,
@@ -154,6 +154,8 @@ def _sectionDict(section, kks, T0, T1, path):
                 try:    log_parlog = _if.write_logurl(path.url_parlog(), deviceDict, T0, Tx)
                 except: log_parlog = _sup.error()
                 sectionDict[-1]["log"]['parlog']=log_parlog
+            else:
+                sectionDict[-1]['log'] = 'parlog exists '+Tx.utc+' : '+T0.utc
         except:
             _sup.error()
     return sectionDict

@@ -184,9 +184,9 @@ def getTiming(shot, n=_ver.range(7)):
     def getTn(n):
         node = time.getNode('T%d:IDEAL' % n)
         if node.on:
-            return int(node.record)
+            return _base.Time(int(node.record))
         else:
-            return -1
+            return _base.Time(-1)
     time = _mds.Tree('W7X', shot).TIMING
     if isinstance(n, (list, tuple)):
         return type(n)(getTn(i) for i in n)
