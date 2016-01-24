@@ -89,7 +89,7 @@ def uploadShot(shot, subtrees=_subtrees, treename='W7X', T0=None, T1=None, force
         kkscfg = _getCfgLog(kks,shot)
         data = kks.DATA
         for sec in data.getDescendants():
-            section = subtree.upper()+'_'+getDataName(sec)+'_x'
+            section = 'a'+subtree.upper()+'_'+getDataName(sec)
             print(shot,sec,section)
             path.streamgroup = section
             Tx = checkLogUpto(path.cfglog,T0)
@@ -398,14 +398,15 @@ def uploadNode(node, shot=0, treename='W7X'):
 def checkLogUpto(path,Tfrom):
     try:
         filterstart = Tfrom.ns-1
-        p = _if.get_json(path,filterstart=filterstart,filterstop=2000000000000000000)
+        filterstop=2000000000000000000
+        p = _if.get_json(path,filterstart=filterstart,filterstop=filterstop)
         for i in range(10):
             s = str(p['_links']['children'][-1]['href'])
             print(s)
             try:
                 t = map(int,_re.findall('(?<=from=|upto=)([0-9]+)',s))
                 if t[0]==filterstart:
-                    if t[1]==filterstop:
+                    if t[1]>=filterstop:
                       return _base.Time(-1)
                     else:
                       return _base.Time(t[1])
