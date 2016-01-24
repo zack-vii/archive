@@ -90,9 +90,9 @@ def uploadShot(shot, subtrees=_subtrees, treename='W7X', T0=None, T1=None, force
         data = kks.DATA
         for sec in data.getDescendants():
             section = 'a'+subtree.upper()+'_'+getDataName(sec)
-            print(shot,sec,section)
             path.streamgroup = section
             Tx = checkLogUpto(path.cfglog,T0)
+            print(shot,sec,section,T0,Tx)
             if Tx<0 or Tx!=T0-1 or force:
                 sectionDict = _sectionDict(sec, kks, T0, T1, path)
                 if Tx<0 or Tx!=T0-1:
@@ -174,8 +174,8 @@ def _signalDict(signal, signalDict={}, prefix=[]):
             desc["name"] = '_'.join(nameList)
             nid = signal.record.nid
             signalDict[nid] = desc
-        except AttributeError:
-            print(signal.record)
+        except AttributeError as exc:
+            print('_signalDict',exc,signal.record)
         except:
             _sup.error()
     else:
@@ -402,7 +402,6 @@ def checkLogUpto(path,Tfrom):
         p = _if.get_json(path,filterstart=filterstart,filterstop=filterstop)
         for i in range(10):
             s = str(p['_links']['children'][-1]['href'])
-            print(s)
             try:
                 t = map(int,_re.findall('(?<=from=|upto=)([0-9]+)',s))
                 if t[0]==filterstart:
