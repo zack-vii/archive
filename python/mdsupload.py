@@ -400,6 +400,9 @@ def checkLogUpto(path,Tfrom):
             try:
                 t = map(int,_re.findall('(?<=from=|upto=)([0-9]+)',s))
                 if t[0]==filterstart:
+                    if t[1]==filterstop:
+                      return _base.Time(-1)
+                    else:
                       return _base.Time(t[1])
                 else: return _base.Time(t[0])
             except:
