@@ -1,6 +1,6 @@
 import os
 def getShotDB(expt,i=None):
-    expt = str(expt)
+    expt = str(expt).lower()
     def getshots(expt_path):
         files = [f[len(expt):-5].split('_') for f in os.listdir(expt_path) if f.endswith('.tree') and f.startswith(expt+'_')]
         return [int(f[1]) for f in files if len(f)==2 and f[1]!='model']
