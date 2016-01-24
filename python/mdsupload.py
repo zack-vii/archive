@@ -16,7 +16,7 @@ from archive import version as _ver
 _MDS_shotdb = _base.Path('/Test/raw/W7X/MDSplus/Shots')  # raw/W7X/MDSplus/Shots
 _MDS_shotrt = _base.Path('/Test/raw/W7X')  # raw/W7X
 _subtrees  = 'included'
-_exclude   = ['ACTION', 'TASK', 'SIGNAL']
+_exclude   = {'usage':['ACTION', 'TASK', 'SIGNAL']}
 
 def setupTiming(version=0):
     """sets up the parlog of the shots datastream in the web archive
@@ -89,7 +89,7 @@ def uploadShot(shot, subtrees=_subtrees, treename='W7X', T0=None, T1=None, force
         kkscfg = _getCfgLog(kks,shot)
         data = kks.DATA
         for sec in data.getDescendants():
-            section = subtree.upper()+'_'+getDataName(sec)
+            section = subtree.upper()+'_'+getDataName(sec)+'_x'
             print(shot,sec,section)
             path.streamgroup = section
             Tx = checkLogUpto(path.cfglog,T0)
@@ -99,9 +99,10 @@ def uploadShot(shot, subtrees=_subtrees, treename='W7X', T0=None, T1=None, force
                     try:
                         if _sup.debuglevel>=3: print('treeToDict',sec,kkscfg,_exclude,'')
                         cfglog = _sup.treeToDict(sec,kkscfg.copy(),_exclude,'')
-                        log_cfglog = _if.write_logurl(path.url_cfglog(), cfglog, T0, Tx)
-                    except:
-                        log_cfglog = _sup.error(1)
+                        log_cfglog = _if.write_logurl(path.cfglog, cfglog, T0, Tx)
+                    except Exception as exc:
+                        print(exc)
+                        log_cfglog = exc
                 else:
                     log_cfglog = 'not written, force=True'
                 sectionDicts.append({'sectionDict': sectionDict, "cfglog": log_cfglog})
@@ -123,7 +124,7 @@ def _getCfgLog(kks,shot=None,treename='W7X'):
     return(cfglog)
 
 
-def _sectionDict(section, kks, T0, T1, path):
+def _sectionDict(section, kks, T0, T1, path, test=False):
     """generates the parlog for a section under .DATA and upload the data
     called by uploadShot"""
     """signalDict:   (nid of channel) :{dict of signal}"""
@@ -147,10 +148,11 @@ def _sectionDict(section, kks, T0, T1, path):
                 sectionDict[-1]["path"]=path.path()
                 deviceDict, signalList = _deviceDict(device, channels, signalDict)
                 sectionDict[-1]["deviceDict"]= deviceDict,
-                sectionDict[-1]["signalList"]= signalList,
+                sectionDict[-1]["signalList"]= map(str,signalList),
                 if _sup.debuglevel>=3: print(deviceDict, signalList)
                 log_signal = _write_signals(path, signalList, T1)
                 sectionDict[-1]["log"]['signal']=log_signal
+                print(T0,Tx)
                 try:    log_parlog = _if.write_logurl(path.url_parlog(), deviceDict, T0, Tx)
                 except: log_parlog = _sup.error()
                 sectionDict[-1]["log"]['parlog']=log_parlog
@@ -161,20 +163,23 @@ def _sectionDict(section, kks, T0, T1, path):
     return sectionDict
 
 
-def _signalDict(signal, signalDict={}):
+def _signalDict(signal, signalDict={}, prefix=[]):
     """collects the properties of a signal node and assiciates it with a channel nid
     called by _sectionDict"""
+    nameList = prefix+[getDataName(signal)]
     if signal.usage == "SIGNAL":
         try:
             desc = {}
-            if signal.getNumDescendants()>0: _sup.treeToDict(signal, desc, _exclude)
-            desc["name"] = getDataName(signal)
+            if signal.getNumDescendants()>0: desc = _sup.treeToDict(signal, desc, _exclude,'')
+            desc["name"] = '_'.join(nameList)
             nid = signal.record.nid
             signalDict[nid] = desc
         except AttributeError:
             print(signal.record)
         except:
             _sup.error()
+    else:
+        for sig in signal.getDescendants(): signalDict = _signalDict(sig, signalDict, nameList)
     return signalDict
 
 
@@ -194,29 +199,34 @@ def _getChannelLists(kks, channels):
 def _deviceDict(device, channelList, signalDict={}):
     """collects the data of channels and their parenting devices
     called by _sectionDict"""
-    def _searchSignal(descendant):
-        """checks DEVICE:SIGNAL and DEVICE.STRUCTURE:SIGNAL"""
-        if descendant.usage == "SIGNAL":        return descendant
-        elif descendant.usage == "STRUCTURE":
-            for member in descendant.getMembers():
-                if member.usage == 'SIGNAL':    return member
-        return None
 
-    deviceDict = {}
     signalList = []
     chanDescs = []
-    for descendant in device.getDescendants():
-        signal = _searchSignal(descendant)
-        if signal is None:  # add to parlog
-            _sup.treeToDict(descendant, deviceDict, _exclude)
-        elif signal.nid in channelList:  # add to signal list
-            chanDescs.append(_chanDesc(descendant, signal, signalDict))
-            signalList.append(signal)
+    signals = _searchSignals(device)
+    for signal in signals:
+        if signal[1].nid in channelList:  # add to signal list
+            chanDescs.append(_chanDesc(signal, signalDict))
+            signalList.append(signal[1])
+    exclude = _exclude.copy()
+    exclude['nid'] = [s[0] for s in signals]
+    deviceDict = _sup.treeToDict(device, exclude=_exclude)
     deviceDict["chanDescs"] = chanDescs
     return(deviceDict, signalList)
 
+def _searchSignals(device):
+    """checks DEVICE:SIGNAL and DEVICE.STRUCTURE:SIGNAL"""
+    signals = []
+    for descendant in device.getDescendants():
+        if descendant.usage == "SIGNAL":
+            signals.append([descendant,descendant])
+        else:
+            sigs = _searchSignals(descendant)
+            signals+= sigs
+    if len(signals)==1: signals[0][0] = device
+    return signals
 
-def _chanDesc(signalroot, signal, signalDict={}):
+
+def _chanDesc(signalset, signalDict={}):
     """generates the channel descriptor for a given channel"""
     def mergeSignalDict(chanDesc):
         if nid in signalDict.keys():
@@ -229,9 +239,10 @@ def _chanDesc(signalroot, signal, signalDict={}):
             chanDesc["physicalQuantity"]['type'] = _base.Units(chanDesc["units"], 1)
             del(chanDesc["units"])
         return chanDesc
-    nid = signal.nid
+    signal = signalset[1]
     print(signal)
-    chanDesc = _channelDict(signalroot, nid)
+    nid = signal.nid
+    chanDesc = _channelDict(signalset[0], nid)
     chanDesc = mergeSignalDict(chanDesc)
     chanDesc = substituteUnits()
     try:
@@ -381,12 +392,17 @@ def uploadNode(node, shot=0, treename='W7X'):
 
 def checkLogUpto(path,Tfrom):
     try:
-        p = _if.get_json(path,filterstart=Tfrom-1,filterstop=2000000000000000000)
-        for i in range(5):
+        filterstart = Tfrom.ns-1
+        p = _if.get_json(path,filterstart=filterstart,filterstop=2000000000000000000)
+        for i in range(10):
             s = str(p['_links']['children'][-1]['href'])
+            print(s)
             try:
-                return _base.Time(int(_re.findall('(?<=\?from=)([0-9]+)',s)[0])-1)
+                t = map(int,_re.findall('(?<=from=|upto=)([0-9]+)',s))
+                if t[0]==filterstart:
+                      return _base.Time(t[1])
+                else: return _base.Time(t[0])
             except:
                 p = _if.get_json(s)
-    except:
-        return _base.Time(-1)
+    except: pass
+    return _base.Time(-1)

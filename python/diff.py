@@ -13,7 +13,7 @@ def difftree(treename1, shot1, treename2, shot2, exclude):
     treediff = DeepDiff(treedict1, treedict2)
     return treediff, _sup.obj(treedict1), _sup.obj(treedict2)
 
-def treeToDict(tree, exclude=[]):
+def treeToDict(tree, exclude={}):
     def nodeToDict(node, exclude):
         dic = {}
         dic["usage"] = str(node.usage)

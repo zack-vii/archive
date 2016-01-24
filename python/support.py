@@ -31,12 +31,14 @@ def sampleImage(imgfile='image.jpg'):
     return (im[:, :, 2]+im[:, :, 1]*256+im[:, :, 0]*65536).T.tolist()
 
 
-def treeToDict(node, Dict={}, exclude=[], name=None):
+def treeToDict(node, Dict={}, exclude={}, name=None):
     """generates a dict of the of a node structure
     called by <multiple>"""
     try:
-        if node.usage in exclude:  # exclude by usage
-            return Dict
+        for att,val in exclude.iteritems():
+            try: value = node.__getattr__(att)
+            except: continue
+            if value in val: return Dict
         sDict = {}
         if name is None:
             name = node.getNodeName().lower()
@@ -63,8 +65,8 @@ def treeToDict(node, Dict={}, exclude=[], name=None):
             else:
                 Dict = data
     except:
-        pass
-    return(Dict)
+        error()
+    return Dict
 
 
 class remoteTree(_mds.Tree):
