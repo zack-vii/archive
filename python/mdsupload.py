@@ -343,9 +343,14 @@ def _write_signals(path, signals, t0):
 
 
 def getDataName(datanode):
-    """converts 'ABCD_12XY' to 'Abcd_12Xy"""
-    f = _re.findall('([^A-Z]*)([A-Z]*)',str(datanode.node_name))
-    return ''.join([i[0]+(i[1][0]+i[1][1:].lower() if i[1] else '') for i in f])
+    """converts 'ABCD_12XY_II' to 'Abcd_12Xy_II"""
+    def process(i):
+        if all(c=='I' for c in i): return i
+        else: return i[0]+i[1:].lower()
+    if isinstance(datanode,_mds.TreeNode):
+        datanode = str(datanode.node_name)
+    f = _re.findall('([^A-Z]*)([A-Z]*)',datanode)
+    return ''.join([i[0]+process(i[1]) for i in f])
 
 def _buildPath(node):
     """generates a path out of a treepath
