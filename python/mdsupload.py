@@ -29,7 +29,6 @@ def setupTiming(version=0):
     print(result.msg)
     return result
 
-
 def uploadModel(shot, subtrees=_subtrees, treename='W7X', T0=None):
     """uploads full model tree of a given shot into the web archive
     should be executed right after T0"""
@@ -55,7 +54,6 @@ def uploadModel(shot, subtrees=_subtrees, treename='W7X', T0=None):
     print(result.msg)
     return result,cfglog
 
-
 def uploadTiming(shot):
     """uploads the timing of a given shot into the web archive
     should be executed soon after T6"""
@@ -66,7 +64,6 @@ def uploadTiming(shot):
     result = _if.write_data(_MDS_shotdb, data, dim)
     print(result.msg)
     return result
-
 
 def uploadShot(shot, subtrees=_subtrees, treename='W7X', T0=None, T1=None, force=False):
     """uploads the data of all sections of a given shot into the web archive
@@ -97,8 +94,8 @@ def uploadShot(shot, subtrees=_subtrees, treename='W7X', T0=None, T1=None, force
                 sectionDict = _sectionDict(sec, kks, T0, T1, path)
                 if Tx<0 or Tx!=T0-1:
                     try:
-                        if _sup.debuglevel>=3: print('treeToDict',sec,kkscfg,_exclude,'')
                         cfglog = _sup.treeToDict(sec,kkscfg.copy(),_exclude,'')
+                        if _sup.debuglevel>=3: print('write_cfglog',sec,cfglog)
                         log_cfglog = _if.write_logurl(path.cfglog, cfglog, T0, Tx)
                     except Exception as exc:
                         print(exc)
@@ -110,7 +107,6 @@ def uploadShot(shot, subtrees=_subtrees, treename='W7X', T0=None, T1=None, force
                 print('cfglog already written: skip')
     return(sectionDicts)
 
-
 def _getCfgLog(kks,shot=None,treename='W7X'):
     """generates the base cfglog of a kks subtree
     called by uploadShot"""
@@ -121,8 +117,7 @@ def _getCfgLog(kks,shot=None,treename='W7X'):
     for c in kks.getChildren():
         if not c.getNodeName() in ['HARDWARE','DATA']:
             cfglog = _sup.treeToDict(c, cfglog, _exclude)
-    return(cfglog)
-
+    return cfglog
 
 def _sectionDict(section, kks, T0, T1, path, test=False):
     """generates the parlog for a section under .DATA and upload the data
@@ -133,7 +128,6 @@ def _sectionDict(section, kks, T0, T1, path, test=False):
     HW = kks.HARDWARE
     if HW.getNumDescendants()==0: return
     signalDict = {}
-    deviceDict = {}
     for signal in section.getDescendants(): signalDict = _signalDict(signal, signalDict)
     channelLists = _getChannelLists(kks,signalDict)
     for devnid,channels in channelLists.items():
@@ -147,9 +141,7 @@ def _sectionDict(section, kks, T0, T1, path, test=False):
             if Tx<0 or Tx!=T0-1:
                 sectionDict[-1]["path"]=path.path()
                 deviceDict, signalList = _deviceDict(device, channels, signalDict)
-                sectionDict[-1]["deviceDict"]= deviceDict,
-                sectionDict[-1]["signalList"]= map(str,signalList),
-                if _sup.debuglevel>=3: print(deviceDict, signalList)
+                if _sup.debuglevel>=2: print(deviceDict)
                 log_signal = _write_signals(path, signalList, T1)
                 sectionDict[-1]["log"]['signal']=log_signal
                 print(T0,Tx)
@@ -162,8 +154,7 @@ def _sectionDict(section, kks, T0, T1, path, test=False):
             _sup.error()
     return sectionDict
 
-
-def _signalDict(signal, signalDict={}, prefix=[]):
+def _signalDict(signal, signalDict, prefix=[]):
     """collects the properties of a signal node and assiciates it with a channel nid
     called by _sectionDict"""
     nameList = prefix+[getDataName(signal)]
@@ -182,7 +173,6 @@ def _signalDict(signal, signalDict={}, prefix=[]):
         for sig in signal.getDescendants(): signalDict = _signalDict(sig, signalDict, nameList)
     return signalDict
 
-
 def _getChannelLists(kks, channels):
     """collects the channel lists of all devices
     called by _sectionDict"""
@@ -195,11 +185,9 @@ def _getChannelLists(kks, channels):
         channelLists[device.nid].append(channel)
     return channelLists
 
-
-def _deviceDict(device, channelList, signalDict={}):
-    """collects the data of channels and their parenting devices
+def _deviceDict(device, channelList, signalDict):
+    """collects the data of channels and their parenting device
     called by _sectionDict"""
-
     signalList = []
     chanDescs = []
     signals = _searchSignals(device)
@@ -209,7 +197,7 @@ def _deviceDict(device, channelList, signalDict={}):
             signalList.append(signal[1])
     exclude = _exclude.copy()
     exclude['nid'] = [s[0] for s in signals]
-    deviceDict = _sup.treeToDict(device, exclude=_exclude)
+    deviceDict = _sup.treeToDict(device,{},_exclude,'')
     deviceDict["chanDescs"] = chanDescs
     return(deviceDict, signalList)
 
@@ -224,7 +212,6 @@ def _searchSignals(device):
             signals+= sigs
     if len(signals)==1: signals[0][0] = device
     return signals
-
 
 def _chanDesc(signalset, signalDict={}):
     """generates the channel descriptor for a given channel"""
@@ -252,7 +239,6 @@ def _chanDesc(signalset, signalDict={}):
     except:pass
     return chanDesc
 
-
 def _channelDict(signalroot, nid):
     """collects the parameters of a channel
     called by _chanDesc"""
@@ -264,7 +250,6 @@ def _channelDict(signalroot, nid):
         if not sibling.Nid == nid:  # in case: DEVICE.STRUCTURE:SIGNAL
             channelDict = _sup.treeToDict(sibling, channelDict, _exclude)
     return channelDict
-
 
 def _write_signals(path, signals, t0):
     """prepares signals and uploads to webarchive
@@ -278,8 +263,9 @@ def _write_signals(path, signals, t0):
             nSeg = signal.getNumSegments()
             if _sup.debuglevel>=2: print('is segmented',nSeg)
             for segment in _ver.xrange(nSeg):
-                data = signal.getSegment(segment).data()
-                dimof = signal.getSegmentDim(segment)
+                seg = signal.getSegment(segment)
+                data = seg.data()
+                dimof = seg.dim_of().data()
                 if _sup.debuglevel>=2: print('image',path, data, dimof, t0)
                 try:
                     log = _if.write_data(path, data, dimof, t0)
@@ -289,7 +275,7 @@ def _write_signals(path, signals, t0):
                 logs.append({"segment": segment, "log": log})
         else:
             if _sup.debuglevel>=3: print('is not segmented')
-            try:     data = signal.data()
+            try:     data = signal.data().T
             except:  return []
             dimof = _base.TimeArray(signal.dim_of().data()).ns
             log = _if.write_data(path, data, dimof, t0)
@@ -341,7 +327,6 @@ def _write_signals(path, signals, t0):
         except:  logs.append(None)
     return logs
 
-
 def getDataName(datanode):
     """converts 'ABCD_12XY_II' to 'Abcd_12Xy_II"""
     def process(i):
@@ -363,7 +348,6 @@ def _buildPath(node):
     groupname = PathParts[-1].lower()
     path = _base.Path('/'.join([view, 'W7X', KKS+'_'+section, groupname]))
     return(path)
-
 
 def uploadNode(node, shot=0, treename='W7X'):
     """upload a single node structure to the webarchive for kks_EVAL trees
