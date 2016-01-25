@@ -79,7 +79,7 @@ def uploadShot(shot, subtrees=_subtrees, treename='W7X', T0=None, T1=None, force
     print(subtrees)
     if T0 is None:  T0 = _sup.getTiming(shot, 0)
     else:           T0 = _base.Time(T0)
-    if T1 is None:  T1 = _sup.getTiming(shot, 0)
+    if T1 is None:  T1 = _sup.getTiming(shot, 1)
     else:           T1 = _base.Time(T1)
     sectionDicts = []
     w7x = _mds.Tree(treename, shot)
