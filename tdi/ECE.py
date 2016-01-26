@@ -9,7 +9,7 @@ def ECE(node):
         if offset is None: return sig
         args = list(sig.args)
         args[1] = args[0]
-        args[0] = TdiCompile('Build_With_Units(($VALUE-$)*$,$)',(Float32(offset),Float32(factor),unit))
+        args[0] = TdiCompile('Make_With_Units(($VALUE-$)*$,$)',(Float32(offset),Float32(factor),unit))
         sig.args = tuple(args)
         return sig
     except:
