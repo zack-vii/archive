@@ -16,7 +16,10 @@ def archive_program(node, time=None):
         prog = interface.get_program(time)[-1]
         return prog[node.node_name.lower()]
     except:
-        import getpass
-        from archive import support
+        """ generate dummy signal with error message as help text """
+        import getpass,sys
         user = getpass.getuser()
-        print(user+": "+support.error())
+        e = sys.exc_info()[1]
+        help = user+": "+str(e)
+        print(help)
+        return help

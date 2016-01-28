@@ -49,10 +49,11 @@ def archive_signalpy(node, time=None, cache=None):
         return(signal)
     except:
         """ generate dummy signal with error message as help text """
-        import getpass
-        from archive import support
+        """ generate dummy signal with error message as help text """
+        import getpass,sys
         user = getpass.getuser()
-        help = user+": "+support.error()
+        e = sys.exc_info()[1]
+        help = user+": "+str(e)
         try:
             from MDSplus import Signal
             signal = Signal([6,66,666])

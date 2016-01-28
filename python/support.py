@@ -224,7 +224,7 @@ def error(out=None):
         return(trace)
     else:
         import sys
-        e = sys.exc_info()
+        e = sys.exc_info()[1]
         if isinstance(out, list):
             out.append(e)
         return e
