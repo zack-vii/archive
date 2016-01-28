@@ -9,6 +9,7 @@ import os as _os
 import mmap as _mmap
 import json as _json
 import numpy as _np
+import re as _re
 import threading as _th
 
 
@@ -19,6 +20,7 @@ except:
 from . import base as _base
 from . import cache as _cache
 from . import support as _sup
+from . import png as _png
 from . import version as _ver
 _defaultCache = True
 
@@ -45,7 +47,7 @@ def write_logurl(url, parms, Tfrom, Tupto=-1):
                'values': [parms],
                'dimensions': [max(0,_base.Time(Tfrom).ns),_base.Time(Tupto).ns]
                }
-        
+
 
 
 def write_data(path, data, dimof, t0=0):
@@ -276,15 +278,16 @@ def post(url, headers={}, data=None, json=None):
     return result
 
 
-def get(url, headers={}, *data):
+def get(url, headers={}, *data, **kv):
     req = _ver.urllib.Request(url)
     for k, v in headers.items():
         req.add_header(k, v)
     try:
         handler = _ver.urllib.urlopen(req, *data)
     except _ver.urllib.HTTPError as err:
-        print(err.reason)
-        print(err.read())
+        _sup.debug(err.errno)
+        _sup.debug(err.reason,2)
+        _sup.debug(err.read(),3)
         raise(err)
     return(handler)
 
@@ -369,16 +372,35 @@ def read_jpg_url(url, time, skip=0):
     time = _base.TimeInterval(time)
     link = url + '/_signal.jpg?' + str(time) + '&skip=' + str(skip)
     _sup.debug(link)
-    r = get(link)
-    return r
+    return get(link)
 
 
 def read_png_url(url, time, skip=0):
     time = _base.TimeInterval(time)
     link = url + '/_signal.png?' + str(time) + '&skip=' + str(skip)
     _sup.debug(link)
-    r = get(link)
-    return r
+    return _png.Reader(get(link)).read()
+
+
+def read_pngs_url(url,time,ntreads=3):
+    def task(S, url, dim, idx):
+        while True:
+            try:
+                i = idx[0];idx[0]+=1
+                time = _base.TimeInterval([dim[i]]*2)
+                S[i] = read_png_url(url,time,0)[2]
+            except:
+                break
+    time = _base.TimeInterval(time)
+    par = get_json(url+'/_signal.json?'+time.filter())['_links']['children']
+    dim = [int(_re.search('(?<=from=)([0-9]+)',str(p['href'])).group()) for p in par]
+    dim.reverse()
+    idx=[0]
+    S=[None]*len(dim)
+    threads = [_th.Thread(target=task, args=(S, url, dim, idx)) for i in range(ntreads)]
+    for thread in threads: thread.start()
+    for thread in threads: thread.join()
+    return _base.createSignal(_np.array([s for s in S if s is not None]),dim,time.t0T,'unknown')
 
 
 def read_raw_url(url, time, skip=0):

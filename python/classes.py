@@ -116,9 +116,16 @@ class browser(_base.Path):
     channel = property(_base.Path._get_channel, _set_channel)
 
     # read
-    def read_data(self, skip=None, nsamples=None, channel=None):
-        return _if.read_signal(self.url_datastream(), self.time(),
-                               0, skip, nsamples, channel)
+    def read_data(self, **kv):
+        return _if.read_signal(self.url_datastream(), self.time(),**kv)
+
+    def read_png(self, skip=0):
+        return _if.read_png_url(self.url_datastream(), self.time(), skip)
+    def read_pngs(self,ntreads=3):
+        return _if.read_pngs_url(self.url_datastream(), self.time(), ntreads)
+
+    def read_jpg(self, skip=None):
+        return _if.read_jpg_url(self.url_datastream(), self.time(), skip)
 
     def read_channel(self, skip=None, nsamples=None):
         return _if.read_signal(self.url_channel(), self.time(), 0, skip, nsamples)
