@@ -1,4 +1,4 @@
-def archive_signalpy(node, time=None, cache=None):
+def archive_signal(node, time=None, cache=None):
     """ use time if tree is archive """
     """ else use TIME node """
     from archive import base, interface
@@ -48,7 +48,6 @@ def archive_signalpy(node, time=None, cache=None):
         signal.setHelp(str(help))
         return(signal)
     except:
-        """ generate dummy signal with error message as help text """
         """ generate dummy signal with error message as help text """
         import getpass,sys
         user = getpass.getuser()

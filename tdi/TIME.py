@@ -3,7 +3,7 @@ helper fuction that set the _time variable or unsets it with TIME(0)
 """
 from time import time
 from MDSplus import makeArray, TdiExecute, EmptyData, Tree, Int32
-def TIMEpy(*arg):
+def TIME(*arg):
     if len(arg)==0:
         try:
             TdiExecute('PUBLIC("_time")')
