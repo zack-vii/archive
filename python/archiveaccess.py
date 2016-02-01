@@ -14,7 +14,6 @@ def mds_signal(url, time, help=None, channel=None, value=None, scaling=None, cac
     print('mds_signal',url,time,help,channel,value,scaling,cache)
     try:
         time = _base.TimeInterval(time)
-        t0 = time.t0T
         kwargs = {}
         try:    channel = channel.data()
         except: pass
@@ -28,7 +27,7 @@ def mds_signal(url, time, help=None, channel=None, value=None, scaling=None, cac
         try:    scaling = scaling.data()
         except: pass
         if scaling is not None:   kwargs['scaling']= list(scaling)
-        signal = _if.read_signal(url, time, t0, **kwargs)
+        signal = _if.read_signal(url, time, **kwargs)
         signal.setHelp(_ver.tostr(help))
         return signal
     except:

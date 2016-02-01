@@ -240,7 +240,7 @@ def parms(url, **kwargs):
     else:
         par = []
         if 'filterstart' in kwargs.keys():
-            par.append('filterstart='+str(int(kwargs['filterstart'])))           
+            par.append('filterstart='+str(int(kwargs['filterstart'])))
         if 'filterstop' in kwargs.keys():
             par.append('filterstop='+str(int(kwargs['filterstop'])))
         if par:
@@ -435,6 +435,10 @@ class TimeInterval(TimeArray):
                 arg = arg.data()
             if isinstance(arg, (_np.ndarray,)):
                 arg = arg.tolist()
+            if isinstance(arg, (_ver.npscalar,_ver.numbers)):
+                try: arg = _mds.Tree('W7X',int(arg)).TIMING.data().tolist()
+                except:
+                    raise Exception('Parameter is treated as MDS shot number. Invalid shot number: '+str(arg))
             if not isinstance(arg, (list, tuple)):
                 arg = [-1, arg, 0]
             if len(arg) < 3:

@@ -39,7 +39,7 @@ def archive_signalpy(node, time=None, cache=None):
         except:
             url = node.getNode('$URL').data()
         """ request signal """
-        signal = interface.read_signal(url, time, time.t0T, **kwargs)
+        signal = interface.read_signal(url, time, **kwargs)
         """ generate help text (HELP, DESCRIPTION, $NAME) """
         try:        help = node.getNode('HELP').data()
         except:

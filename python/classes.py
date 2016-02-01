@@ -124,11 +124,11 @@ class browser(_base.Path):
     def read_pngs(self,ntreads=3):
         return _if.read_pngs_url(self.url_datastream(), self.time(), ntreads)
 
-    def read_jpg(self, skip=None):
+    def read_jpg(self, skip=0):
         return _if.read_jpg_url(self.url_datastream(), self.time(), skip)
 
     def read_channel(self, skip=None, nsamples=None):
-        return _if.read_signal(self.url_channel(), self.time(), 0, skip, nsamples)
+        return _if.read_signal(self.url_channel(), self.time(), skip=skip, nsamples=nsamples)
 
     def read_parlog(self, skip=None, nsamples=None):
         return _if.read_parlog(self.url(5), self.time())

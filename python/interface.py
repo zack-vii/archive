@@ -107,7 +107,7 @@ def _write_vector(path, data, dimof):
             print('could not delete file "%s"' % tmpfile)
             pass
 
-def read_signal(path, time, t0=0, **kwargs):
+def read_signal(path, time, **kwargs):
     path = _base.Path(path)
     time = _base.TimeInterval(time)
     _cache.cache().clean()
@@ -122,7 +122,7 @@ def read_signal(path, time, t0=0, **kwargs):
         _sup.debug('get web-archive: '+path.path())
         rawset = _readraw(path, time, **kwargs)
     if rawset is None: return None
-    return _base.createSignal(rawset[0], rawset[1], t0, rawset[2],**kwargs)
+    return _base.createSignal(rawset[0], rawset[1], time.t0T, rawset[2],**kwargs)
 
 
 def _readraw(path, time, **kwargs):
