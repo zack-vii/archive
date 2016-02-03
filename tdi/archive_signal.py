@@ -52,8 +52,8 @@ def archive_signal(node, time=None, cache=None):
         import getpass,sys
         user = getpass.getuser()
         e = sys.exc_info()
-        help = user+": "+repr(e[1])
-        print(help,e[2].tb_lineno)
+        help = user+': '+str(e[1])+', %d' % e[2].tb_lineno
+        print(help)
         try:
             from MDSplus import Signal
             signal = Signal([6,66,666])

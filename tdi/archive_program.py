@@ -20,6 +20,6 @@ def archive_program(node, time=None):
         import getpass,sys
         user = getpass.getuser()
         e = sys.exc_info()
-        help = user+": "+repr(e[1])
-        print(help,e[2].tb_lineno)
+        help = user+': '+str(e[1])+', %d' % e[2].tb_lineno
+        print(help)
         return help
