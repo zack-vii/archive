@@ -8,15 +8,20 @@ def archive_log(node, time=None, cache=None):
         if not isinstance(node, (TreeNode)):
             node = Tree('archive',-1).getNode(node)
         """ use _time variable if Tree is ARCHIVE """
+        try:
+            node.getNode('$CFGLOG')
+            url = base.Path(node.getNode('$URL').data()).url_cfglog()
+        except:
+          try:
+            node.getNode('$PARLOG')
+            url = base.Path(node.getNode('$URL').data()).url_parlog()
+          except:
+              raise Exception('could not specify log type. No Member named $CFGLOG or $PARLOG')
         if node.tree.shot == -1:
             try:    time = base.TimeInterval(time)
             except: time = base.TimeInterval(['now'])
         else:
             time = base.TimeInterval(node.getNode('\TIME').data())
-        if node.node_name=='$CFGLOG':
-           url = base.Path(node.getNode('$URL').data()).url_cfglog()
-        else:  # node_name=='$PARLOG'
-           url = base.Path(node.getNode('$URL').data()).url_parlog()
         """ request signal """
         return interface.get_json(url, time)
     except:
