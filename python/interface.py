@@ -227,6 +227,10 @@ def get_json(url, **kwargs):
             self.value = value
         def read(self,*argin):
             return _ver.tostr(self.value.read(*argin))
+    handler = _get_json(url, **kwargs)
+    return _json.load(reader(handler), strict=False)
+
+def _get_json(url, **kwargs):
     url = _base.parms(url, **kwargs)
     _sup.debug(url,5)
     headers = {'Accept': 'application/json'}
@@ -236,7 +240,7 @@ def get_json(url, **kwargs):
     if handler.headers.get('content-type') != 'application/json':
         raise Exception('requested content-type mismatch: ' +
                         handler.headers.get('content-type'))
-    return _json.load(reader(handler), strict=False)
+    return handler
 
 def get_program(time=None):
     def convertProgram(j):
