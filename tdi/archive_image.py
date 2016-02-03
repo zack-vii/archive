@@ -1,12 +1,12 @@
 def archive_image(node, time=None):
     """ use time if tree is archive """
     """ else use TIME node """
-    from archive import base, interface
-    from MDSplus import TreeNode, Tree
     print('archive_image')
     try:
+        from archive import base, interface
+        from MDSplus import TreeNode, Tree
         if not isinstance(node, (TreeNode)):
-           node = Tree('archive',-1).getNode(node)
+            node = Tree('archive',-1).getNode(node)
         """ use _time variable if Tree is ARCHIVE """
         if node.tree.shot == -1:
             try:    time = base.TimeInterval(time)
@@ -22,17 +22,18 @@ def archive_image(node, time=None):
             try:    help = node.getNode('DESCRIPTION').data()
             except: help = node.getNode('$NAME').data()
         signal.setHelp(str(help))
-        return(signal)
+        return signal
     except:
         """ generate dummy signal with error message as help text """
         import getpass,sys
         user = getpass.getuser()
         e = sys.exc_info()[1]
         help = user+": "+str(e)
+        print(help)
         try:
             from MDSplus import Signal
             signal = Signal([6,66,666])
             signal.setHelp(help.split('\n')[-1])
-            return(signal)
+            return signal
         except:
-            return(help)
+            return help

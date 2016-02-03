@@ -1,12 +1,12 @@
 def archive_log(node, time=None, cache=None):
     """ use time if tree is archive """
     """ else use TIME node """
-    from archive import base, interface
-    from MDSplus import TreeNode, Tree
     print('archive_log')
     try:
+        from archive import base, interface
+        from MDSplus import TreeNode, Tree
         if not isinstance(node, (TreeNode)):
-           node = Tree('archive',-1).getNode(node)
+            node = Tree('archive',-1).getNode(node)
         """ use _time variable if Tree is ARCHIVE """
         if node.tree.shot == -1:
             try:    time = base.TimeInterval(time)
@@ -25,4 +25,5 @@ def archive_log(node, time=None, cache=None):
         user = getpass.getuser()
         e = sys.exc_info()[1]
         help = user+": "+str(e)
-        return(help)
+        print(help)
+        return help

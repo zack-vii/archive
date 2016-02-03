@@ -1,12 +1,12 @@
 def archive_signal(node, time=None, cache=None):
     """ use time if tree is archive """
     """ else use TIME node """
-    from archive import base, interface
-    from MDSplus import TreeNode, Tree, Data, mdsExceptions
-    print('archive_signalpy')
+    print('archive_signal')
     try:
+        from archive import base, interface
+        from MDSplus import TreeNode, Tree, Data, mdsExceptions
         if not isinstance(node, (TreeNode)):
-           node = Tree('archive',-1).getNode(node)
+            node = Tree('archive',-1).getNode(node)
         """ use _time variable if Tree is ARCHIVE """
         if node.tree.shot == -1:
             try:    time = base.TimeInterval(time)
@@ -53,10 +53,11 @@ def archive_signal(node, time=None, cache=None):
         user = getpass.getuser()
         e = sys.exc_info()[1]
         help = user+": "+str(e)
+        print(help)
         try:
             from MDSplus import Signal
             signal = Signal([6,66,666])
             signal.setHelp(help.split('\n')[-1])
             return(signal)
         except:
-            return(help)
+            return help
