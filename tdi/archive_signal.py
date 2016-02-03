@@ -51,9 +51,9 @@ def archive_signal(node, time=None, cache=None):
         """ generate dummy signal with error message as help text """
         import getpass,sys
         user = getpass.getuser()
-        e = sys.exc_info()[1]
-        help = user+": "+str(e)
-        print(help)
+        e = sys.exc_info()
+        help = user+": "+repr(e[1])
+        print(help,e[2].tb_lineno)
         try:
             from MDSplus import Signal
             signal = Signal([6,66,666])

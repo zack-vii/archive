@@ -23,7 +23,7 @@ def archive_log(node, time=None, cache=None):
         """ generate error message"""
         import getpass,sys
         user = getpass.getuser()
-        e = sys.exc_info()[1]
-        help = user+": "+str(e)
-        print(help)
+        e = sys.exc_info()
+        help = user+": "+repr(e[1])
+        print(help,e[2].tb_lineno)
         return help
