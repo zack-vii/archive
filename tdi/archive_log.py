@@ -23,7 +23,7 @@ def archive_log(node, time=None, cache=None):
         else:
             time = base.TimeInterval(node.getNode('\TIME').data())
         """ request signal """
-        return interface.get_json(url, time)
+        return interface.get_json(url, time=time)
     except:
         """ generate error message"""
         import getpass,sys
