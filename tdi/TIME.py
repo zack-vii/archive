@@ -1,11 +1,11 @@
 """
 helper fuction that set the _time variable or unsets it with TIME(0)
 """
-from MDSplus import makeArray, TdiExecute, EmptyData, Tree
+from MDSplus import makeArray, TdiExecute, EmptyData#, Tree
 from archive import base
 def TIME(*arg):
     def TimeToNs(v):
-        if v<=1E16: v = int(v) * 1000000000
+        if v<=1E16: v = int(v*1000)*1000000
         return v
     if len(arg)==0:
         try:
@@ -17,9 +17,9 @@ def TIME(*arg):
             EmptyData().setTdiVar('_time')
             TdiExecute('PUBLIC("_time")')
             return
-        t = Tree('W7X',int(arg[0]))
-        t = t.TIMING.record
-        print(t)
+        #t = Tree('W7X',int(arg[0]))
+        TdiExecute('TreeOpen($,$)',('W7X',int(arg[0])))
+        t = TdiExecute("DATA(TIMING)")
     elif len(arg)<=3:
         arg = map(TimeToNs,arg)
         if len(arg)==2:
