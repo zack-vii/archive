@@ -1,5 +1,8 @@
 """
-helper fuction that set the _time variable or unsets it with TIME(0)
+helper fuction that set the _time variable or unsets it with TIME(*)
+TIME( SHOT ); SHOT: MDSplus shot number; _time = [T0,T6,T1] given in SHOT
+TIME( FROM, UPTO ); SHOT: MDSplus shot number; _time = [FROM,UPTO,FROM] converted to ns
+TIME( FROM, UPTO, ORIGIN ); SHOT: MDSplus shot number; _time = [FROM,UPTO,ORIGIN] converted to ns
 """
 from MDSplus import makeArray, TdiExecute, EmptyData#, Tree
 from archive import base
@@ -17,7 +20,6 @@ def TIME(*arg):
             EmptyData().setTdiVar('_time')
             TdiExecute('PUBLIC("_time")')
             return
-        #t = Tree('W7X',int(arg[0]))
         TdiExecute('TreeOpen($,$)',('W7X',int(arg[0])))
         t = TdiExecute("DATA(TIMING)")
     elif len(arg)<=3:
