@@ -4,6 +4,7 @@ T2STR( time )
 """
 from archive import base
 def T2STR(time):
-    time = base.TimeArray(time)
-    if len(time)==1: return time[0].utc
-    else:            return time.utc
+    try: time = time.data()
+    except: pass
+    try:    return base.Time(time).utc
+    except: return base.TimeArray(time).utc
