@@ -169,20 +169,26 @@ class Path(object):
         streamgroup = self.path(4)
         return streamgroup + '/' + streamgroup.split('/')[-1] + '_CFGLOG'
 
-    def path_datastream(self):
+    def path_datastream(self, **kwargs):
         if self._lev < 5:
             raise InsufficientPathException
-        return self.path(5)
+        return buildpath(self.path(5), **kwargs)
 
     def path_parlog(self):
         if self._lev < 5:
             raise InsufficientPathException
         return self.path(5)[:-11]+'_PARLOG'
 
-    def path_channel(self):
+    def path_channel(self, **kwargs):
         if self._lev < 6:
             raise InsufficientPathException
-        return self.path(6)
+        return buildpath(self.path(6), **kwargs)
+
+    def path_data(self, **kwargs):
+        if self._lev > 5:
+            return self.path_channel(**kwargs)
+        else:
+            return self.path_datastream(**kwargs)
 
     # get url
     def url_database(self):
@@ -224,10 +230,7 @@ class Path(object):
 def parms(url, **kwargs):
     if 'time' in kwargs.keys():
         time = TimeInterval(kwargs['time'])
-        if 'channel' in kwargs.keys():
-            url = url + '/' + str(int(kwargs['channel']))
-        if 'scaled' in kwargs.keys():
-            url = url + '/' + str(kwargs['scaled'])
+        url = buildpath(url, **kwargs)
         url = url + '/_signal.json'
         par = [str(time)]
         if 'skip' in kwargs.keys():
@@ -246,6 +249,13 @@ def parms(url, **kwargs):
         if par:
             url = url+'?'+'&'.join(par)
     return url
+
+def buildpath(path, **kwargs):
+    if 'channel' in kwargs.keys():
+        path = path + '/' + str(int(kwargs['channel']))
+    if 'scaled' in kwargs.keys():
+        path = path + '/' + str(kwargs['scaled'])
+    return path
 
 def filter(path, time=None):
     url = Path(path).url_datastream() + '/_signal.json'

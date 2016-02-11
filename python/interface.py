@@ -11,7 +11,10 @@ import json as _json
 import numpy as _np
 import re as _re
 import threading as _th
-
+try:  # the jave interface for the archive
+    import archive_java as _aj
+except:
+    _aj = None
 
 try:
     import h5py as _h5
@@ -126,6 +129,17 @@ def read_signal(path, time, **kwargs):
 
 
 def _readraw(path, time, **kwargs):
+    if _aj is None: return _readraw_json(path, time, **kwargs)
+    else:           return _readraw_java(path, time, **kwargs)
+def _readraw_java(path, time, **kwargs):
+    try:
+        time = _base.TimeInterval(time).ns
+        path = _base.Path(path).path_data(**kwargs)
+        return _aj.signal.readfull(path, time[0], time[1], 1048576)
+    except Exception as exc:
+        print(exc)
+        return [[],[],None]
+def _readraw_json(path, time, **kwargs):
     try:
         stream = get_json(path.url_data(), time=time, **kwargs)
     except _ver.urllib.HTTPError:
