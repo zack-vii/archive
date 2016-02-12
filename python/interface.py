@@ -10,11 +10,15 @@ import mmap as _mmap
 import json as _json
 import numpy as _np
 import re as _re
-import threading as _th
-try:  # the jave interface for the archive
+try:  # the java interface for the archive
     import archive_java as _aj
+    _use_threads  = False
+    _defaultCache = False
 except:
+    import threading as _th
     _aj = None
+    _use_threads  = True
+    _defaultCache = True
 
 try:
     import h5py as _h5
@@ -25,7 +29,6 @@ from . import cache as _cache
 from . import support as _sup
 from . import png as _png
 from . import version as _ver
-_defaultCache = True
 
 class URLException(Exception):
     def __init__(self,value):
@@ -113,9 +116,9 @@ def _write_vector(path, data, dimof):
 def read_signal(path, time, **kwargs):
     path = _base.Path(path)
     time = _base.TimeInterval(time)
-    _cache.cache().clean()
     cache = kwargs.pop('cache', _defaultCache)
     if cache:
+        _cache.cache().clean()
         try:
             rawset = _readchunks(path, time, **kwargs)
         except Exception:
@@ -133,9 +136,9 @@ def _readraw(path, time, **kwargs):
     else:           return _readraw_java(path, time, **kwargs)
 def _readraw_java(path, time, **kwargs):
     try:
-        time = _base.TimeInterval(time).ns
-        path = _base.Path(path).path_data(**kwargs)
-        return _aj.signal.readfull(path, time[0], time[1], 1048576)
+        path = path.path_data(**kwargs)
+        if path.startswith('/ArchiveDB'): path = path[10:]
+        return list(_aj.signal.readfull(path, time[0], time[1], 0x7FFFFFFF))
     except Exception as exc:
         print(exc)
         return [[],[],None]
@@ -202,9 +205,12 @@ def _readchunks(path, time, **kwargs):
         last = getLast(path)['upto']
         tmax = 32
         idx = [tmax-1]
-        threads = [_th.Thread(target=task, args=(blck, times, idxs, idx, i)) for i in range(min(tmax,len(blck)))]
-        for thread in threads: thread.start()
-        for thread in threads: thread.join()
+        if _use_threads:
+            threads = [_th.Thread(target=task, args=(blck, times, idxs, idx, i)) for i in range(min(tmax,len(blck)))]
+            for thread in threads: thread.start()
+            for thread in threads: thread.join()
+        else:
+            task(blck, times, idxs, idx, 0)
         for i in _ver.xrange(len(idxs)):
             if len(blck[idxs[i]][0])>0:
                 _cachechunk(blck[idxs[i]],times[i],last)
