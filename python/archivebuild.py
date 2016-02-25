@@ -46,6 +46,29 @@ def modECE(tree='archive', shot=-1):
             ece.record = _mds.TdiCompile('ECE($)',(node,))
         arc.write()
 
+def advNode(node,name,usage="STRUCTURE"):
+    try:    return node.addNode(name,usage)
+    except: return node.getNode(name)
+
+def addTest(tree='archive', shot=-1):
+    def buildSignalPath(node,path):
+        if not isinstance(path, (list,tuple)):
+            path = path.replace(':','.').split('.')
+        for name in path[0:-1]:
+            node = advNode(node,name,"STRUCTURE")
+        return advNode(node,path[-1],"SIGNAL")
+    nodes = [("ECRH","TotalPower","CBG_ECRH/TotalPower_DATASTREAM/0")]
+    with _mds.Tree(tree,shot,'edit') as arc:
+        test = advNode(arc,'TEST')
+        url = advNode(test,'$URL','TEXT')
+        url.record = "http://archive-webapi.ipp-hgw.mpg.de/Test/codac/W7X/"
+        for node in nodes:
+            sig = buildSignalPath(test,node[0])
+            sig.record = archive_channel(sig)
+            advNode(sig,"$NAME","TEXT").record = node[1]
+            advNode(sig,"$URL","TEXT").record = _mds.TdiCompile(url.path+'//"'+node[2]+'"')
+        arc.write()
+
 def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/codac/W7X',tags=False):
     re = _re.compile('[A-Z]+[0-9]+')
     cap = _re.compile('[^A-Z0-9]')
@@ -212,27 +235,6 @@ def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/codac/W7X',tags
                     pn.putData(str(v))
         pn.addNode('$NAME','TEXT').record = name
 
-    def archive_url(node):
-        return _mds.TdiCompile('EXT_FUNCTION(*,$SYSTEM:FUN_URL,$)', (node, ))
-
-    def archive_channel(channelNode):
-        return _mds.TdiCompile('EXT_FUNCTION(*,$SYSTEM:FUN_CHANNEL,$,_time)', (channelNode, ))
-
-    def archive_scaled(scaledNode):
-        return _mds.TdiCompile('EXT_FUNCTION(*,$SYSTEM:FUN_SCALED,$,_time)', (scaledNode, ))
-
-    def archive_stream(streamNode):
-        return _mds.TdiCompile('EXT_FUNCTION(*,$SYSTEM:FUN_STREAM,$,_time)', (streamNode, ))
-
-    def archive_parlog(streamNode):
-        return _mds.TdiCompile('EXT_FUNCTION(*,$SYSTEM:FUN_PARLOG,$,_time)', (streamNode, ))
-
-    def archive_cfglog(streamgroupNode):
-        return _mds.TdiCompile('EXT_FUNCTION(*,$SYSTEM:FUN_CFGLOG,$,_time)', (streamgroupNode, ))
-
-    def archive_program(programNode):
-        return _mds.TdiCompile('EXT_FUNCTION(*,$SYSTEM:FUN_PROGRAM,$,_time)', (programNode, ))
-
     name = "codac"
     path = _base.Path(rootpath).url()
     with _mds.Tree(tree, shot, 'new') as arc:
@@ -257,5 +259,28 @@ def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/codac/W7X',tags
         addProject(T, arc, name, '', path)
         arc.write()
     addValue(tree, shot)
+    addTest(tree, shot)
     modECE(tree, shot)
     _mds.Tree(tree, shot).compressDatafile()
+
+
+def archive_url(node):
+    return _mds.TdiCompile('EXT_FUNCTION(*,$SYSTEM:FUN_URL,$)', (node, ))
+
+def archive_channel(channelNode):
+    return _mds.TdiCompile('EXT_FUNCTION(*,$SYSTEM:FUN_CHANNEL,$,_time)', (channelNode, ))
+
+def archive_scaled(scaledNode):
+    return _mds.TdiCompile('EXT_FUNCTION(*,$SYSTEM:FUN_SCALED,$,_time)', (scaledNode, ))
+
+def archive_stream(streamNode):
+    return _mds.TdiCompile('EXT_FUNCTION(*,$SYSTEM:FUN_STREAM,$,_time)', (streamNode, ))
+
+def archive_parlog(streamNode):
+    return _mds.TdiCompile('EXT_FUNCTION(*,$SYSTEM:FUN_PARLOG,$,_time)', (streamNode, ))
+
+def archive_cfglog(streamgroupNode):
+    return _mds.TdiCompile('EXT_FUNCTION(*,$SYSTEM:FUN_CFGLOG,$,_time)', (streamgroupNode, ))
+
+def archive_program(programNode):
+    return _mds.TdiCompile('EXT_FUNCTION(*,$SYSTEM:FUN_PROGRAM,$,_time)', (programNode, ))

@@ -24,16 +24,18 @@ def archive_image(node, time=None):
         signal.setHelp(str(help))
         return signal
     except:
+        local = locals()
         """ generate dummy signal with error message as help text """
         import getpass,sys
-        user = getpass.getuser()
         e = sys.exc_info()
-        help = user+': '+str(e[1])+', %d' % e[2].tb_lineno
+        user = getpass.getuser()
+        help = user+': %s, %d' % (repr(e[1]), e[2].tb_lineno)
         print(help)
+        print(local)
         try:
             from MDSplus import Signal
             signal = Signal([6,66,666])
             signal.setHelp(help.split('\n')[-1])
-            return signal
+            return(signal)
         except:
             return help
