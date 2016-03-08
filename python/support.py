@@ -183,7 +183,13 @@ class Flags(int):
     on = property(_on)
     parent_on = property(_parent_on)
 
-def getTiming(shot, n=_ver.range(7)):
+def getTiming(XPoS, n=_ver.range(7)):
+    if isinstance(XPoS, _ver.basestring):
+        return getTimingXP(XPoS, n)
+    else:
+        return getTimingMDS(XPoS, n)
+
+def getTimingMDS(shot, n=_ver.range(7)):
     def getTn(n):
         node = time.getNode('T%d:IDEAL' % n)
         if node.on:
@@ -196,10 +202,22 @@ def getTiming(shot, n=_ver.range(7)):
     else:
         return getTn(n)
 
-def getTimestamp(n=1):
+def getTimestampMDS(n=1):
     url = 'http://mds-data-1.ipp-hgw.mpg.de/operator/last_trigger/'+str(n)
     return(_base.Time(int(_ver.urllib.urlopen(url).read(20))))
+    
+def getTimestamp(n=1):
+    return getTimestampMDS(n)
 
+def getTimingXP(XP,T=_ver.range(7)):   
+    from . import interface
+    XP = XP.split(":")[-1]
+    XP = XP.split('.')
+    f  = _base.Time("%c%c%c%c/%c%c/%c%c" % tuple(XP[0]))
+    u  = f + _base.Time._d2ns # + 1 day
+    p = interface.get_json("http://archive-webapi.ipp-hgw.mpg.de/programs.json?"+str(_base.TimeInterval([f,u])))
+    p = p["programs"][int(XP[1])-1]["trigger"]
+    return [p[str(n)][0] for n in T]
 
 def fixname(name):
     if not isinstance(name, (str)):
