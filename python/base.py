@@ -371,13 +371,12 @@ class Time(_ver.long):
 
     def _utc(self):
         import time as _time
-        values = tuple(list(_time.gmtime((self % (1 << 64))/1e9)[0:6]) +
-                       [self.subsec])
+        values = tuple(list(_time.gmtime((self.ns % (1<<64))/1000000000L)[0:6]) + [self.subsec])
         return '%04d-%02d-%02dT%02d:%02d:%02d.%09dZ' % values
 
     def _local(self):
         import time as _time
-        return _time.ctime((self % (1 << 64)) / 1e9)
+        return _time.ctime((self.ns % (1<<64))/1000000000L)
     ns = property(_ns)
     s = property(_s)
     utc = property(_utc)
