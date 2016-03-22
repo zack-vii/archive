@@ -141,12 +141,13 @@ def _readraw_java(path, time, **kwargs):
         return list(_aj.signal.readfull(path, time[0], time[1], 0x7FFFFFFF))
     except Exception as exc:
         print(exc)
-        return [[],[],None]
+        return [[],[],str(exc)]
 def _readraw_json(path, time, **kwargs):
     try:
         stream = get_json(path.url_data(), time=time, **kwargs)
-    except _ver.urllib.HTTPError:
-        return [[],[],None]
+    except _ver.urllib.HTTPError as exc:
+        _sup.debug(e,2)
+        return [[],[],str(exc)]
     data = _base.tonumpy(stream['values'])
     if len(data.shape)==2:  # multichannel
         data = data.T.copy()
