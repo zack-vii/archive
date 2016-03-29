@@ -193,23 +193,16 @@ def getTimingMDS(shot, n=_ver.range(7)):
     def getTn(n):
         node = time.getNode('T%d:IDEAL' % n)
         if node.on:
-            return _base.Time(int(node.record))
+            return [_base.Time(int(node.record))]
         else:
-            return _base.Time(-1)
+            return []
     time = _mds.Tree('W7X', shot).TIMING
     if isinstance(n, (list, tuple)):
         return type(n)(getTn(i) for i in n)
     else:
         return getTn(n)
 
-def getTimestampMDS(n=1):
-    url = 'http://mds-data-1.ipp-hgw.mpg.de/operator/last_trigger/'+str(n)
-    return(_base.Time(int(_ver.urllib.urlopen(url).read(20))))
-    
-def getTimestamp(n=1):
-    return getTimestampMDS(n)
-
-def getTimingXP(XP,T=_ver.range(7)):   
+def getTimingXP(XP,T=_ver.range(7)):
     from . import interface
     XP = XP.split(":")[-1]
     XP = XP.split('.')
@@ -217,7 +210,14 @@ def getTimingXP(XP,T=_ver.range(7)):
     u  = f + _base.Time._d2ns # + 1 day
     p = interface.get_json("http://archive-webapi.ipp-hgw.mpg.de/programs.json?"+str(_base.TimeInterval([f,u])))
     p = p["programs"][int(XP[1])-1]["trigger"]
-    return [p[str(n)][0] for n in T]
+    return [_base.Time(p[str(n)]) for n in T]
+
+def getTimestampMDS(n=1):
+    url = 'http://mds-data-1.ipp-hgw.mpg.de/operator/last_trigger/'+str(n)
+    return(_base.Time(int(_ver.urllib.urlopen(url).read(20))))
+
+def getTimestamp(n=1):
+    return getTimestampMDS(n)
 
 def fixname(name):
     if not isinstance(name, (str)):

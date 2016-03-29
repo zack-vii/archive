@@ -1,4 +1,4 @@
-import os
+import os, MDSplus
 def getShotDB(expt,i=None):
     expt = str(expt).lower()
     def getshots(expt_path):
@@ -12,4 +12,4 @@ def getShotDB(expt,i=None):
         for expt_path in expt_paths:
             shots += getshots(expt_path)
     shots.sort()
-    return shots
+    return MDSplus.Uint32Array(shots)
