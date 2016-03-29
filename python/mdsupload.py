@@ -46,7 +46,7 @@ def uploadModel(shot, subtrees=_subtrees, treename='W7X', T0=None):
             print('reading %s' % key)
             model[key]=_diff.treeToDict(w7x.getNode(key))
         return model
-    if T0 is None:  T0 = _sup.getTiming(shot, 0)
+    if T0 is None:  T0 = _sup.getTiming(shot, 0)[0]
     else:           T0 = _base.Time(T0)
     cfglog = getModel()
     result = (_MDS_shotdb.url_cfglog(), cfglog, T0)
@@ -57,7 +57,7 @@ def uploadModel(shot, subtrees=_subtrees, treename='W7X', T0=None):
 def uploadTiming(shot):
     """uploads the timing of a given shot into the web archive
     should be executed soon after T6"""
-    data = _np.int64(_sup.getTiming(shot))
+    data = _np.int64((t[0] for t in _sup.getTiming(shot)))
     dim = data[0]
     if dim<0:   raise Exception('T0 must not be turned off.')
     data[0] = int(shot)
@@ -65,7 +65,7 @@ def uploadTiming(shot):
     print(result.msg)
     return result
 
-def uploadShot(shot, subtrees=_subtrees, treename='W7X', T0=None, T1=None, force=False):
+def uploadShot(shot, subtrees=_subtrees, treename='W7X', T0=None, T1=None, force=False, prefix=''):
     """uploads the data of all sections of a given shot into the web archive
     should be executed after all data is written to the shot file"""
     if shot<0:  raise Exception("Shot number must be positive (must not direct to the model).")
@@ -74,9 +74,9 @@ def uploadShot(shot, subtrees=_subtrees, treename='W7X', T0=None, T1=None, force
         elif subtrees=='all':       subtrees = [str(st.node_name) for st in _sup.getSubTrees(treename,shot)]
         else:                       subtrees = [subtrees]
     print(subtrees)
-    if T0 is None:  T0 = _sup.getTiming(shot, 0)
+    if T0 is None:  T0 = _sup.getTiming(shot, 0)[0]
     else:           T0 = _base.Time(T0)
-    if T1 is None:  T1 = _sup.getTiming(shot, 1)
+    if T1 is None:  T1 = _sup.getTiming(shot, 1)[0]
     else:           T1 = _base.Time(T1)
     sectionDicts = []
     w7x = _mds.Tree(treename, shot)
@@ -86,7 +86,7 @@ def uploadShot(shot, subtrees=_subtrees, treename='W7X', T0=None, T1=None, force
         kkscfg = _getCfgLog(kks,shot)
         data = kks.DATA
         for sec in data.getDescendants():
-            section = 'a'+subtree.upper()+'_'+getDataName(sec)
+            section = prefix + subtree.upper()+'_'+getDataName(sec)
             path.streamgroup = section
             Tx = checkLogUpto(path.cfglog,T0)
             print(shot,sec,section,T0,Tx)
@@ -360,8 +360,8 @@ def uploadNode(node, shot=0, treename='W7X'):
         tree = _mds.Tree(treename, shot)
         node = tree.getNode(node)
     path = _buildPath(node)
-    T0 = _sup.getTiming(shot, 0)
-    T1 = _sup.getTiming(shot, 1)
+    T0 = _sup.getTiming(shot, 0)[0]
+    T1 = _sup.getTiming(shot, 1)[0]
     parlog, sig = _deviceDict(node)
     if node.usage == "SIGNAL":
         if len(sig):  # prepend
