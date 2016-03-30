@@ -146,7 +146,7 @@ def _readraw_json(path, time, **kwargs):
     try:
         stream = get_json(path.url_data(), time=time, **kwargs)
     except _ver.urllib.HTTPError as exc:
-        _sup.debug(e,2)
+        _sup.debug(exc,2)
         return [[],[],str(exc)]
     data = _base.tonumpy(stream['values'])
     if len(data.shape)==2:  # multichannel
