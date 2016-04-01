@@ -169,11 +169,11 @@ class Section(_mds.TreeNode):
         return 'not written, force=True'
 
     def upload(self,force=False):
+        print(self.tree,self,self.T0)
         Tx = self.CFGLogUpto()
-        print(self.tree,self,self.T0,Tx)
-        if Tx<0 or Tx!=self.T0-1 or force:
+        if Tx<self.T0 or force:
             logs = self.uploadDevices(force=force)
-            logc = self.writeCFGlog(Tx)
+            logc = self.writeCFGlog()
             self.log={'logs': logs, "logc": logc}
         else:
             self.log = 'cfglog already written: skip'
@@ -209,7 +209,7 @@ class Section(_mds.TreeNode):
                         nid = signal.record.nid
                         signaldict[nid] = desc
                     except AttributeError as exc:
-                        print('_signalDict',exc,signal.record)
+                        print('_getSignalDict',exc,signal.record)
                     except: print(_sup.error(0))
                 else:
                     for sig in signal.getDescendants():
@@ -255,16 +255,17 @@ class Device(_mds.TreeNode):
 
     def upload(self, force=False):
         Tx = self.PARLogUpto()
-        if Tx<0 or Tx!=self.section.T0-1 or force:
+        T0 = self.section.T0
+        if Tx<T0 or force:
             log = {}
             if len(self.signals)==1:
-                return self._write_signal(Tx)
+                return self._write_signal(Tx,force=force)
             scalars,images = self.sortedSignals()
-            log['scalars']=self._write_scalars(scalars,Tx)
-            log['images']=self._write_images(images,Tx)
-            print(self.section.T0,Tx)
+            log['scalars']=self._write_scalars(scalars,Tx,force=force)
+            log['images']=self._write_images(images,force=force)
+            print(T0<Tx)
             return log
-        return 'parlog exists '+Tx.utc+' : '+self.section.T0.utc
+        return 'parlog exists '+str(Tx)+' : '+str(T0)
 
     def PARLogUpto(self):
         return checkLogUpto(self.address.parlog,self.section.T0)
@@ -275,7 +276,10 @@ class Device(_mds.TreeNode):
         images = []
         for i,signal in enumerate(self.signals):
             if _sup.debuglevel>=3: print('signal',signal)
-            signal = signal.evaluate()
+            try:
+                signal = signal.evaluate()
+            except _mds.mdsExceptions.TreeNODATA:
+                continue
             sigdata = signal.data()
             ndims = len(sigdata.shape)
             sigdimof = (signal.dim_of().data()*1E9).astype('uint64')
@@ -293,80 +297,97 @@ class Device(_mds.TreeNode):
                 images.append((sigdata,sigdimof,self.chanDescs[i]))
         return scalar,images
 
-    def _write_signal(self,Tx=None):
+    def _write_signal(self,Tx=None,force=False):
         """prepares signal and uploads to webarchive"""
         if Tx is None: Tx = self.PARLogUpto()
-        t0 = _base.Time(self.section.T0).ns
-        signal = self.signals[0]
-        if _sup.debuglevel>=2: print('one signal',signal)
-        if signal.isSegmented():
-            logs = []
-            nSeg = signal.getNumSegments()
-            if _sup.debuglevel>=2: print('is segmented',nSeg)
-            for segment in _ver.xrange(nSeg):
-                seg = signal.getSegment(segment)
-                data = seg.data()
-                dimof = seg.dim_of().data()
-                if _sup.debuglevel>=2: print('image',self.address.path(), data, dimof, t0)
+        T0 = self.section.T0
+        if Tx<T0 or force:
+            signal = self.signals[0]
+            if _sup.debuglevel>=2: print('one signal',signal)
+            if signal.isSegmented():
+                logs = []
+                nSeg = signal.getNumSegments()
+                if _sup.debuglevel>=2: print('is segmented',nSeg)
+                for segment in _ver.xrange(nSeg):
+                    seg = signal.getSegment(segment)
+                    data = seg.data()
+                    dimof = seg.dim_of().data()
+                    if _sup.debuglevel>=2: print('image',self.address.path(), data, dimof, T0)
+                    try:
+                        log = _if.write_data(self.address, data, dimof, T0, True)
+                        if log.getcode() >= 400:   print(segment,log.content)
+                    except KeyboardInterrupt as ki: raise ki
+                    except:log = _sup.error()
+                    logs.append({"segment": segment, "log": log})
+            else:
+                if _sup.debuglevel>=3: print('is not segmented')
+                try:     data = signal.data()
+                except _mds.mdsExceptions.TreeNODATA: return 'nodata'
+                except: return {'signal',_sup.error()}
+                dimof = signal.dim_of().data()
                 try:
-                    log = _if.write_data(self.address, data, dimof, t0)
-                    if log.getcode() >= 400:   print(segment,log.content)
+                    logs = _if.write_data(self.address, data, dimof, T0, True)
+                except _ver.urllib.HTTPError as exc:
+                    if exc.getcode() >= 400: print(0,exc.reason)
+                    logs = exc
+            if Tx<T0:
+                try:     logp = _if.write_logurl(self.address.parlog, self.getMergeDict(self.chandescs), T0)
                 except KeyboardInterrupt as ki: raise ki
-                except:log = _sup.error()
-                logs.append({"segment": segment, "log": log})
-        else:
-            if _sup.debuglevel>=3: print('is not segmented')
-            try:     data = signal.data()
-            except:  return {signal}
-            dimof = signal.dim_of().data()
-            try:
-                logs = _if.write_data(self.address, data, dimof, t0)
-            except _ver.urllib.HTTPError as exc:
-                if exc.getcode() >= 400: print(0,exc.reason)
-                logs = exc
-        try:     logp = _if.write_logurl(self.address.parlog, self.getMergeDict(self.chandescs), self.section.T0, Tx)
-        except KeyboardInterrupt as ki: raise ki
-        except:  logp = _sup.error()
+                except:  logp =_sup.error()
+            else:
+                logp = "parlog already written - forced"
         return {'signal':logs,'parlog':logp,"path":self.address.path()}
 
-    def _write_scalars(self, scalars, Tx=None):
+    def _write_scalars(self, scalars, Tx=None, force=False):
         if Tx is None: Tx = self.PARLogUpto()
-        if _sup.debuglevel>=3: print('scalars',scalars)
+        T0 = self.section.T0
         if scalars[1] is None:
-            return  {'signal':'empty','parlog':'empty',"path":self.path()}
-        data = _np.array(scalars[0]).T
-        dimof = _np.array(scalars[1])
-        length= len(dimof)
-        idx = 0;logs=[]
-        while idx<length:
-            N = 100000 if length-idx>110000 else length-idx
-            try:
-                logs.append(_if.write_data(self.address , data[idx:idx+N].T, dimof[idx:idx+N], self.section.T0))
-                if logs[-1].getcode() >= 400:
-                    print(idx,idx+N-1,logs[-1].content)
-            except:
-                pass
-            idx = idx+N
-        try:    logp = _if.write_logurl(self.address.parlog, self.getMergeDict(scalars[2]), self.section.T0, Tx)
-        except KeyboardInterrupt as ki: raise ki
-        except: logp = _sup.error()
-        return {'signal':logs,'parlog':logp,"path":self.address.path()}
+            return  {'signal':'empty','parlog':'empty',"path":self.address.path()}
+        if Tx<T0 or force:
+            data = _np.array(scalars[0]).T
+            dimof = _np.array(scalars[1])
+            length= len(dimof)
+            idx = 0;logs=[]
+            while idx<length:
+                N = 100000 if length-idx>110000 else length-idx
+                try:
+                    logs.append(_if.write_data(self.address , data[idx:idx+N].T, dimof[idx:idx+N], T0))
+                    if logs[-1].getcode() >= 400:
+                        print(idx,idx+N-1,logs[-1].content)
+                except KeyboardInterrupt as ki: raise ki
+                except: pass
+                idx = idx+N
+                if Tx<T0:
+                    try:    logp = _if.write_logurl(self.address.parlog, self.getMergeDict(scalars[2]), T0)
+                    except KeyboardInterrupt as ki: raise ki
+                    except: logp = _sup.error()
+                else: logp.append("parlog already written")
+            return {'signal':logs,'parlog':logp,"path":self.address.path()}
+        return {'signal':'already there','parlog':'already there',"path":self.address.path()}
 
-    def _write_images(self, images, Tx=None):
-        if Tx is None: Tx = self.PARLogUpto()
+    def _write_images(self, images, force=False):
         logs=[];logp=[];paths=[]
         for image in images:
             imagepath = _base.Path(self.address.path()).setStream(self.address.stream+"_"+image[2].split('_',2)[1]);
-            data = _np.array(image[0]).T
-            dimof = _np.array(image[1])
-            print(data.shape,dimof.shape)
-            if _sup.debuglevel>=3: print('image',imagepath, data, dimof, self.section.T0)
+            T0 = self.section.T0
+            Tx = checkLogUpto(imagepath.parlog,T0)
             paths.append(imagepath.path())
-            try:     logs.append(_if.write_data(imagepath, data, dimof, self.section.T0))
-            except not KeyboardInterrupt:  logs.append(None)
-            try:     logp.append(_if.write_logurl(imagepath.parlog, self.getMergeDict(image[2]), self.section.T0, Tx))
-            except KeyboardInterrupt as ki: raise ki
-            except:  logp.append(_sup.error())
+            if Tx<T0 or force:
+                data = _np.array(image[0]).T
+                dimof = _np.array(image[1])
+                print(data.shape,dimof.shape)
+                if _sup.debuglevel>=3: print('image',imagepath, data, dimof, T0)
+                try:     logs.append(_if.write_data(imagepath, data, dimof, T0))
+                except KeyboardInterrupt as ki: raise ki
+                except Exception as exc:  logs.append(exc)
+                if Tx<T0:
+                    try:     logp.append(_if.write_logurl(imagepath.parlog, self.getMergeDict(image[2]), T0))
+                    except KeyboardInterrupt as ki: raise ki
+                    except:  logp.append(_sup.error())
+                else: logp.append("parlog already written")
+            else:
+                logs.append('already there')
+                logp.append('already there')
         return {'signal':logs,'parlog':logp,"path":paths}
 
     def _getAllSignals(self):
@@ -467,64 +488,12 @@ def getDataName(datanode):
     f = _re.findall('([^A-Z]*)([A-Z]*)',datanode)
     return ''.join([i[0]+process(i[1]) for i in f])
 
-def _buildPath(node):
-    """generates a path out of a treepath
-    called by uploadNode"""
-    PathParts = _re.split('::|:|\.|_', node.path.lstrip('\\'))
-    KKS = PathParts[0]
-    if PathParts[1] == 'EVAL':  view = 'raw'  # will be cocking once supported
-    else:                       view = 'raw'
-    section = PathParts[-2].lower()
-    groupname = PathParts[-1].lower()
-    path = _base.Path('/'.join([view, 'W7X', KKS+'_'+section, groupname]))
-    return(path)
-
-def uploadNode(node, shot=0, treename='W7X'):
-    """upload a single node structure to the webarchive for kks_EVAL trees
-    uploadNode("\\KKS_EVAL::TOP.RESULTS:MYSECTION:MYIMAGE", -1, "sandbox")
-    """
-    if isinstance(node, (_mds.treenode.TreeNode)):
-        tree = node.tree
-        shot = int(tree.shot)
-    else:
-        tree = _mds.Tree(treename, shot)
-        node = tree.getNode(node)
-    path = _buildPath(node)
-    T0 = _sup.getTiming(shot, 0)[0]
-    T1 = _sup.getTiming(shot, 1)[0]
-    parlog, sig = _deviceDict(node)
-    if node.usage == "SIGNAL":
-        if len(sig):  # prepend
-            sig = [node] + sig
-            parlog["chanDescs"] = [_chanDesc(node, node)] + parlog["chanDescs"]
-        else:  # replace
-            sig = [node]
-            parlog = {"chanDescs": [_chanDesc(node, node)]}
-    parlog["shot"] = int(shot)
-    r = [None, None]
-    r[0] = _if.write_logurl(path.url_parlog(), parlog, T0)
-    r[1] = _write_signals(path, sig, T1)
-    print(r)
-    if not r[0].ok: print(r[0].content)
-    if not r[1].ok: print(r[1].content)
-    return r
-
 def checkLogUpto(path,Tfrom):
     try:
-        filterstart = Tfrom.ns-1
-        filterstop=2000000000000000000
-        p = _if.get_json(path,filterstart=filterstart,filterstop=filterstop)
-        for i in range(10):
-            s = str(p['_links']['children'][-1]['href'])
-            try:
-                t = map(int,_re.findall('(?<=from=|upto=)([0-9]+)',s))
-                if t[0]==filterstart:
-                    if t[1]>=filterstop:
-                      return _base.Time(-1)
-                    else:
-                      return _base.Time(t[1])
-                else: return _base.Time(t[0])
-            except:
-                p = _if.get_json(s)
-    except: pass
-    return _base.Time(-1)
+        filterstop = 2000000000000000000
+        filterstart = filterstop-1 #Tfrom.ns-1
+        p = _if.get_json(path,time=[filterstart,filterstop],Nsamples=2)
+        t = p['dimensions']
+        return t[0]
+    except:
+        return 0

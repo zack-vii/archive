@@ -56,7 +56,7 @@ def write_logurl(url, parms, Tfrom, Tupto=-1):
 
 
 
-def write_data(path, data, dimof, t0=0):
+def write_data(path, data, dimof, t0=0, isonechannel=False):
     # path=Path, data=numpy.array, dimof=numpy.array
     if not isinstance(data, _np.ndarray):
         raise Exception('write_data: data must be numpy.ndarray')
@@ -66,10 +66,10 @@ def write_data(path, data, dimof, t0=0):
     dimof = dimof + t0
     if dimof.ndim == 0:  # we need to add one level
         dimof = [dimof.tolist()]
-        data  = data.reshape(*(list(data.shape)+[1]))
+        data  = data.reshape(list(data.shape)+[1])
     else:
         dimof = dimof.tolist()
-    if data.ndim > 2:
+    if data.ndim > (1 if isonechannel else 2):
         return(_write_vector(_base.Path(path), data, dimof))
     else:
         return(_write_scalar(_base.Path(path), data, dimof))
@@ -93,6 +93,8 @@ def _write_scalar(path, data, dimof):
 def _write_vector(path, data, dimof):
     # path=Path, data=numpy.array, dimof=list of long
     dtype = str(data.dtype)
+    if data.ndim<3:
+        data = data.reshape(list(data.shape)+[1])
     stream = path.stream
     tmpfile = _ver.tmpdir+"archive_"+stream+'_'+str(dimof[0])+".h5"
     try:
@@ -195,13 +197,13 @@ def _readchunks(path, time, **kwargs):
             pos = 0
             length = len(data[1])
             t = [btime[0],0]  # from
-            while length-pos>750:
-                t[1] = data[1][pos+500].tolist()-1  # to
+            while length-pos>7500:
+                t[1] = data[1][pos+5000].tolist()-1  # to
                 if t[1]>=last:
                     return
-                store(pos,pos+500,t,data)
+                store(pos,pos+5000,t,data)
                 t[0] = t[1]+1  # from
-                pos += 500
+                pos += 5000
             t[1] = btime[1]  # to
             if t[1]<last:
                 store(pos,length,t,data)
