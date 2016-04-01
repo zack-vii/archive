@@ -109,6 +109,7 @@ def _write_vector(path, data, dimof):
     finally:
         try:
             _os.remove(tmpfile)
+        except KeyboardInterrupt as ki: raise ki
         except:
             print('could not delete file "%s"' % tmpfile)
             pass
@@ -121,7 +122,8 @@ def read_signal(path, time, **kwargs):
         _cache.cache().clean()
         try:
             rawset = _readchunks(path, time, **kwargs)
-        except Exception:
+        except KeyboardInterrupt as ki: raise ki
+        except:
             _sup.error()
             rawset = _readraw(path, time, **kwargs)
     else:
@@ -139,6 +141,7 @@ def _readraw_java(path, time, **kwargs):
         path = path.path_data(**kwargs)
         if path.startswith('/ArchiveDB'): path = path[10:]
         return list(_aj.signal.readfull(path, time[0], time[1], 0x7FFFFFFF))
+    except KeyboardInterrupt as ki: raise ki
     except Exception as exc:
         print(exc)
         return [[],[],str(exc)]
@@ -414,8 +417,8 @@ def read_pngs_url(url,time,ntreads=3):
                 i = idx[0];idx[0]+=1
                 time = _base.TimeInterval([dim[i]]*2)
                 S[i] = read_png_url(url,time,0)[2]
-            except:
-                break
+            except KeyboardInterrupt as ki: raise ki
+            except: break
     time = _base.TimeInterval(time)
     par = get_json(url+'/_signal.json?'+time.filter())['_links']['children']
     dim = [int(_re.search('(?<=from=)([0-9]+)',str(p['href'])).group()) for p in par]
