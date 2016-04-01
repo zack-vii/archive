@@ -13,8 +13,9 @@ from archive import diff as _diff
 from archive import interface as _if
 from archive import support as _sup
 from archive import version as _ver
-_MDS_shotdb = _base.Path('/Test/raw/W7X/MDSplus/Shots')  # raw/W7X/MDSplus/Shots
-_MDS_shotrt = _base.Path('/Test/raw/W7X')  # raw/W7X
+_MDS_shotdb = '/Test/raw/W7X/MDSplus/Shots'  # raw/W7X/MDSplus/Shots
+_MDS_shotrt = '/Test/raw/W7X'  # raw/W7X
+_treename  = 'W7X'
 _subtrees  = 'included'
 _exclude   = {'usage':['ACTION', 'TASK', 'SIGNAL']}
 
@@ -29,18 +30,18 @@ def setupTiming(version=0):
     print(result.msg)
     return result
 
-def uploadModel(shot, subtrees=_subtrees, treename='W7X', T0=None):
+def uploadModel(shot, subtrees=_subtrees, T0=None):
     """uploads full model tree of a given shot into the web archive
     should be executed right after T0"""
     if shot<0:
         raise Exception("Shot number must be positive (must not direct to the model).")
     if isinstance(subtrees,_ver.basestring):
-        if subtrees=='included':    subtrees = [str(st.node_name) for st in _sup.getIncluded(treename,-1)]
-        elif subtrees=='all':       subtrees = [str(st.node_name) for st in _sup.getSubTrees(treename,-1)]
+        if subtrees=='included':    subtrees = [str(st.node_name) for st in _sup.getIncluded(_treename,-1)]
+        elif subtrees=='all':       subtrees = [str(st.node_name) for st in _sup.getSubTrees(_treename,-1)]
         else:                       subtrees = [subtrees]
     def getModel():
         nodenames = ['ADMIN','TIMING']+subtrees
-        w7x = _mds.Tree(treename,-1)
+        w7x = _mds.Tree(_treename,-1)
         model = {}
         for key in nodenames:
             print('reading %s' % key)
@@ -65,267 +66,396 @@ def uploadTiming(shot):
     print(result.msg)
     return result
 
-def uploadShot(shot, subtrees=_subtrees, treename='W7X', T0=None, T1=None, force=False, prefix=''):
+def uploadShot(shot, subtrees=_subtrees, T0=None, T1=None, force=False, prefix=''):
     """uploads the data of all sections of a given shot into the web archive
     should be executed after all data is written to the shot file"""
     if shot<0:  raise Exception("Shot number must be positive (must not direct to the model).")
-    if isinstance(subtrees,_ver.basestring):
-        if subtrees=='included':    subtrees = [str(st.node_name) for st in _sup.getIncluded(treename,shot)]
-        elif subtrees=='all':       subtrees = [str(st.node_name) for st in _sup.getSubTrees(treename,shot)]
-        else:                       subtrees = [subtrees]
-    print(subtrees)
-    if T0 is None:  T0 = _sup.getTiming(shot, 0)[0]
-    else:           T0 = _base.Time(T0)
-    if T1 is None:  T1 = _sup.getTiming(shot, 1)[0]
-    else:           T1 = _base.Time(T1)
-    sectionDicts = []
-    w7x = _mds.Tree(treename, shot)
-    path = _MDS_shotrt
-    for subtree in subtrees:
-        kks = w7x.getNode(subtree)
-        kkscfg = _getCfgLog(kks,shot)
-        data = kks.DATA
-        for sec in data.getDescendants():
-            section = prefix + subtree.upper()+'_'+getDataName(sec)
-            path.streamgroup = section
-            Tx = checkLogUpto(path.cfglog,T0)
-            print(shot,sec,section,T0,Tx)
-            if Tx<0 or Tx!=T0-1 or force:
-                sectionDict = _sectionDict(sec, kks, T0, T1, path)
-                if Tx<0 or Tx!=T0-1:
-                    try:
-                        cfglog = _sup.treeToDict(sec,kkscfg.copy(),_exclude,'')
-                        if _sup.debuglevel>=3: print('write_cfglog',sec,cfglog)
-                        log_cfglog = _if.write_logurl(path.cfglog, cfglog, T0, Tx)
-                    except Exception as exc:
-                        print(exc)
-                        log_cfglog = exc
-                else:
-                    log_cfglog = 'not written, force=True'
-                sectionDicts.append({'sectionDict': sectionDict, "cfglog": log_cfglog})
-            else:
-                print('cfglog already written: skip')
-    return(sectionDicts)
+    S = Shot(shot, T0=T0, T1=T1, prefix=prefix)
+    return S.upload(subtrees, force=force)
 
-def _getCfgLog(kks,shot=None,treename='W7X'):
-    """generates the base cfglog of a kks subtree
-    called by uploadShot"""
-    if isinstance(kks, str): kks = _mds.Tree(treename,shot).getNode(kks)
-    cfglog = {}
-    for m in kks.getMembers():
-        cfglog  = _sup.treeToDict(m, cfglog, _exclude)
-    for c in kks.getChildren():
-        if not c.getNodeName() in ['HARDWARE','DATA']:
-            cfglog = _sup.treeToDict(c, cfglog, _exclude)
-    return cfglog
+class Shot(_mds.Tree):
+    def __init__(self, shot, T0=None, T1=None, prefix=''):
+        super(Shot,self).__init__(_treename, shot, "Readonly")
+        self.T0 = _sup.getTiming(shot, 0)[0] if T0 is None else _base.Time(T0)
+        self.T1 = _sup.getTiming(shot, 1)[0] if T1 is None else _base.Time(T1)
+        self.prefix = prefix;
+    def upload(self, subtrees=_subtrees, force=False):
+        log = []
+        for sub in self.getSubTrees(subtrees):
+            try: log.append((sub,sub.upload(force=force)))
+            except KeyboardInterrupt as ki: raise ki
+            except: log.append((sub,_sup.error()))
+        return log
+    def getSubTrees(self, subtrees=_subtrees):
+        if isinstance(subtrees,_ver.basestring):
+            if subtrees=='included':    subtrees = [str(st.node_name) for st in _sup.getIncluded(self.tree,self.shot)]
+            elif subtrees=='all':       subtrees = [str(st.node_name) for st in _sup.getSubTrees(self.tree,self.shot)]
+            else:                       subtrees = [subtrees]
+        subs = []
+        for subtree in subtrees:
+            subs.append(SubTree((subtree,self), T0=self.T0, T1=self.T1, prefix=self.prefix))
+        return subs
 
-def _sectionDict(section, kks, T0, T1, path, test=False):
-    """generates the parlog for a section under .DATA and upload the data
-    called by uploadShot"""
-    """signalDict:   (nid of channel) :{dict of signal}"""
-    """channelLists: (nid of device):[nid of channels]"""
-    sectionDict = []
-    HW = kks.HARDWARE
-    if HW.getNumDescendants()==0: return
-    signalDict = {}
-    for signal in section.getDescendants(): signalDict = _signalDict(signal, signalDict)
-    channelLists = _getChannelLists(kks,signalDict)
-    for devnid,channels in channelLists.items():
-        try:
-            if len(channels)==0: continue
-            sectionDict.append({"log":{}})
-            device = _mds.TreeNode(devnid)
-            stream = getDataName(device)
-            path.stream = stream
-            Tx = checkLogUpto(path.parlog,T0)
-            if Tx<0 or Tx!=T0-1:
-                sectionDict[-1]["path"]=path.path()
-                deviceDict, signalList = _deviceDict(device, channels, signalDict)
-                if _sup.debuglevel>=2: print(deviceDict)
-                log_signal = _write_signals(path, signalList, T1)
-                sectionDict[-1]["log"]['signal']=log_signal
-                print(T0,Tx)
-                try:    log_parlog = _if.write_logurl(path.url_parlog(), deviceDict, T0, Tx)
-                except: log_parlog = _sup.error()
-                sectionDict[-1]["log"]['parlog']=log_parlog
-            else:
-                sectionDict[-1]['log'] = 'parlog exists '+Tx.utc+' : '+T0.utc
-        except:
-            _sup.error()
-    return sectionDict
-
-def _signalDict(signal, signalDict, prefix=[]):
-    """collects the properties of a signal node and assiciates it with a channel nid
-    called by _sectionDict"""
-    nameList = prefix+[getDataName(signal)]
-    if signal.usage == "SIGNAL":
-        try:
-            desc = {}
-            if signal.getNumDescendants()>0: desc = _sup.treeToDict(signal, desc, _exclude,'')
-            desc["name"] = '_'.join(nameList)
-            nid = signal.record.nid
-            signalDict[nid] = desc
-        except AttributeError as exc:
-            print('_signalDict',exc,signal.record)
-        except:
-            _sup.error()
-    else:
-        for sig in signal.getDescendants(): signalDict = _signalDict(sig, signalDict, nameList)
-    return signalDict
-
-def _getChannelLists(kks, channels):
-    """collects the channel lists of all devices
-    called by _sectionDict"""
-    f = _re.compile('(?<=\.HARDWARE[:\.])([^\.:]+)')
-    HW = kks.HARDWARE
-    channelLists = dict([device.Nid, []] for device in HW.getDescendants())
-    for channel in channels:
-        deviceName = f.search(str(_mds.TreeNode(channel).fullpath)).group(0)
-        device = HW.getNode(deviceName)
-        channelLists[device.nid].append(channel)
-    return channelLists
-
-def _deviceDict(device, channelList, signalDict):
-    """collects the data of channels and their parenting device
-    called by _sectionDict"""
-    signalList = []
-    chanDescs = []
-    signals = _searchSignals(device)
-    for signal in signals:
-        if signal[1].nid in channelList:  # add to signal list
-            chanDescs.append(_chanDesc(signal, signalDict))
-            signalList.append(signal[1])
-    exclude = _exclude.copy()
-    exclude['nid'] = [s[0] for s in signals]
-    deviceDict = _sup.treeToDict(device,{},_exclude,'')
-    deviceDict["chanDescs"] = chanDescs
-    return(deviceDict, signalList)
-
-def _searchSignals(device):
-    """checks DEVICE:SIGNAL and DEVICE.STRUCTURE:SIGNAL"""
-    signals = []
-    for descendant in device.getDescendants():
-        if descendant.usage == "SIGNAL":
-            signals.append([descendant,descendant])
+class SubTree(_mds.TreeNode):
+    def __init__(self, subtree, T0=None, T1=None, prefix=''):
+        if isinstance(subtree,tuple):
+            super(SubTree,self).__init__(subtree[1].getNode("\\%s::TOP" % subtree[0]).nid,subtree[1])
         else:
-            sigs = _searchSignals(descendant)
-            signals+= sigs
-    if len(signals)==1: signals[0][0] = device
-    return signals
+            super(SubTree,self).__init__(subtree.nid,subtree.tree)
+        self.T0 = _sup.getTiming(self.tree.shot, 0)[0] if T0 is None else _base.Time(T0)
+        self.T1 = _sup.getTiming(self.tree.shot, 1)[0] if T1 is None else _base.Time(T1)
+        self.prefix = prefix;
 
-def _chanDesc(signalset, signalDict={}):
-    """generates the channel descriptor for a given channel"""
-    def mergeSignalDict(chanDesc):
-        if nid in signalDict.keys():
-            for key, value in signalDict[nid].items():
-                chanDesc[key] = value
-        return chanDesc
+    def upload(self, force=False):
+        log = []
+        for sec in self.getSections():
+            log.append(sec.upload(force=force))
+        return log
 
-    def substituteUnits():
-        if 'units' in chanDesc.keys():
-            chanDesc["physicalQuantity"]['type'] = _base.Units(chanDesc["units"], 1)
-            del(chanDesc["units"])
-        return chanDesc
-    signal = signalset[1]
-    print(signal)
-    nid = signal.nid
-    chanDesc = _channelDict(signalset[0], nid)
-    chanDesc = mergeSignalDict(chanDesc)
-    chanDesc = substituteUnits()
-    try:
-        units = _base.Units(signal, 1)
-        if units != 'unknown':
-            chanDesc["physicalQuantity"]['type'] = units
-    except:pass
-    return chanDesc
+    def getSections(self):
+        secs = []
+        data = self.DATA
+        for sec in data.getDescendants():
+            secs.append(Section(sec, T0=self.T0, T1=self.T1, prefix=self.prefix))
+        return secs
 
-def _channelDict(signalroot, nid):
-    """collects the parameters of a channel
-    called by _chanDesc"""
-    channelDict = {}
-    channelDict['name'] = getDataName(signalroot)
-    channelDict["active"] = int(signalroot.isOn())
-    channelDict["physicalQuantity"] = {'type': 'unknown'}
-    for sibling in signalroot.getDescendants():
-        if not sibling.Nid == nid:  # in case: DEVICE.STRUCTURE:SIGNAL
-            channelDict = _sup.treeToDict(sibling, channelDict, _exclude)
-    return channelDict
+class Section(_mds.TreeNode):
+    def __init__(self, section, T0=None, T1=None,prefix=''):
+        if isinstance(section,(tuple)):
+            tree = _mds.Tree(_treename, section[0], "Readonly")
+            kks = tree.getNode(section[1])
+            super(Section,self).__init__(kks.DATA.getDescendants()[section[2]].nid,tree)
+            self.kks = kks
+        else:
+            super(Section,self).__init__(section.nid,section.tree)
+            self.kks = self.getParent().getParent()
+        self.T0 = _sup.getTiming(self.tree.shot, 0)[0] if T0 is None else _base.Time(T0)
+        self.T1 = _sup.getTiming(self.tree.shot, 1)[0] if T1 is None else _base.Time(T1)
+        self.address = _base.Path(_MDS_shotrt)
+        self.address.streamgroup = prefix + self.kks.node_name.upper() + '_'+getDataName(section)
 
-def _write_signals(path, signals, t0):
-    """prepares signals and uploads to webarchive
-    called by <multiple>"""
-    logs = []
-    t0 = _base.Time(t0).ns
-    if len(signals) == 1:
-        if _sup.debuglevel>=2: print('one signal',signals[0])
-        signal = signals[0]
+    def _getKksLog(self):
+        """generates the base cfglog of a kks subtree called by uploadShot"""
+        if not self.__dict__.has_key('_kkslog'):
+            kkslog = {}
+            for m in self.kks.getMembers():
+                kkslog  = _sup.treeToDict(m, kkslog, _exclude)
+            for c in self.kks.getChildren():
+                if not c.getNodeName() in ['HARDWARE','DATA']:
+                    kkslog = _sup.treeToDict(c, kkslog, _exclude)
+            self._kkslog = kkslog
+        return self._kkslog
+    kkslog = property(_getKksLog)
+
+    def _getCfgLog(self):
+        if not self.__dict__.has_key('_cfglog'):
+            self._cfglog = _sup.treeToDict(self,self.kkslog.copy(),_exclude,'')
+        return self._cfglog
+    cfglog = property(_getCfgLog)
+
+    def CFGLogUpto(self):
+        return checkLogUpto(self.address.cfglog,self.T0)
+
+    def writeCFGlog(self,Tx=None):
+        if Tx is None: Tx = self.CFGLogUpto()
+        if Tx<0 or Tx!=self.T0-1:
+            try:
+                if _sup.debuglevel>=3: print('write_cfglog',self.address.cfglog,self.cfglog)
+                return _if.write_logurl(self.address.cfglog, self.cfglog, self.T0, Tx)
+            except KeyboardInterrupt as ki: raise ki
+            except Exception as exc:
+                print(exc)
+                return exc
+        return 'not written, force=True'
+
+    def upload(self,force=False):
+        Tx = self.CFGLogUpto()
+        print(self.tree,self,self.T0,Tx)
+        if Tx<0 or Tx!=self.T0-1 or force:
+            logs = self.uploadDevices(force=force)
+            logc = self.writeCFGlog(Tx)
+            self.log={'logs': logs, "logc": logc}
+        else:
+            self.log = 'cfglog already written: skip'
+        return self.log
+
+    def uploadDevices(self,force=False):
+        """generates the parlog for a section under .DATA and upload the data"""
+        """signalDict:   (nid of channel) :{dict of signal}"""
+        """channelLists: (nid of device):[nid of channels]"""
+        log = []
+        HW = self.kks.HARDWARE
+        if HW.getNumDescendants()==0: return
+        for devnid,channels in self.channeldict.items():
+            device = Device(devnid,channels,self)
+            if len(channels)==0:
+                log.append((device,"no channels"))
+                continue
+            try:   log.append((device,device.upload(force=force)))
+            except KeyboardInterrupt as ki: raise ki
+            except:log.append((device,_sup.error()))
+        return log
+
+    def _getSignalDict(self):
+        if not self.__dict__.has_key('_signaldict'):
+            def _signaldict(signal, signaldict, prefix=[]):
+                """collects the properties of a signal node and assiciates it with a channel nid"""
+                nameList = prefix+[getDataName(signal)]
+                if signal.usage == "SIGNAL":
+                    try:
+                        desc = {}
+                        if signal.getNumDescendants()>0: desc = _sup.treeToDict(signal, desc, _exclude,'')
+                        desc["name"] = '_'.join(nameList)
+                        nid = signal.record.nid
+                        signaldict[nid] = desc
+                    except AttributeError as exc:
+                        print('_signalDict',exc,signal.record)
+                    except: print(_sup.error(0))
+                else:
+                    for sig in signal.getDescendants():
+                        signaldict = _signaldict(sig, signaldict, nameList)
+                return signaldict
+            signaldict = {}
+            for signal in self.getDescendants():
+                signaldict = _signaldict(signal, signaldict)
+            self._signaldict = signaldict
+        return self._signaldict
+    signaldict = property(_getSignalDict)
+
+    def _getChannelDict(self):
+        if not self.__dict__.has_key('_channellists'):
+            """collects the channel lists of all devices"""
+            f = _re.compile('(?<=\.HARDWARE[:\.])([^\.:]+)')
+            HW = self.kks.HARDWARE
+            channeldict = dict([device.Nid, []] for device in HW.getDescendants())
+            for channel in self.signaldict:
+                deviceName = f.search(str(_mds.TreeNode(channel).fullpath)).group(0)
+                device = HW.getNode(deviceName)
+                channeldict[device.nid].append(channel)
+            self._channeldict = channeldict
+        return self._channeldict
+    channeldict = property(_getChannelDict)
+
+    def getDevices(self):
+        HW = self.kks.HARDWARE
+        if HW.getNumDescendants()==0: return
+        devices = []
+        for devnid,channels in self.channeldict.items():
+            if len(channels)==0: continue
+            devices.append(Device(devnid,channels,self))
+        return devices
+
+class Device(_mds.TreeNode):
+    def __init__(self,devnid,channels,section):
+        super(Device,self).__init__(devnid,section.tree)
+        self.address = _base.Path(section.address.path())
+        self.address.stream = getDataName(self)
+        self.channels = channels
+        self.section = section
+
+    def upload(self, force=False):
+        Tx = self.PARLogUpto()
+        if Tx<0 or Tx!=self.section.T0-1 or force:
+            log = {}
+            if len(self.signals)==1:
+                return self._write_signal(Tx)
+            scalars,images = self.sortedSignals()
+            log['scalars']=self._write_scalars(scalars,Tx)
+            log['images']=self._write_images(images,Tx)
+            print(self.section.T0,Tx)
+            return log
+        return 'parlog exists '+Tx.utc+' : '+self.section.T0.utc
+
+    def PARLogUpto(self):
+        return checkLogUpto(self.address.parlog,self.section.T0)
+
+    def sortedSignals(self):
+        if _sup.debuglevel>=2: print('%d signal' % len())
+        scalar = [[],None,[]]
+        images = []
+        for i,signal in enumerate(self.signals):
+            if _sup.debuglevel>=3: print('signal',signal)
+            signal = signal.evaluate()
+            sigdata = signal.data()
+            ndims = len(sigdata.shape)
+            sigdimof = (signal.dim_of().data()*1E9).astype('uint64')
+            if ndims==1:
+                scalar[0].append(sigdata)
+                scalar[2].append(self.chandescs[i])
+                if scalar[1] is None:
+                    scalar[1] = sigdimof
+                else:
+                    if not (scalar[0][0].dtype==scalar[0][-1].dtype):
+                        raise(Exception('data types are not equal for all channels'))
+                    if not all(scalar[1]==sigdimof):
+                        raise(Exception('dimesions are not equal for all channels'))
+            elif ndims>1:
+                images.append((sigdata,sigdimof,self.chanDescs[i]))
+        return scalar,images
+
+    def _write_signal(self,Tx=None):
+        """prepares signal and uploads to webarchive"""
+        if Tx is None: Tx = self.PARLogUpto()
+        t0 = _base.Time(self.section.T0).ns
+        signal = self.signals[0]
+        if _sup.debuglevel>=2: print('one signal',signal)
         if signal.isSegmented():
+            logs = []
             nSeg = signal.getNumSegments()
             if _sup.debuglevel>=2: print('is segmented',nSeg)
             for segment in _ver.xrange(nSeg):
                 seg = signal.getSegment(segment)
                 data = seg.data()
                 dimof = seg.dim_of().data()
-                if _sup.debuglevel>=2: print('image',path, data, dimof, t0)
+                if _sup.debuglevel>=2: print('image',self.address.path(), data, dimof, t0)
                 try:
-                    log = _if.write_data(path, data, dimof, t0)
+                    log = _if.write_data(self.address, data, dimof, t0)
                     if log.getcode() >= 400:   print(segment,log.content)
-                except:
-                    log = _sup.error(1)
+                except KeyboardInterrupt as ki: raise ki
+                except:log = _sup.error()
                 logs.append({"segment": segment, "log": log})
         else:
             if _sup.debuglevel>=3: print('is not segmented')
-            try:     data = signal.data().T
-            except:  return []
-            dimof = _base.TimeArray(signal.dim_of().data()).ns
-            log = _if.write_data(path, data, dimof, t0)
-            if log.getcode() >= 400:   print(0,log.content)
-        return [log]
-    if _sup.debuglevel>=2: print('%d signal' % len(signals))
-    scalar = [[],None]
-    images = []
-    for signal in signals:
-        if _sup.debuglevel>=3: print('signal',signal)
-        signal = signal.evaluate()
-        sigdata = signal.data()
-        ndims = len(sigdata.shape)
-        sigdimof = (signal.dim_of().data()*1E9).astype('uint64')
-        if ndims==1:
-            scalar[0].append(sigdata)
-            if scalar[1] is None:
-                scalar[1] = sigdimof
-            else:
-                if not (scalar[0][0].dtype==scalar[0][-1].dtype):
-                    raise(Exception('data types are not equal for all channels'))
-                if not all(scalar[1]==sigdimof):
-                    raise(Exception('dimesions are not equal for all channels'))
-        elif ndims>1:
-            images.append((sigdata,sigdimof))
-    del(signals)
-    if _sup.debuglevel>=3: print('scalar',scalar)
-    if scalar[1] is not None:
-        data = _np.array(scalar[0]).T
-        dimof = _np.array(scalar[1])
-        length= len(dimof)
-        idx = 0;
-        while idx<length:
-            N = 10000 if length-idx>15000 else length-idx
+            try:     data = signal.data()
+            except:  return {signal}
+            dimof = signal.dim_of().data()
             try:
-                logs.append(_if.write_data(path, data[idx:idx+N].T, dimof[idx:idx+N], t0))
+                logs = _if.write_data(self.address, data, dimof, t0)
+            except _ver.urllib.HTTPError as exc:
+                if exc.getcode() >= 400: print(0,exc.reason)
+                logs = exc
+        try:     logp = _if.write_logurl(self.address.parlog, self.getMergeDict(self.chandescs), self.section.T0, Tx)
+        except KeyboardInterrupt as ki: raise ki
+        except:  logp = _sup.error()
+        return {'signal':logs,'parlog':logp,"path":self.address.path()}
+
+    def _write_scalars(self, scalars, Tx=None):
+        if Tx is None: Tx = self.PARLogUpto()
+        if _sup.debuglevel>=3: print('scalars',scalars)
+        if scalars[1] is None:
+            return  {'signal':'empty','parlog':'empty',"path":self.path()}
+        data = _np.array(scalars[0]).T
+        dimof = _np.array(scalars[1])
+        length= len(dimof)
+        idx = 0;logs=[]
+        while idx<length:
+            N = 100000 if length-idx>110000 else length-idx
+            try:
+                logs.append(_if.write_data(self.address , data[idx:idx+N].T, dimof[idx:idx+N], self.section.T0))
                 if logs[-1].getcode() >= 400:
                     print(idx,idx+N-1,logs[-1].content)
             except:
                 pass
             idx = idx+N
-    del(scalar)
-    for image in images:
-        data = _np.array(image[0]).T
-        dimof = _np.array(image[1])
-        print(data.shape,dimof.shape)
-        if _sup.debuglevel>=3: print('image',path, data, dimof, t0)
-        try:     logs.append(_if.write_data(path, data, dimof, t0))
-        except:  logs.append(None)
-    return logs
+        try:    logp = _if.write_logurl(self.address.parlog, self.getMergeDict(scalars[2]), self.section.T0, Tx)
+        except KeyboardInterrupt as ki: raise ki
+        except: logp = _sup.error()
+        return {'signal':logs,'parlog':logp,"path":self.address.path()}
+
+    def _write_images(self, images, Tx=None):
+        if Tx is None: Tx = self.PARLogUpto()
+        logs=[];logp=[];paths=[]
+        for image in images:
+            imagepath = _base.Path(self.address.path()).setStream(self.address.stream+"_"+image[2].split('_',2)[1]);
+            data = _np.array(image[0]).T
+            dimof = _np.array(image[1])
+            print(data.shape,dimof.shape)
+            if _sup.debuglevel>=3: print('image',imagepath, data, dimof, self.section.T0)
+            paths.append(imagepath.path())
+            try:     logs.append(_if.write_data(imagepath, data, dimof, self.section.T0))
+            except not KeyboardInterrupt:  logs.append(None)
+            try:     logp.append(_if.write_logurl(imagepath.parlog, self.getMergeDict(image[2]), self.section.T0, Tx))
+            except KeyboardInterrupt as ki: raise ki
+            except:  logp.append(_sup.error())
+        return {'signal':logs,'parlog':logp,"path":paths}
+
+    def _getAllSignals(self):
+        if not self.__dict__.has_key('_allsignals'):
+            def _searchSignals(node):
+                """checks DEVICE:SIGNAL and DEVICE.STRUCTURE:SIGNAL"""
+                signals = []
+                for descendant in node.getDescendants():
+                    if descendant.usage == "SIGNAL":
+                        signals.append([descendant,descendant])
+                    else:
+                        sigs = _searchSignals(descendant)
+                        signals+= sigs
+                if len(signals)==1: signals[0][0] = node
+                return signals
+            self._allsignals = _searchSignals(self)
+        return self._allsignals
+    allsignals = property(_getAllSignals)
+
+    def _getDeviceDict(self):
+        """collects the data of channels and their parenting device"""
+        if not self.__dict__.has_key('_devicedict'):
+            signals = []
+            chandescs = []
+            for signal in self.allsignals:
+                if signal[1].nid in self.channels:  # add to signal list
+                    chandescs.append(self._chanDesc(signal))
+                    signals.append(signal[1])
+            exclude = _exclude.copy()
+            exclude['nid'] = [s[0] for s in self.allsignals]
+            self._chandescs = chandescs
+            self._signals = signals
+            self._devicedict = _sup.treeToDict(self,{},_exclude,'')
+        return self._devicedict
+    devicedict = property(_getDeviceDict)
+
+    def _getSignals(self):
+        if not self.__dict__.has_key('_signals'):
+            self._getDeviceDict()
+        return self._signals
+    signals = property(_getSignals)
+
+    def _getChanDescs(self):
+        if not self.__dict__.has_key('_chandescs'):
+            self._getDeviceDict()
+        return self._chandescs
+    chandescs = property(_getChanDescs)
+
+    def getMergeDict(self,chanDescs):
+        dic = self.devicedict.copy()
+        dic['chanDescs'] = chanDescs
+        return dic
+
+    def _chanDesc(self,signalset):
+        """generates the channel descriptor for a given channel"""
+        def _channelDict(signalroot, nid):
+            """collects the parameters of a channel"""
+            channelDict = {}
+            channelDict['name'] = getDataName(signalroot)
+            channelDict["active"] = int(signalroot.isOn())
+            channelDict["physicalQuantity"] = {'type': 'unknown'}
+            for sibling in signalroot.getDescendants():
+                if not sibling.Nid == nid:  # in case: DEVICE.STRUCTURE:SIGNAL
+                    channelDict = _sup.treeToDict(sibling, channelDict, _exclude)
+            return channelDict
+        def mergeSignalDict(chanDesc):
+            if self.section.signaldict.has_key(nid):
+                for key, value in self.section.signaldict[nid].items():
+                    chanDesc[key] = value
+            return chanDesc
+        def substituteUnits():
+            if 'units' in chanDesc.keys():
+                chanDesc["physicalQuantity"]['type'] = _base.Units(chanDesc["units"], 1)
+                del(chanDesc["units"])
+            return chanDesc
+
+        signal = signalset[1]
+        print(signal)
+        nid = signal.nid
+        chanDesc = _channelDict(signalset[0], nid)
+        chanDesc = mergeSignalDict(chanDesc)
+        chanDesc = substituteUnits()
+        try:
+            units = _base.Units(signal, 1)
+            if units != 'unknown':
+                chanDesc["physicalQuantity"]['type'] = units
+        except KeyboardInterrupt as ki: raise ki
+        except: pass
+        return chanDesc
 
 def getDataName(datanode):
     """converts 'ABCD_12XY_II' to 'Abcd_12Xy_II"""
