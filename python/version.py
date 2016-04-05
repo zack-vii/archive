@@ -80,10 +80,12 @@ if ispy3:
     from _io import TextIOWrapper as file
     import urllib.request as urllib
     from itertools import zip_longest
+    from queue import Queue
 else:
     file = file
     import urllib2 as urllib  # analysis:ignore
     from itertools import izip_longest as zip_longest  # analysis:ignore
+    from Queue import Queue # analysis:ignore
 
 try:
     import cPickle as pickle

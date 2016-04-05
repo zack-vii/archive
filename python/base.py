@@ -547,7 +547,8 @@ _units = ['unknown', '', 'none', 'arb.unit', 'kg', 'g', 'u', 'kg/s', 'g/s', 'm',
 def Units(units=None, force=False):
     if isinstance(units, (_mds.treenode.TreeNode)):
         if units.isSegmented():
-            units = units.getSegment(0).units
+            #units = units.getSegment(0).units
+            return 'unknown'
         else:
             units = units.units
     elif isinstance(units, (_mds.compound.Signal, _mds.mdsarray.Array)):

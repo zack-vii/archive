@@ -79,13 +79,7 @@ class Shot(_mds.Tree):
         self.T0 = _sup.getTiming(shot, 0)[0] if T0 is None else _base.Time(T0)
         self.T1 = _sup.getTiming(shot, 1)[0] if T1 is None else _base.Time(T1)
         self.prefix = prefix;
-    def upload(self, subtrees=_subtrees, force=False):
-        log = []
-        for sub in self.getSubTrees(subtrees):
-            try: log.append((sub,sub.upload(force=force)))
-            except KeyboardInterrupt as ki: raise ki
-            except: log.append((sub,_sup.error()))
-        return log
+
     def getSubTrees(self, subtrees=_subtrees):
         if isinstance(subtrees,_ver.basestring):
             if subtrees=='included':    subtrees = [str(st.node_name) for st in _sup.getIncluded(self.tree,self.shot)]
@@ -95,6 +89,26 @@ class Shot(_mds.Tree):
         for subtree in subtrees:
             subs.append(SubTree((subtree,self), T0=self.T0, T1=self.T1, prefix=self.prefix))
         return subs
+
+    def getSections(self, subtrees=_subtrees):
+        secs = []
+        for subtree in self.getSubTrees(subtrees):
+            secs+= subtree.getSections()
+        return secs
+
+    def getDevices(self, subtrees=_subtrees):
+        devs = []
+        for subtree in self.getSubTrees(subtrees):
+            devs+= subtree.getDevices()
+        return devs
+
+    def upload(self, subtrees=_subtrees, force=False):
+        log = []
+        for sub in self.getSubTrees(subtrees):
+            try: log.append((sub,sub.upload(force=force)))
+            except KeyboardInterrupt as ki: raise ki
+            except: log.append((sub,_sup.error()))
+        return log
 
 class SubTree(_mds.TreeNode):
     def __init__(self, subtree, T0=None, T1=None, prefix=''):
@@ -106,18 +120,24 @@ class SubTree(_mds.TreeNode):
         self.T1 = _sup.getTiming(self.tree.shot, 1)[0] if T1 is None else _base.Time(T1)
         self.prefix = prefix;
 
-    def upload(self, force=False):
-        log = []
-        for sec in self.getSections():
-            log.append(sec.upload(force=force))
-        return log
-
     def getSections(self):
         secs = []
         data = self.DATA
         for sec in data.getDescendants():
             secs.append(Section(sec, T0=self.T0, T1=self.T1, prefix=self.prefix))
         return secs
+
+    def getDevices(self, subtrees=_subtrees):
+        devs = []
+        for section in self.getSections():
+            devs+= section.getDevices()
+        return devs
+
+    def upload(self, force=False):
+        log = []
+        for sec in self.getSections():
+            log.append(sec.upload(force=force))
+        return log
 
 class Section(_mds.TreeNode):
     def __init__(self, section, T0=None, T1=None,prefix=''):
@@ -133,6 +153,29 @@ class Section(_mds.TreeNode):
         self.T1 = _sup.getTiming(self.tree.shot, 1)[0] if T1 is None else _base.Time(T1)
         self.address = _base.Path(_MDS_shotrt)
         self.address.streamgroup = prefix + self.kks.node_name.upper() + '_'+getDataName(section)
+
+    def getDevices(self):
+        HW = self.kks.HARDWARE
+        if HW.getNumDescendants()==0: return
+        devices = []
+        for devnid,channels in self.channeldict.items():
+            if len(channels)==0: continue
+            devices.append(Device(devnid,channels,self))
+        return devices
+
+    def upload(self,force=False):
+        print(self.tree,self,self.T0)
+        Tx = self.CFGLogUpto()
+        if Tx<self.T0 or force:
+            logs = self.uploadDevices(force=force)
+            if Tx<self.T0:
+                logc = self.writeCFGlog()
+            else:
+                logc = 'cfglog already written - forced'
+            self.log={'logs': logs, "logc": logc}
+        else:
+            self.log = 'cfglog already written - skipped'
+        return self.log
 
     def _getKksLog(self):
         """generates the base cfglog of a kks subtree called by uploadShot"""
@@ -156,28 +199,14 @@ class Section(_mds.TreeNode):
     def CFGLogUpto(self):
         return checkLogUpto(self.address.cfglog,self.T0)
 
-    def writeCFGlog(self,Tx=None):
-        if Tx is None: Tx = self.CFGLogUpto()
-        if Tx<0 or Tx!=self.T0-1:
-            try:
-                if _sup.debuglevel>=3: print('write_cfglog',self.address.cfglog,self.cfglog)
-                return _if.write_logurl(self.address.cfglog, self.cfglog, self.T0, Tx)
-            except KeyboardInterrupt as ki: raise ki
-            except Exception as exc:
-                print(exc)
-                return exc
-        return 'not written, force=True'
-
-    def upload(self,force=False):
-        print(self.tree,self,self.T0)
-        Tx = self.CFGLogUpto()
-        if Tx<self.T0 or force:
-            logs = self.uploadDevices(force=force)
-            logc = self.writeCFGlog()
-            self.log={'logs': logs, "logc": logc}
-        else:
-            self.log = 'cfglog already written: skip'
-        return self.log
+    def writeCFGlog(self):
+        try:
+            if _sup.debuglevel>=3: print('write_cfglog',self.address.cfglog,self.cfglog)
+            return _if.write_logurl(self.address.cfglog, self.cfglog, self.T0)
+        except KeyboardInterrupt as ki: raise ki
+        except Exception as exc:
+            print(exc)
+            return exc
 
     def uploadDevices(self,force=False):
         """generates the parlog for a section under .DATA and upload the data"""
@@ -206,7 +235,8 @@ class Section(_mds.TreeNode):
                         desc = {}
                         if signal.getNumDescendants()>0: desc = _sup.treeToDict(signal, desc, _exclude,'')
                         desc["name"] = '_'.join(nameList)
-                        nid = signal.record.nid
+                        rec = signal.record
+                        nid = extractNid(rec)
                         signaldict[nid] = desc
                     except AttributeError as exc:
                         print('_getSignalDict',exc,signal.record)
@@ -236,15 +266,6 @@ class Section(_mds.TreeNode):
         return self._channeldict
     channeldict = property(_getChannelDict)
 
-    def getDevices(self):
-        HW = self.kks.HARDWARE
-        if HW.getNumDescendants()==0: return
-        devices = []
-        for devnid,channels in self.channeldict.items():
-            if len(channels)==0: continue
-            devices.append(Device(devnid,channels,self))
-        return devices
-
 class Device(_mds.TreeNode):
     def __init__(self,devnid,channels,section):
         super(Device,self).__init__(devnid,section.tree)
@@ -263,7 +284,6 @@ class Device(_mds.TreeNode):
             scalars,images = self.sortedSignals()
             log['scalars']=self._write_scalars(scalars,Tx,force=force)
             log['images']=self._write_images(images,force=force)
-            print(T0<Tx)
             return log
         return 'parlog exists '+str(Tx)+' : '+str(T0)
 
@@ -271,7 +291,7 @@ class Device(_mds.TreeNode):
         return checkLogUpto(self.address.parlog,self.section.T0)
 
     def sortedSignals(self):
-        if _sup.debuglevel>=2: print('%d signal' % len())
+        if _sup.debuglevel>=2: print('%d signal' % len(self.signals))
         scalar = [[],None,[]]
         images = []
         for i,signal in enumerate(self.signals):
@@ -280,6 +300,12 @@ class Device(_mds.TreeNode):
                 signal = signal.evaluate()
             except _mds.mdsExceptions.TreeNODATA:
                 continue
+            try:
+                units = _base.Units(signal, 1)
+                if units != 'unknown':
+                    self.chandescs[i]["physicalQuantity"]['type'] = units
+            except KeyboardInterrupt as ki: raise ki
+            except: pass
             sigdata = signal.data()
             ndims = len(sigdata.shape)
             sigdimof = (signal.dim_of().data()*1E9).astype('uint64')
@@ -294,7 +320,7 @@ class Device(_mds.TreeNode):
                     if not all(scalar[1]==sigdimof):
                         raise(Exception('dimesions are not equal for all channels'))
             elif ndims>1:
-                images.append((sigdata,sigdimof,self.chanDescs[i]))
+                images.append((sigdata,sigdimof,self.chandescs[i]))
         return scalar,images
 
     def _write_signal(self,Tx=None,force=False):
@@ -336,7 +362,8 @@ class Device(_mds.TreeNode):
                 except:  logp =_sup.error()
             else:
                 logp = "parlog already written - forced"
-        return {'signal':logs,'parlog':logp,"path":self.address.path()}
+            return {'signal':logs,'parlog':logp,"path":self.address.path()}
+        return {'signal':'already there','parlog':'already there',"path":self.address.path()}
 
     def _write_scalars(self, scalars, Tx=None, force=False):
         if Tx is None: Tx = self.PARLogUpto()
@@ -349,31 +376,33 @@ class Device(_mds.TreeNode):
             length= len(dimof)
             idx = 0;logs=[]
             while idx<length:
-                N = 100000 if length-idx>110000 else length-idx
+                N = 1000000 if length-idx>1100000 else length-idx
                 try:
-                    logs.append(_if.write_data(self.address , data[idx:idx+N].T, dimof[idx:idx+N], T0))
+                    logs.append(_if.write_data(self.address, data[idx:idx+N].T, dimof[idx:idx+N], T0))
                     if logs[-1].getcode() >= 400:
                         print(idx,idx+N-1,logs[-1].content)
                 except KeyboardInterrupt as ki: raise ki
                 except: pass
-                idx = idx+N
-                if Tx<T0:
-                    try:    logp = _if.write_logurl(self.address.parlog, self.getMergeDict(scalars[2]), T0)
-                    except KeyboardInterrupt as ki: raise ki
-                    except: logp = _sup.error()
-                else: logp.append("parlog already written")
+                idx += N
+                print(idx)
+            if Tx<T0:
+                try:    logp = _if.write_logurl(self.address.parlog, self.getMergeDict(scalars[2]), T0)
+                except KeyboardInterrupt as ki: raise ki
+                except: logp = _sup.error()
+            else: logp.append("parlog already written")
             return {'signal':logs,'parlog':logp,"path":self.address.path()}
         return {'signal':'already there','parlog':'already there',"path":self.address.path()}
 
     def _write_images(self, images, force=False):
         logs=[];logp=[];paths=[]
         for image in images:
-            imagepath = _base.Path(self.address.path()).setStream(self.address.stream+"_"+image[2].split('_',2)[1]);
+            imagepath = _base.Path(self.address.path())
+            imagepath.stream = self.address.stream+"_"+image[2]['name'].split('_',2)[1];
             T0 = self.section.T0
             Tx = checkLogUpto(imagepath.parlog,T0)
             paths.append(imagepath.path())
             if Tx<T0 or force:
-                data = _np.array(image[0]).T
+                data = _np.array(image[0])
                 dimof = _np.array(image[1])
                 print(data.shape,dimof.shape)
                 if _sup.debuglevel>=3: print('image',imagepath, data, dimof, T0)
@@ -384,7 +413,7 @@ class Device(_mds.TreeNode):
                     try:     logp.append(_if.write_logurl(imagepath.parlog, self.getMergeDict(image[2]), T0))
                     except KeyboardInterrupt as ki: raise ki
                     except:  logp.append(_sup.error())
-                else: logp.append("parlog already written")
+                else: logp.append("parlog already written - forced")
             else:
                 logs.append('already there')
                 logp.append('already there')
@@ -417,10 +446,11 @@ class Device(_mds.TreeNode):
                     chandescs.append(self._chanDesc(signal))
                     signals.append(signal[1])
             exclude = _exclude.copy()
-            exclude['nid'] = [s[0] for s in self.allsignals]
+            exclude['nid'] = [s[1].nid for s in self.allsignals]
+            print(exclude)
             self._chandescs = chandescs
             self._signals = signals
-            self._devicedict = _sup.treeToDict(self,{},_exclude,'')
+            self._devicedict = _sup.treeToDict(self,{},exclude,'')
         return self._devicedict
     devicedict = property(_getDeviceDict)
 
@@ -470,12 +500,6 @@ class Device(_mds.TreeNode):
         chanDesc = _channelDict(signalset[0], nid)
         chanDesc = mergeSignalDict(chanDesc)
         chanDesc = substituteUnits()
-        try:
-            units = _base.Units(signal, 1)
-            if units != 'unknown':
-                chanDesc["physicalQuantity"]['type'] = units
-        except KeyboardInterrupt as ki: raise ki
-        except: pass
         return chanDesc
 
 def getDataName(datanode):
@@ -497,3 +521,13 @@ def checkLogUpto(path,Tfrom):
         return t[0]
     except:
         return 0
+
+def extractNid(obj):
+    if isinstance(obj,(_mds.TreeNode)):
+        if obj.usage == 'SIGNAL':
+            return obj.nid
+    elif isinstance(obj,(_mds.tdibuiltins.EXT_FUNCTION)):
+        for arg in obj.args:
+            nid = extractNid(arg)
+            if nid is not None:
+                return nid

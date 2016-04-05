@@ -10,12 +10,12 @@ import mmap as _mmap
 import json as _json
 import numpy as _np
 import re as _re
+import threading as _th
 try:  # the java interface for the archive
     import archive_java as _aj
     _use_threads  = False
     _defaultCache = False
 except:
-    import threading as _th
     _aj = None
     _use_threads  = True
     _defaultCache = True
@@ -34,6 +34,33 @@ class URLException(Exception):
     def __init__(self,value):
         return value
 
+def dump(name,json):
+    with file(name,'w') as f:
+        _json.dump(json,f)
+
+class Worker(_th.Thread):
+    worker = None
+    def __init__(self):
+        self._queue = _ver.Queue(1)
+        self.start()
+    def run(self):
+        while self._queue.empty():
+            pass
+        try:
+            while not self._queue.empty():
+                result,method,args,kval = self._queue.get()
+                result['result'] = method(*args,**kval)
+        except Exception as exc:
+            Worker.worker = exc
+        Worker.worker = None
+    def async(method,*args,**kval):
+        result = {'method':method}
+        if isinstance(Worker.worker,(Exception)):
+            raise Worker.worker
+        if Worker.worker is None:
+            Worker.worker = Worker()
+        Worker.worker._queue.put((result,method,args,kval))
+        return result
 
 def write_logurl(url, parms, Tfrom, Tupto=-1):
     if url.endswith('CFGLOG'):
@@ -55,7 +82,6 @@ def write_logurl(url, parms, Tfrom, Tupto=-1):
                }
 
 
-
 def write_data(path, data, dimof, t0=0, isonechannel=False):
     # path=Path, data=numpy.array, dimof=numpy.array
     if not isinstance(data, _np.ndarray):
@@ -75,46 +101,69 @@ def write_data(path, data, dimof, t0=0, isonechannel=False):
         return(_write_scalar(_base.Path(path), data, dimof))
 
 
+def mapDType(data):
+    dtype = str(data.dtype)
+    if dtype in ['bool','int8','uint8','int16','uint16']: return 'short'
+    if dtype in ['int32','uint32']:                       return 'int'
+    if dtype in ['int64','uint64']:                       return 'long'
+    if dtype in ['float16','float32']:                    return 'float'
+    else:                                                 return 'double'
+
 def _write_scalar(path, data, dimof):
     # path=Path, data=numpy.array, dimof=list of long
-    dtype = str(data.dtype)
-    if dtype in ['bool','int8','uint8','int16','uint16']:
-        datatype='int'  # 'short'
-    elif dtype in ['int32','uint32']:
-        datatype='int'
-    elif dtype in ['int64','uint64']:
-        datatype='long'
-    else:
-        datatype='float'
-    jdict = {'values': data.tolist(), 'datatype':datatype, 'dimensions': dimof}
+    jdict = {'values': data.tolist(), 'datatype':mapDType(data), 'dimensions': dimof}
     return(post(path.url_datastream(), json=jdict))
 
+def _write_scalar_async(path, data, dimof):
+    # path=Path, data=numpy.array, dimof=list of long
+    data = _json.dumps({'values': data.tolist(), 'datatype':mapDType(data), 'dimensions': dimof})
+    res = Worker.async(post, path.url_datastream(), data=data)
+    return res
+
+def writeH5(path,data,dimof):
+    stream = path.stream
+    dtype = str(data.dtype)
+    tmpfile = _ver.tmpdir+"archive_"+stream+'_'+str(dimof[0])+".h5"
+    if data.ndim<3:
+        data = data.reshape(list(data.shape)+[1])
+    with _h5.File(tmpfile, 'w') as f:
+        g = f.create_group('data')
+        g.create_dataset('timestamps', data=list(dimof), dtype='int64',
+                         compression="gzip")
+        g.create_dataset(stream, data=data.T.tolist(), dtype=dtype,
+                         compression="gzip")
+    return tmpfile
+
+def uploadH5(path, h5file, delete=False):
+    # path=Path, h5file=h5-file
+    stream = path.stream
+    from time import time
+    try:
+        t = time()
+        headers = {'Content-Type': 'application/x-hdf'}
+        link = path.url_streamgroup()+'?dataPath=data/'+stream+'&timePath=data/timestamps'
+        with open(h5file, 'rb') as f:
+            result = post(link, headers=headers, data=f)
+        print(time()-t)
+    finally:
+        if delete:
+            try:
+                _os.remove(h5file)
+            except KeyboardInterrupt as ki: raise ki
+            except:
+                print('could not delete file "%s"' % h5file)
+                pass
+    return result
 
 def _write_vector(path, data, dimof):
     # path=Path, data=numpy.array, dimof=list of long
-    dtype = str(data.dtype)
-    if data.ndim<3:
-        data = data.reshape(list(data.shape)+[1])
-    stream = path.stream
-    tmpfile = _ver.tmpdir+"archive_"+stream+'_'+str(dimof[0])+".h5"
-    try:
-        with _h5.File(tmpfile, 'w') as f:
-            g = f.create_group('data')
-            g.create_dataset(stream, data=data.transpose(*list(range(1,data.ndim)+[0])).tolist(), dtype=dtype,
-                             compression="gzip")
-            g.create_dataset('timestamps', data=list(dimof), dtype='int64',
-                             compression="gzip")
-        headers = {'Content-Type': 'application/x-hdf'}
-        link = path.url_streamgroup()+'?dataPath=data/'+stream+'&timePath=data/timestamps'
-        with open(tmpfile, 'rb') as f:
-            return(post(link, headers=headers, data=f))
-    finally:
-        try:
-            _os.remove(tmpfile)
-        except KeyboardInterrupt as ki: raise ki
-        except:
-            print('could not delete file "%s"' % tmpfile)
-            pass
+    h5file = writeH5(path, data, dimof)
+    uploadH5(path, h5file, True)
+
+def _write_vector_async(path, data, dimof):
+    # path=Path, data=numpy.array, dimof=list of long
+    h5file = writeH5(path, data, dimof)
+    return Worker.async(uploadH5, path, h5file, True)
 
 def read_signal(path, time, **kwargs):
     path = _base.Path(path)
@@ -297,12 +346,14 @@ def post(url, headers={}, data=None, json=None):
         headers['content-type'] = 'application/json'
     if isinstance(data, (_ver.file)):
         _sup.debug(data.name)
-        data = _mmap.mmap(data.fileno(), 0, access=_mmap.ACCESS_READ)
+        data = _mmap.mmap(data.fileno(),0,access=_mmap.ACCESS_READ)
     else:
         _sup.debug(data,5)
         data = _ver.tobytes(data)
     _sup.debug(url)
     result = get(url, headers, data)
+    #if json is not None:
+    #   _json.dump(json,data)
     if isinstance(data,(_mmap.mmap)):
         data.close()
     return result
@@ -313,7 +364,7 @@ def get(url, headers={}, *data, **kv):
     for k, v in headers.items():
         req.add_header(k, v)
     try:
-        handler = _ver.urllib.urlopen(req, *data)
+        handler = _ver.urllib.urlopen(req, *data, **kv)
     except _ver.urllib.HTTPError as err:
         _sup.debug(err.errno)
         _sup.debug(err.reason,2)
