@@ -291,7 +291,7 @@ class Device(_mds.TreeNode):
         return checkLogUpto(self.address.parlog,self.section.T0)
 
     def sortedSignals(self):
-        if _sup.debuglevel>=2: print('%d signal' % len(self.signals))
+        if _sup.debuglevel>=2: print('%d signals' % len(self.signals))
         scalar = [[],None,[]]
         images = []
         for i,signal in enumerate(self.signals):
@@ -317,6 +317,7 @@ class Device(_mds.TreeNode):
                 else:
                     if not (scalar[0][0].dtype==scalar[0][-1].dtype):
                         raise(Exception('data types are not equal for all channels'))
+                    # if not (len(scalar[1])==len(sigdimof) and scalar[1][0]==sigdimof[0] and scalar[1][-1]==sigdimof[-1]):
                     if not all(scalar[1]==sigdimof):
                         raise(Exception('dimesions are not equal for all channels'))
             elif ndims>1:
@@ -352,7 +353,7 @@ class Device(_mds.TreeNode):
                 except: return {'signal',_sup.error()}
                 dimof = signal.dim_of().data()
                 try:
-                    logs = _if.write_data(self.address, data, dimof, T0, True)
+                    logs = _if.write_data_async(self.address, data, dimof, T0, True)
                 except _ver.urllib.HTTPError as exc:
                     if exc.getcode() >= 400: print(0,exc.reason)
                     logs = exc
@@ -378,7 +379,7 @@ class Device(_mds.TreeNode):
             while idx<length:
                 N = 1000000 if length-idx>1100000 else length-idx
                 try:
-                    logs.append(_if.write_data(self.address, data[idx:idx+N].T, dimof[idx:idx+N], T0))
+                    logs.append(_if.write_data_async(self.address, data[idx:idx+N].T, dimof[idx:idx+N], T0))
                     if logs[-1].getcode() >= 400:
                         print(idx,idx+N-1,logs[-1].content)
                 except KeyboardInterrupt as ki: raise ki
@@ -406,7 +407,7 @@ class Device(_mds.TreeNode):
                 dimof = _np.array(image[1])
                 print(data.shape,dimof.shape)
                 if _sup.debuglevel>=3: print('image',imagepath, data, dimof, T0)
-                try:     logs.append(_if.write_data(imagepath, data, dimof, T0))
+                try:     logs.append(_if.write_data_async(imagepath, data, dimof, T0))
                 except KeyboardInterrupt as ki: raise ki
                 except Exception as exc:  logs.append(exc)
                 if Tx<T0:
@@ -447,7 +448,6 @@ class Device(_mds.TreeNode):
                     signals.append(signal[1])
             exclude = _exclude.copy()
             exclude['nid'] = [s[1].nid for s in self.allsignals]
-            print(exclude)
             self._chandescs = chandescs
             self._signals = signals
             self._devicedict = _sup.treeToDict(self,{},exclude,'')

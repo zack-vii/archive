@@ -11,6 +11,7 @@ import json as _json
 import numpy as _np
 import re as _re
 import threading as _th
+import time as _time
 try:  # the java interface for the archive
     import archive_java as _aj
     _use_threads  = False
@@ -41,26 +42,30 @@ def dump(name,json):
 class Worker(_th.Thread):
     worker = None
     def __init__(self):
+        super(Worker,self).__init__()
         self._queue = _ver.Queue(1)
         self.start()
     def run(self):
         while self._queue.empty():
-            pass
+            _time.sleep(.001)
         try:
             while not self._queue.empty():
-                result,method,args,kval = self._queue.get()
-                result['result'] = method(*args,**kval)
+                result,method,vargs,kval = self._queue.get()
+                result['result'] = method(*vargs,**kval)
         except Exception as exc:
+            result['result'] = exc
             Worker.worker = exc
         Worker.worker = None
-    def async(method,*args,**kval):
-        result = {'method':method}
-        if isinstance(Worker.worker,(Exception)):
-            raise Worker.worker
-        if Worker.worker is None:
-            Worker.worker = Worker()
-        Worker.worker._queue.put((result,method,args,kval))
-        return result
+        print(result)
+
+def Async(method,*vargs,**kval):
+    result = {'method':method}
+    if isinstance(Worker.worker,(Exception)):
+        raise Worker.worker
+    if Worker.worker is None:
+        Worker.worker = Worker()
+    Worker.worker._queue.put((result,method,vargs,kval))
+    return result
 
 def write_logurl(url, parms, Tfrom, Tupto=-1):
     if url.endswith('CFGLOG'):
@@ -100,6 +105,24 @@ def write_data(path, data, dimof, t0=0, isonechannel=False):
     else:
         return(_write_scalar(_base.Path(path), data, dimof))
 
+def write_data_async(path, data, dimof, t0=0, isonechannel=False):
+    # path=Path, data=numpy.array, dimof=numpy.array
+    if not isinstance(data, _np.ndarray):
+        raise Exception('write_data: data must be numpy.ndarray')
+    dimof = _np.array(dimof)
+    if dimof.dtype in ['float32','float64']:
+        dimof = (dimof*1e9).astype('uint64')
+    dimof = dimof + t0
+    if dimof.ndim == 0:  # we need to add one level
+        dimof = [dimof.tolist()]
+        data  = data.reshape(list(data.shape)+[1])
+    else:
+        dimof = dimof.tolist()
+    if data.ndim > (1 if isonechannel else 2):
+        return(_write_vector_async(_base.Path(path), data, dimof))
+    else:
+        return(_write_scalar_async(_base.Path(path), data, dimof))
+
 
 def mapDType(data):
     dtype = str(data.dtype)
@@ -117,7 +140,7 @@ def _write_scalar(path, data, dimof):
 def _write_scalar_async(path, data, dimof):
     # path=Path, data=numpy.array, dimof=list of long
     data = _json.dumps({'values': data.tolist(), 'datatype':mapDType(data), 'dimensions': dimof})
-    res = Worker.async(post, path.url_datastream(), data=data)
+    res = Async(post, path.url_datastream(), data=data)
     return res
 
 def writeH5(path,data,dimof):
@@ -158,12 +181,12 @@ def uploadH5(path, h5file, delete=False):
 def _write_vector(path, data, dimof):
     # path=Path, data=numpy.array, dimof=list of long
     h5file = writeH5(path, data, dimof)
-    uploadH5(path, h5file, True)
+    return uploadH5(path, h5file, True)
 
 def _write_vector_async(path, data, dimof):
     # path=Path, data=numpy.array, dimof=list of long
     h5file = writeH5(path, data, dimof)
-    return Worker.async(uploadH5, path, h5file, True)
+    return Async(uploadH5, path, h5file, True)
 
 def read_signal(path, time, **kwargs):
     path = _base.Path(path)
