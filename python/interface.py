@@ -74,7 +74,7 @@ def write_data_async(name,path, data, dimof, t0=0, one=False):
     if not isinstance(data, _np.ndarray):
         raise Exception('write_data: data must be numpy.ndarray')
     dimof = _np.array(dimof)
-    if dimof.dtype in ['float32','float64']:
+    if dimof.dtype in ['float64','float32','float16']:
         dimof = (dimof*1E9+t0).astype('uint64')
     if dimof.ndim == 0:  # we need to add one level
         dimof = [dimof.tolist()]

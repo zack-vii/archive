@@ -7,7 +7,7 @@ from . import version as _ver
 _workers = {}
 
 def process(on,task,res):
-    _sup.debug('started',0)
+    _sup.debug('started')
     while on.value or task.poll():
       if task.poll():
         try:
@@ -26,7 +26,7 @@ def process(on,task,res):
             _sup.error()
       else:
           _time.sleep(.1)
-    _sup.debug('done!',0)
+    _sup.debug('done!')
     task.close()
 
 class Worker(_th.Thread):
