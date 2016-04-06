@@ -8,11 +8,12 @@ lev  0       1        2       3       4      5      6      7
 import MDSplus as _mds
 import numpy as _np
 import re as _re
-from archive import base as _base
-from archive import diff as _diff
-from archive import interface as _if
-from archive import support as _sup
-from archive import version as _ver
+from . import base as _base
+from . import diff as _diff
+from . import interface as _if
+from . import support as _sup
+from . import version as _ver
+from . import process as _prc
 _MDS_shotdb = '/Test/raw/W7X/MDSplus/Shots'  # raw/W7X/MDSplus/Shots
 _MDS_shotrt = '/Test/raw/W7X'  # raw/W7X
 _treename  = 'W7X'
@@ -74,8 +75,11 @@ def uploadShot(shot, subtrees=_subtrees, T0=None, T1=None, force=False, prefix='
     return S.upload(subtrees, force=force)
 
 class Shot(_mds.Tree):
+    _index=0
     def __init__(self, shot, T0=None, T1=None, prefix=''):
         super(Shot,self).__init__(_treename, shot, "Readonly")
+        self._name = 'Shot-'+str(Shot._index)
+        Shot._index+=1
         self.T0 = _sup.getTiming(shot, 0)[0] if T0 is None else _base.Time(T0)
         self.T1 = _sup.getTiming(shot, 1)[0] if T1 is None else _base.Time(T1)
         self.prefix = prefix;
@@ -102,20 +106,28 @@ class Shot(_mds.Tree):
             devs+= subtree.getDevices()
         return devs
 
-    def upload(self, subtrees=_subtrees, force=False):
+    def upload(self, subtrees=_subtrees, force=False, join=None):
+        if join is None: join = self._name
         log = []
         for sub in self.getSubTrees(subtrees):
-            try: log.append((sub,sub.upload(force=force)))
+            try: log.append((sub,sub.upload(force=force,join=join)))
             except KeyboardInterrupt as ki: raise ki
             except: log.append((sub,_sup.error()))
+        if join==self._name: self.join()
         return log
 
+    def join(self):
+        _prc.join(self._name)
+
 class SubTree(_mds.TreeNode):
+    _index=0
     def __init__(self, subtree, T0=None, T1=None, prefix=''):
         if isinstance(subtree,tuple):
             super(SubTree,self).__init__(subtree[1].getNode("\\%s::TOP" % subtree[0]).nid,subtree[1])
         else:
             super(SubTree,self).__init__(subtree.nid,subtree.tree)
+        self.name = 'SubTree-'+str(SubTree._index)
+        SubTree._index+=1
         self.T0 = _sup.getTiming(self.tree.shot, 0)[0] if T0 is None else _base.Time(T0)
         self.T1 = _sup.getTiming(self.tree.shot, 1)[0] if T1 is None else _base.Time(T1)
         self.prefix = prefix;
@@ -133,13 +145,19 @@ class SubTree(_mds.TreeNode):
             devs+= section.getDevices()
         return devs
 
-    def upload(self, force=False):
+    def upload(self, force=False,join=None):
+        if join is None: join = self.name
         log = []
         for sec in self.getSections():
-            log.append(sec.upload(force=force))
+            log.append(sec.upload(force=force,join=join))
+        if join==self.name: self.join()
         return log
 
+    def join(self):
+        _prc.join(self.name)
+
 class Section(_mds.TreeNode):
+    _index=0
     def __init__(self, section, T0=None, T1=None,prefix=''):
         if isinstance(section,(tuple)):
             tree = _mds.Tree(_treename, section[0], "Readonly")
@@ -149,6 +167,8 @@ class Section(_mds.TreeNode):
         else:
             super(Section,self).__init__(section.nid,section.tree)
             self.kks = self.getParent().getParent()
+        self.name = 'Section-'+str(Section._index)
+        Section._index+=1
         self.T0 = _sup.getTiming(self.tree.shot, 0)[0] if T0 is None else _base.Time(T0)
         self.T1 = _sup.getTiming(self.tree.shot, 1)[0] if T1 is None else _base.Time(T1)
         self.address = _base.Path(_MDS_shotrt)
@@ -163,19 +183,40 @@ class Section(_mds.TreeNode):
             devices.append(Device(devnid,channels,self))
         return devices
 
-    def upload(self,force=False):
+    def upload(self,force=False,join=None):
+        if join is None: join = self.name
         print(self.tree,self,self.T0)
-        Tx = self.CFGLogUpto()
+        Tx = self.CfgLogUpto()
         if Tx<self.T0 or force:
-            logs = self.uploadDevices(force=force)
-            if Tx<self.T0:
-                logc = self.writeCFGlog()
-            else:
-                logc = 'cfglog already written - forced'
-            self.log={'logs': logs, "logc": logc}
+            logs = self.uploadDevices(force=force,join=join)
+            logc = self.writeCfgLog(Tx,join)
+            log={'logs': logs, "logc": logc}
         else:
-            self.log = 'cfglog already written - skipped'
-        return self.log
+            log = 'cfglog already written - skipped'
+        if join==self.name: self.join()
+        return log
+
+    def uploadDevices(self,force=False,join=None):
+        """generates the parlog for a section under .DATA and upload the data"""
+        """signalDict:   (nid of channel) :{dict of signal}"""
+        """channelLists: (nid of device):[nid of channels]"""
+        if join is None: join = self.name
+        log = []
+        HW = self.kks.HARDWARE
+        if HW.getNumDescendants()==0: return
+        for devnid,channels in self.channeldict.items():
+            device = Device(devnid,channels,self)
+            if len(channels)==0:
+                log.append((device,"no channels"))
+                continue
+            try:   log.append((device,device.upload(force=force,join=join)))
+            except KeyboardInterrupt as ki: raise ki
+            except:log.append((device,_sup.error()))
+        if join==self.name: self.join()
+        return log
+
+    def join(self):
+        _prc.join(self.name)
 
     def _getKksLog(self):
         """generates the base cfglog of a kks subtree called by uploadShot"""
@@ -196,34 +237,24 @@ class Section(_mds.TreeNode):
         return self._cfglog
     cfglog = property(_getCfgLog)
 
-    def CFGLogUpto(self):
+    def CfgLogUpto(self):
         return checkLogUpto(self.address.cfglog,self.T0)
 
-    def writeCFGlog(self):
-        try:
-            if _sup.debuglevel>=3: print('write_cfglog',self.address.cfglog,self.cfglog)
-            return _if.write_logurl(self.address.cfglog, self.cfglog, self.T0)
-        except KeyboardInterrupt as ki: raise ki
-        except Exception as exc:
-            print(exc)
-            return exc
-
-    def uploadDevices(self,force=False):
-        """generates the parlog for a section under .DATA and upload the data"""
-        """signalDict:   (nid of channel) :{dict of signal}"""
-        """channelLists: (nid of device):[nid of channels]"""
-        log = []
-        HW = self.kks.HARDWARE
-        if HW.getNumDescendants()==0: return
-        for devnid,channels in self.channeldict.items():
-            device = Device(devnid,channels,self)
-            if len(channels)==0:
-                log.append((device,"no channels"))
-                continue
-            try:   log.append((device,device.upload(force=force)))
+    def writeCfgLog(self,Tx=None,join=None):
+        if Tx is None: Tx = self.CfgLogUpto()
+        if Tx<self.T0:
+            if _sup.debuglevel>=3: print(('write_cfglog',self.address.cfglog,self.cfglog))
+            try:
+                if join is None:
+                    return _if.write_logurl(self.address.cfglog, self.cfglog, self.T0)
+                else:
+                    return _prc.Worker(join).put(_if.write_logurl,self.address.cfglog, self.cfglog, self.T0)
             except KeyboardInterrupt as ki: raise ki
-            except:log.append((device,_sup.error()))
-        return log
+            except Exception as exc:
+                print(exc)
+                return exc
+        else:
+            return 'cfglog already written'
 
     def _getSignalDict(self):
         if not self.__dict__.has_key('_signaldict'):
@@ -267,27 +298,36 @@ class Section(_mds.TreeNode):
     channeldict = property(_getChannelDict)
 
 class Device(_mds.TreeNode):
+    _index=0
     def __init__(self,devnid,channels,section):
         super(Device,self).__init__(devnid,section.tree)
+        self.name = 'Device-'+str(Device._index)
+        Device._index+=1
         self.address = _base.Path(section.address.path())
         self.address.stream = getDataName(self)
         self.channels = channels
         self.section = section
 
-    def upload(self, force=False):
-        Tx = self.PARLogUpto()
+    def upload(self, force=False,join=None):
+        if join is None: join = self.name
+        Tx = self.ParLogUpto()
         T0 = self.section.T0
         if Tx<T0 or force:
             log = {}
             if len(self.signals)==1:
-                return self._write_signal(Tx,force=force)
+                return self._write_signal(Tx,force=force,join=join)
             scalars,images = self.sortedSignals()
-            log['scalars']=self._write_scalars(scalars,Tx,force=force)
-            log['images']=self._write_images(images,force=force)
-            return log
-        return 'parlog exists '+str(Tx)+' : '+str(T0)
+            log['scalars']=self._write_scalars(scalars,Tx,force=force,join=join)
+            log['images']=self._write_images(images,force=force,join=join)
+        else:
+            log = 'parlog exists '+str(Tx)+' : '+str(T0)
+        if join==self.name: self.join()
+        return log
 
-    def PARLogUpto(self):
+    def join(self):
+        _prc.join(self.name)
+
+    def ParLogUpto(self):
         return checkLogUpto(self.address.parlog,self.section.T0)
 
     def sortedSignals(self):
@@ -295,7 +335,7 @@ class Device(_mds.TreeNode):
         scalar = [[],None,[]]
         images = []
         for i,signal in enumerate(self.signals):
-            if _sup.debuglevel>=3: print('signal',signal)
+            if _sup.debuglevel>=3: print('signal: %s' % str(signal))
             try:
                 signal = signal.evaluate()
             except _mds.mdsExceptions.TreeNODATA:
@@ -308,7 +348,7 @@ class Device(_mds.TreeNode):
             except: pass
             sigdata = signal.data()
             ndims = len(sigdata.shape)
-            sigdimof = (signal.dim_of().data()*1E9).astype('uint64')
+            sigdimof = (signal.dim_of().data()*1E9+self.section.T0).astype('uint64')
             if ndims==1:
                 scalar[0].append(sigdata)
                 scalar[2].append(self.chandescs[i])
@@ -324,9 +364,25 @@ class Device(_mds.TreeNode):
                 images.append((sigdata,sigdimof,self.chandescs[i]))
         return scalar,images
 
-    def _write_signal(self,Tx=None,force=False):
+    def writeParLog(self,path,Tx=None,join=None):
+        if Tx is None: Tx = self.ParLogUpto()
+        T0 = self.section.T0
+        if Tx<T0:
+            parlog = self.getMergeDict(self.chandescs)
+            if _sup.debuglevel>=4: print(('write_parlog',path.parlog,parlog))
+            try:
+                if join is None:
+                    return _if.write_logurl(path.parlog, parlog, T0)
+                else:
+                    return _prc.Worker(join).put(_if.write_logurl,path.parlog, parlog, T0)
+            except KeyboardInterrupt as ki: raise ki
+            except:  return _sup.error()
+        return "parlog already written"
+
+
+    def _write_signal(self,Tx=None,force=False,join=None):
         """prepares signal and uploads to webarchive"""
-        if Tx is None: Tx = self.PARLogUpto()
+        if Tx is None: Tx = self.ParLogUpto()
         T0 = self.section.T0
         if Tx<T0 or force:
             signal = self.signals[0]
@@ -339,9 +395,9 @@ class Device(_mds.TreeNode):
                     seg = signal.getSegment(segment)
                     data = seg.data()
                     dimof = seg.dim_of().data()
-                    if _sup.debuglevel>=2: print('image',self.address.path(), data, dimof, T0)
+                    if _sup.debuglevel>=2: print(('image',self.address, data.shape, data.dtype, dimof.shape, dimof[0], T0))
                     try:
-                        log = _if.write_data(self.address, data, dimof, T0, True)
+                        log = _if.write_data_async(join,self.address, data, dimof, one=True)
                         if log.getcode() >= 400:   print(segment,log.content)
                     except KeyboardInterrupt as ki: raise ki
                     except:log = _sup.error()
@@ -353,21 +409,17 @@ class Device(_mds.TreeNode):
                 except: return {'signal',_sup.error()}
                 dimof = signal.dim_of().data()
                 try:
-                    logs = _if.write_data_async(self.address, data, dimof, T0, True)
+                    logs = _if.write_data_async(join,self.address, data, dimof, one=True)
                 except _ver.urllib.HTTPError as exc:
                     if exc.getcode() >= 400: print(0,exc.reason)
                     logs = exc
-            if Tx<T0:
-                try:     logp = _if.write_logurl(self.address.parlog, self.getMergeDict(self.chandescs), T0)
-                except KeyboardInterrupt as ki: raise ki
-                except:  logp =_sup.error()
-            else:
-                logp = "parlog already written - forced"
+            logp = self.writeParLog(self.address,Tx,join)
+            if join is None: _prc.join()
             return {'signal':logs,'parlog':logp,"path":self.address.path()}
         return {'signal':'already there','parlog':'already there',"path":self.address.path()}
 
-    def _write_scalars(self, scalars, Tx=None, force=False):
-        if Tx is None: Tx = self.PARLogUpto()
+    def _write_scalars(self, scalars, Tx=None, force=False, join=None):
+        if Tx is None: Tx = self.ParLogUpto()
         T0 = self.section.T0
         if scalars[1] is None:
             return  {'signal':'empty','parlog':'empty',"path":self.address.path()}
@@ -379,22 +431,19 @@ class Device(_mds.TreeNode):
             while idx<length:
                 N = 1000000 if length-idx>1100000 else length-idx
                 try:
-                    logs.append(_if.write_data_async(self.address, data[idx:idx+N].T, dimof[idx:idx+N], T0))
+                    logs.append(_if.write_data_async(join,self.address, data[idx:idx+N].T, dimof[idx:idx+N]))
                     if logs[-1].getcode() >= 400:
                         print(idx,idx+N-1,logs[-1].content)
                 except KeyboardInterrupt as ki: raise ki
                 except: pass
                 idx += N
                 print(idx)
-            if Tx<T0:
-                try:    logp = _if.write_logurl(self.address.parlog, self.getMergeDict(scalars[2]), T0)
-                except KeyboardInterrupt as ki: raise ki
-                except: logp = _sup.error()
-            else: logp.append("parlog already written")
+            logp = self.writeParLog(self.address,Tx,join)
+            if join is None: _prc.join()
             return {'signal':logs,'parlog':logp,"path":self.address.path()}
         return {'signal':'already there','parlog':'already there',"path":self.address.path()}
 
-    def _write_images(self, images, force=False):
+    def _write_images(self, images, force=False, join=None):
         logs=[];logp=[];paths=[]
         for image in images:
             imagepath = _base.Path(self.address.path())
@@ -406,18 +455,15 @@ class Device(_mds.TreeNode):
                 data = _np.array(image[0])
                 dimof = _np.array(image[1])
                 print(data.shape,dimof.shape)
-                if _sup.debuglevel>=3: print('image',imagepath, data, dimof, T0)
-                try:     logs.append(_if.write_data_async(imagepath, data, dimof, T0))
+                if _sup.debuglevel>=3: print(('image',imagepath, data.shape, data.dtype, dimof.shape, dimof[0], T0))
+                try:     logs.append(_if.write_data_async(join,imagepath, data, dimof))
                 except KeyboardInterrupt as ki: raise ki
                 except Exception as exc:  logs.append(exc)
-                if Tx<T0:
-                    try:     logp.append(_if.write_logurl(imagepath.parlog, self.getMergeDict(image[2]), T0))
-                    except KeyboardInterrupt as ki: raise ki
-                    except:  logp.append(_sup.error())
-                else: logp.append("parlog already written - forced")
+                logp.append(self.writeParLog(imagepath,Tx,join))
             else:
                 logs.append('already there')
                 logp.append('already there')
+        if join is None: _prc.join()
         return {'signal':logs,'parlog':logp,"path":paths}
 
     def _getAllSignals(self):

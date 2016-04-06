@@ -24,7 +24,10 @@ def version():
 def nowstr():
     return _time.strftime('%Y/%m/%d-%H:%M:%S')
 
-
+def requeststr(result):
+    if isinstance(result,_ver.urllib.addinfourl):
+        result = 'REST(%d, %s): %s' % (result.code,result.msg,result.read())
+    return result
 def sampleImage(imgfile='image.jpg'):
     from scipy.misc import imread
     im = imread(imgfile).astype('int32')

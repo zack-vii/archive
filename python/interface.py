@@ -11,7 +11,6 @@ import json as _json
 import numpy as _np
 import re as _re
 import threading as _th
-import time as _time
 try:  # the java interface for the archive
     import archive_java as _aj
     _use_threads  = False
@@ -30,42 +29,11 @@ from . import cache as _cache
 from . import support as _sup
 from . import png as _png
 from . import version as _ver
+from . import process as _prc
 
 class URLException(Exception):
     def __init__(self,value):
         return value
-
-def dump(name,json):
-    with file(name,'w') as f:
-        _json.dump(json,f)
-
-class Worker(_th.Thread):
-    worker = None
-    def __init__(self):
-        super(Worker,self).__init__()
-        self._queue = _ver.Queue(1)
-        self.start()
-    def run(self):
-        while self._queue.empty():
-            _time.sleep(.001)
-        try:
-            while not self._queue.empty():
-                result,method,vargs,kval = self._queue.get()
-                result['result'] = method(*vargs,**kval)
-        except Exception as exc:
-            result['result'] = exc
-            Worker.worker = exc
-        Worker.worker = None
-        print(result)
-
-def Async(method,*vargs,**kval):
-    result = {'method':method}
-    if isinstance(Worker.worker,(Exception)):
-        raise Worker.worker
-    if Worker.worker is None:
-        Worker.worker = Worker()
-    Worker.worker._queue.put((result,method,vargs,kval))
-    return result
 
 def write_logurl(url, parms, Tfrom, Tupto=-1):
     if url.endswith('CFGLOG'):
@@ -79,49 +47,44 @@ def write_logurl(url, parms, Tfrom, Tupto=-1):
            'dimensions': [max(0,_base.Time(Tfrom).ns),_base.Time(Tupto).ns]
            }
     try:
-        return(post(url, json=log))
-    except _ver.urllib.HTTPError:
-        log = {'label' : label,
-               'values': [parms],
-               'dimensions': [max(0,_base.Time(Tfrom).ns),_base.Time(Tupto).ns]
-               }
+        result = post(url, json=log)
+    except _ver.urllib.HTTPError as result:
+        _sup.debug(result)
+    return _sup.requeststr(result)
 
-
-def write_data(path, data, dimof, t0=0, isonechannel=False):
+def write_data(path, data, dimof, t0=0, one=False):
     # path=Path, data=numpy.array, dimof=numpy.array
     if not isinstance(data, _np.ndarray):
         raise Exception('write_data: data must be numpy.ndarray')
     dimof = _np.array(dimof)
     if dimof.dtype in ['float32','float64']:
-        dimof = (dimof*1e9).astype('uint64')
-    dimof = dimof + t0
+        dimof = (dimof*1e9+t0).astype('uint64')
     if dimof.ndim == 0:  # we need to add one level
         dimof = [dimof.tolist()]
         data  = data.reshape(list(data.shape)+[1])
     else:
         dimof = dimof.tolist()
-    if data.ndim > (1 if isonechannel else 2):
+    if data.ndim > (1 if one else 2):
         return(_write_vector(_base.Path(path), data, dimof))
     else:
         return(_write_scalar(_base.Path(path), data, dimof))
 
-def write_data_async(path, data, dimof, t0=0, isonechannel=False):
+def write_data_async(name,path, data, dimof, t0=0, one=False):
     # path=Path, data=numpy.array, dimof=numpy.array
     if not isinstance(data, _np.ndarray):
         raise Exception('write_data: data must be numpy.ndarray')
     dimof = _np.array(dimof)
     if dimof.dtype in ['float32','float64']:
-        dimof = (dimof*1e9).astype('uint64')
-    dimof = dimof + t0
+        dimof = (dimof*1E9+t0).astype('uint64')
     if dimof.ndim == 0:  # we need to add one level
         dimof = [dimof.tolist()]
         data  = data.reshape(list(data.shape)+[1])
     else:
         dimof = dimof.tolist()
-    if data.ndim > (1 if isonechannel else 2):
-        return(_write_vector_async(_base.Path(path), data, dimof))
+    if data.ndim > (1 if one else 2):
+        return(_write_vector_async(name,_base.Path(path), data, dimof))
     else:
-        return(_write_scalar_async(_base.Path(path), data, dimof))
+        return(_write_scalar_async(name,_base.Path(path), data, dimof))
 
 
 def mapDType(data):
@@ -135,12 +98,13 @@ def mapDType(data):
 def _write_scalar(path, data, dimof):
     # path=Path, data=numpy.array, dimof=list of long
     jdict = {'values': data.tolist(), 'datatype':mapDType(data), 'dimensions': dimof}
-    return(post(path.url_datastream(), json=jdict))
+    result = post(path.url_datastream(), json=jdict)
+    return _sup.requeststr(result)
 
-def _write_scalar_async(path, data, dimof):
+def _write_scalar_async(name, path, data, dimof):
     # path=Path, data=numpy.array, dimof=list of long
     data = _json.dumps({'values': data.tolist(), 'datatype':mapDType(data), 'dimensions': dimof})
-    res = Async(post, path.url_datastream(), data=data)
+    res = _prc.Worker(name).put(post, path.url_datastream(), headers={'content-type':'application/json'}, data=data)
     return res
 
 def writeH5(path,data,dimof):
@@ -151,7 +115,7 @@ def writeH5(path,data,dimof):
         data = data.reshape(list(data.shape)+[1])
     with _h5.File(tmpfile, 'w') as f:
         g = f.create_group('data')
-        g.create_dataset('timestamps', data=list(dimof), dtype='int64',
+        g.create_dataset('timestamps', data=list(dimof), dtype='uint64',
                          compression="gzip")
         g.create_dataset(stream, data=data.T.tolist(), dtype=dtype,
                          compression="gzip")
@@ -160,14 +124,11 @@ def writeH5(path,data,dimof):
 def uploadH5(path, h5file, delete=False):
     # path=Path, h5file=h5-file
     stream = path.stream
-    from time import time
     try:
-        t = time()
         headers = {'Content-Type': 'application/x-hdf'}
         link = path.url_streamgroup()+'?dataPath=data/'+stream+'&timePath=data/timestamps'
         with open(h5file, 'rb') as f:
             result = post(link, headers=headers, data=f)
-        print(time()-t)
     finally:
         if delete:
             try:
@@ -176,17 +137,17 @@ def uploadH5(path, h5file, delete=False):
             except:
                 print('could not delete file "%s"' % h5file)
                 pass
-    return result
+    return _sup.requeststr(result)
 
 def _write_vector(path, data, dimof):
     # path=Path, data=numpy.array, dimof=list of long
     h5file = writeH5(path, data, dimof)
     return uploadH5(path, h5file, True)
 
-def _write_vector_async(path, data, dimof):
+def _write_vector_async(name,path, data, dimof):
     # path=Path, data=numpy.array, dimof=list of long
     h5file = writeH5(path, data, dimof)
-    return Async(uploadH5, path, h5file, True)
+    return _prc.Worker(name).put(uploadH5, path, h5file, True)
 
 def read_signal(path, time, **kwargs):
     path = _base.Path(path)
