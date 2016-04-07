@@ -1,4 +1,5 @@
 import multiprocessing as _mp
+from multiprocessing import cpu_count  # analysis:ignore
 import time as _time
 import threading as _th
 from . import support as _sup
@@ -29,6 +30,53 @@ def process(on,task,res):
     _sup.debug('done!')
     task.close()
 
+def Pool(processes=None, initializer=None, initargs=(), maxtasksperchild=None):
+    def process(slf,*args,**kwarg):
+        return Process(*args,**kwarg)
+    from multiprocessing.pool import Pool as pool
+    pool.Process = process
+    return pool(processes, initializer, initargs, maxtasksperchild)
+
+def Process(*args,**kwarg):
+    def Popen__init__(sel, process_obj):
+        # create pipe for communication with child
+        rfd, wfd = _mp.forking.os.pipe()
+        # get handle for read end of the pipe and make it inheritable
+        rhandle = _mp.forking.duplicate(_mp.forking.msvcrt.get_osfhandle(rfd), inheritable=True)
+        _mp.forking.os.close(rfd)
+        # start process
+        cmd = _mp.forking.get_command_line() + [rhandle]
+        cmd = ' '.join('"%s"' % x for x in cmd)
+        hp, ht, pid, tid = _mp.forking._subprocess.CreateProcess(
+           _mp.forking. _python_exe, cmd, None, None, 1, 0, None, None, None
+            )
+        ht.Close()
+        _mp.forking.close(rhandle)
+        # set attributes of self
+        sel.pid = pid
+        sel.returncode = None
+        sel._handle = hp
+        # send information to child
+        prep_data = _mp.forking.get_preparation_data(process_obj._name)
+        if 'main_path' in prep_data.keys():
+            del(prep_data['main_path'])
+        prep_data['sys_argv']=['']
+        to_child = _mp.forking.os.fdopen(wfd, 'wb')
+        _mp.forking.Popen._tls.process_handle = int(hp)
+        try:
+            _mp.forking.dump(prep_data, to_child, _mp.forking.HIGHEST_PROTOCOL)
+            _mp.forking.dump(process_obj, to_child, _mp.forking.HIGHEST_PROTOCOL)
+        finally:
+            del _mp.forking.Popen._tls.process_handle
+            to_child.close()
+    from multiprocessing.process import Process as process
+    from multiprocessing.forking import Popen as popen
+    popen.__init__ = Popen__init__
+    process = process(*args,**kwarg)
+    process.Popen = popen
+    return process
+
+
 class Worker(_th.Thread):
     def __new__(cls,name=None):
         if name is None: name='default'
@@ -37,41 +85,6 @@ class Worker(_th.Thread):
         return super(Worker,cls).__new__(cls)
 
     def __init__(self,name=None):
-        def Popen__init__(sel, process_obj):
-            # create pipe for communication with child
-            rfd, wfd = _mp.forking.os.pipe()
-
-            # get handle for read end of the pipe and make it inheritable
-            rhandle = _mp.forking.duplicate(_mp.forking.msvcrt.get_osfhandle(rfd), inheritable=True)
-            _mp.forking.os.close(rfd)
-
-            # start process
-            cmd = _mp.forking.get_command_line() + [rhandle]
-            cmd = ' '.join('"%s"' % x for x in cmd)
-            hp, ht, pid, tid = _mp.forking._subprocess.CreateProcess(
-               _mp.forking. _python_exe, cmd, None, None, 1, 0, None, None, None
-                )
-            ht.Close()
-            _mp.forking.close(rhandle)
-
-            # set attributes of self
-            sel.pid = pid
-            sel.returncode = None
-            sel._handle = hp
-
-            # send information to child
-            prep_data = _mp.forking.get_preparation_data(process_obj._name)
-            if 'main_path' in prep_data.keys():
-                del(prep_data['main_path'])
-            prep_data['sys_argv']=['']
-            to_child = _mp.forking.os.fdopen(wfd, 'wb')
-            _mp.forking.Popen._tls.process_handle = int(hp)
-            try:
-                _mp.forking.dump(prep_data, to_child, _mp.forking.HIGHEST_PROTOCOL)
-                _mp.forking.dump(process_obj, to_child, _mp.forking.HIGHEST_PROTOCOL)
-            finally:
-                del _mp.forking.Popen._tls.process_handle
-                to_child.close()
         if name is None: name='default'
         if name in _workers.keys():
             return
@@ -84,9 +97,7 @@ class Worker(_th.Thread):
         self._pon = _mp.Value('b',True)
         tsk,self.task = _mp.Pipe(False)
         self.out,res = _mp.Pipe(False)
-        self.process = _mp.Process(target=process,args=(self._pon,tsk,res),name=name)
-        self.process.Popen = _mp.forking.Popen
-        self.process.Popen.__init__ = Popen__init__
+        self.process = Process(target=process,args=(self._pon,tsk,res),name=name)
         self.process.start()
         self._on = True
         self.start()
@@ -101,7 +112,7 @@ class Worker(_th.Thread):
                 self.task.send((target,args,kwargs))
                 res = self.out.recv()
                 del(result[self.name])
-                print(res)
+                _sup.debug(res)
                 result[target.__name__] = res
                 _sup.debug('%s: %s-task done' % (str(self.name),target.__name__))
                 self._queue.task_done()

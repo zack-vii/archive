@@ -19,6 +19,25 @@ _MDS_shotrt = '/Test/raw/W7X'  # raw/W7X
 _treename  = 'W7X'
 _subtrees  = 'included'
 _exclude   = {'usage':['ACTION', 'TASK', 'SIGNAL']}
+in_pool=not(__name__=='__main__')
+
+def write_data(*args,**kwarg):
+    try:
+        if in_pool:
+            if 'name' in kwarg.keys():
+                del(kwarg['name'])
+            return _if.write_data(*args,**kwarg)
+        return _if.write_data_async(*args,**kwarg)
+    except KeyboardInterrupt as ki: raise ki
+    except Exception as exc:  return _sup.requeststr(exc)
+
+def write_logurl(url,log,T0,join=None):
+    try:
+        if in_pool:
+            return _if.write_logurl(url,log,T0)
+        return _prc.Worker(join).put(_if.write_logurl,url,log,T0)
+    except KeyboardInterrupt as ki: raise ki
+    except Exception as exc:  return _sup.requeststr(exc)
 
 def setupTiming(version=0):
     """sets up the parlog of the shots datastream in the web archive
@@ -85,14 +104,18 @@ class Shot(_mds.Tree):
         self.prefix = prefix;
 
     def getSubTrees(self, subtrees=_subtrees):
-        if isinstance(subtrees,_ver.basestring):
-            if subtrees=='included':    subtrees = [str(st.node_name) for st in _sup.getIncluded(self.tree,self.shot)]
-            elif subtrees=='all':       subtrees = [str(st.node_name) for st in _sup.getSubTrees(self.tree,self.shot)]
-            else:                       subtrees = [subtrees]
+        subtrees = self._getSubTreeList(subtrees)
         subs = []
         for subtree in subtrees:
             subs.append(SubTree((subtree,self), T0=self.T0, T1=self.T1, prefix=self.prefix))
         return subs
+
+    def _getSubTreeList(self,subtrees):
+        if isinstance(subtrees,_ver.basestring):
+            if subtrees=='included':    subtrees = [str(st.node_name) for st in _sup.getIncluded(self.tree,self.shot)]
+            elif subtrees=='all':       subtrees = [str(st.node_name) for st in _sup.getSubTrees(self.tree,self.shot)]
+            else:                       subtrees = [subtrees]
+        return subtrees
 
     def getSections(self, subtrees=_subtrees):
         secs = []
@@ -106,24 +129,53 @@ class Shot(_mds.Tree):
             devs+= subtree.getDevices()
         return devs
 
-    def upload(self, subtrees=_subtrees, force=False, join=None):
-        if join is None: join = self._name
-        log = []
-        for sub in self.getSubTrees(subtrees):
-            try: log.append((sub,sub.upload(force=force,join=join)))
-            except KeyboardInterrupt as ki: raise ki
-            except: log.append((sub,_sup.error()))
-        if join==self._name: self.join()
+    def upload(self, subtrees=_subtrees, force=False):
+        secs = self.getSections(subtrees)
+        num = len(secs)
+        param = [(self.tree,self.shot,self.T0,self.T1,self.prefix,force)]*num
+        num = min(num,_prc.cpu_count()-1)
+        if num>1:
+            pool = _prc.Pool(num)
+            try:
+                log = pool.map(_uploadSec,zip(secs,param))
+            finally:
+                pool.close()
+        else:
+            log = map(_uploadSec,zip(secs,param))
         return log
 
     def join(self):
         _prc.join(self._name)
 
+def _uploadSub(args):
+    sub,param = args
+    expt,shot,T0,T1,prefix,force = param
+    try:
+        subtree = SubTree((expt,shot,sub),T0=T0,T1=T1,prefix=prefix)
+        return (sub,subtree.upload(force=force))
+    except KeyboardInterrupt as ki: raise ki
+    except _mds.mdsExceptions.TreeNNF: return (sub,'not included')
+    except: return (sub,_sup.error())
+
+def _uploadSec(args):
+    secnid,param = args
+    expt,shot,T0,T1,prefix,force = param
+    section = Section((expt,shot,secnid),T0=T0,T1=T1,prefix=prefix)
+    sec = section.path
+    try:
+        return (sec,section.upload(force=force))
+    except KeyboardInterrupt as ki: raise ki
+    except: return (sec,_sup.error())
+
 class SubTree(_mds.TreeNode):
     _index=0
     def __init__(self, subtree, T0=None, T1=None, prefix=''):
         if isinstance(subtree,tuple):
-            super(SubTree,self).__init__(subtree[1].getNode("\\%s::TOP" % subtree[0]).nid,subtree[1])
+            if len(subtree)<3:
+                super(SubTree,self).__init__(subtree[1].getNode("\\%s::TOP" % subtree[0]).nid,subtree[1])
+            else:
+                tree = _mds.Tree(subtree[0],subtree[1],'Readonly')
+                super(SubTree,self).__init__(tree.getNode("\\%s::TOP" % subtree[2]).nid,tree)
         else:
             super(SubTree,self).__init__(subtree.nid,subtree.tree)
         self.name = 'SubTree-'+str(SubTree._index)
@@ -160,9 +212,14 @@ class Section(_mds.TreeNode):
     _index=0
     def __init__(self, section, T0=None, T1=None,prefix=''):
         if isinstance(section,(tuple)):
-            tree = _mds.Tree(_treename, section[0], "Readonly")
-            kks = tree.getNode(section[1])
-            super(Section,self).__init__(kks.DATA.getDescendants()[section[2]].nid,tree)
+            if isinstance(section[0],_ver.basestring):
+                tree = _mds.Tree(section[0], section[1], "Readonly")
+                super(Section,self).__init__(section[2],tree)
+                self.kks = self.getParent().getParent()
+            else:
+                tree = _mds.Tree(_treename, section[0], "Readonly")
+                kks = tree.getNode(section[1])
+                super(Section,self).__init__(kks.DATA.getDescendants()[section[2]].nid,tree)
             self.kks = kks
         else:
             super(Section,self).__init__(section.nid,section.tree)
@@ -207,11 +264,11 @@ class Section(_mds.TreeNode):
         for devnid,channels in self.channeldict.items():
             device = Device(devnid,channels,self)
             if len(channels)==0:
-                log.append((device,"no channels"))
+                log.append((str(device),"no channels"))
                 continue
-            try:   log.append((device,device.upload(force=force,join=join)))
+            try:   log.append((str(device),device.upload(force=force,join=join)))
             except KeyboardInterrupt as ki: raise ki
-            except:log.append((device,_sup.error()))
+            except:log.append((str(device),_sup.error()))
         if join==self.name: self.join()
         return log
 
@@ -245,10 +302,7 @@ class Section(_mds.TreeNode):
         if Tx<self.T0:
             if _sup.debuglevel>=3: print(('write_cfglog',self.address.cfglog,self.cfglog))
             try:
-                if join is None:
-                    return _if.write_logurl(self.address.cfglog, self.cfglog, self.T0)
-                else:
-                    return _prc.Worker(join).put(_if.write_logurl,self.address.cfglog, self.cfglog, self.T0)
+                return write_logurl(self.address.cfglog, self.cfglog, self.T0, join=join)
             except KeyboardInterrupt as ki: raise ki
             except Exception as exc:
                 print(exc)
@@ -370,13 +424,7 @@ class Device(_mds.TreeNode):
         if Tx<T0:
             parlog = self.getMergeDict(self.chandescs)
             if _sup.debuglevel>=4: print(('write_parlog',path.parlog,parlog))
-            try:
-                if join is None:
-                    return _if.write_logurl(path.parlog, parlog, T0)
-                else:
-                    return _prc.Worker(join).put(_if.write_logurl,path.parlog, parlog, T0)
-            except KeyboardInterrupt as ki: raise ki
-            except:  return _sup.error()
+            return write_logurl(path.parlog, parlog, T0, join=join)
         return "parlog already written"
 
 
@@ -394,25 +442,17 @@ class Device(_mds.TreeNode):
                 for segment in _ver.xrange(nSeg):
                     seg = signal.getSegment(segment)
                     data = seg.data()
-                    dimof = seg.dim_of().data()
+                    dimof = (seg.dim_of().data()*1E9+self.section.T0).astype('uint64')
                     if _sup.debuglevel>=2: print(('image',self.address, data.shape, data.dtype, dimof.shape, dimof[0], T0))
-                    try:
-                        log = _if.write_data_async(join,self.address, data, dimof, one=True)
-                        if log.getcode() >= 400:   print(segment,log.content)
-                    except KeyboardInterrupt as ki: raise ki
-                    except:log = _sup.error()
+                    log = write_data(self.address, data, dimof, one=True,name=join)
                     logs.append({"segment": segment, "log": log})
             else:
                 if _sup.debuglevel>=3: print('is not segmented')
                 try:     data = signal.data()
                 except _mds.mdsExceptions.TreeNODATA: return 'nodata'
                 except: return {'signal',_sup.error()}
-                dimof = signal.dim_of().data()
-                try:
-                    logs = _if.write_data_async(join,self.address, data, dimof, one=True)
-                except _ver.urllib.HTTPError as exc:
-                    if exc.getcode() >= 400: print(0,exc.reason)
-                    logs = exc
+                dimof = (seg.dim_of().data()*1E9+self.section.T0).astype('uint64')
+                logs = write_data(self.address, data, dimof, one=True,name=join)
             logp = self.writeParLog(self.address,Tx,join)
             if join is None: _prc.join()
             return {'signal':logs,'parlog':logp,"path":self.address.path()}
@@ -430,14 +470,9 @@ class Device(_mds.TreeNode):
             idx = 0;logs=[]
             while idx<length:
                 N = 1000000 if length-idx>1100000 else length-idx
-                try:
-                    logs.append(_if.write_data_async(join,self.address, data[idx:idx+N].T, dimof[idx:idx+N]))
-                    if logs[-1].getcode() >= 400:
-                        print(idx,idx+N-1,logs[-1].content)
-                except KeyboardInterrupt as ki: raise ki
-                except: pass
+                logs.append(write_data(self.address, data[idx:idx+N].T, dimof[idx:idx+N]),name=join)
                 idx += N
-                print(idx)
+                _sup.debug(idx)
             logp = self.writeParLog(self.address,Tx,join)
             if join is None: _prc.join()
             return {'signal':logs,'parlog':logp,"path":self.address.path()}
@@ -456,9 +491,7 @@ class Device(_mds.TreeNode):
                 dimof = _np.array(image[1])
                 print(data.shape,dimof.shape)
                 if _sup.debuglevel>=3: print(('image',imagepath, data.shape, data.dtype, dimof.shape, dimof[0], T0))
-                try:     logs.append(_if.write_data_async(join,imagepath, data, dimof))
-                except KeyboardInterrupt as ki: raise ki
-                except Exception as exc:  logs.append(exc)
+                logs.append(write_data(imagepath, data, dimof,name=join))
                 logp.append(self.writeParLog(imagepath,Tx,join))
             else:
                 logs.append('already there')

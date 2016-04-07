@@ -52,6 +52,16 @@ def fixTiming(shot,time,Tn=0,seg=0,force=False):
 def requeststr(result):
     if isinstance(result,_ver.urllib.addinfourl):
         result = 'REST(%d, %s): %s' % (result.code,result.msg,result.read())
+    if isinstance(result,_ver.urllib.HTTPError):
+        try:
+            txt = result.read()
+            txt = _re.search('(?<=description).+',txt).group()
+            while txt.startswith('<'):
+                txt = _re.search('(?<=>).+',txt[1:]).group().lstrip(' ')
+            txt = _re.search('[^<]+',txt).group()
+        except:
+            pass
+        result = 'HTTPError(%d, %s): %s' % (result.code,result.msg,txt)
     return result
 def sampleImage(imgfile='image.jpg'):
     from scipy.misc import imread

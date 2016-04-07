@@ -51,36 +51,30 @@ def write_logurl(url, parms, Tfrom, Tupto=-1):
     except _ver.urllib.HTTPError as result:
         _sup.debug(result)
     return _sup.requeststr(result)
-
-def write_data(path, data, dimof, t0=0, one=False):
-    # path=Path, data=numpy.array, dimof=numpy.array
+def _prep_data(data, dimof, t0=0):
     if not isinstance(data, _np.ndarray):
         raise Exception('write_data: data must be numpy.ndarray')
     dimof = _np.array(dimof)
-    if dimof.dtype in ['float32','float64']:
+    if dimof.dtype in ['float64','float32','float16']:
         dimof = (dimof*1e9+t0).astype('uint64')
     if dimof.ndim == 0:  # we need to add one level
         dimof = [dimof.tolist()]
         data  = data.reshape(list(data.shape)+[1])
     else:
         dimof = dimof.tolist()
+    return data,dimof
+
+def write_data(path, data, dimof, t0=0, one=False,name=None):
+    # path=Path, data=numpy.array, dimof=numpy.array
+    data,dimof = _prep_data(data, dimof, t0)
     if data.ndim > (1 if one else 2):
         return(_write_vector(_base.Path(path), data, dimof))
     else:
         return(_write_scalar(_base.Path(path), data, dimof))
 
-def write_data_async(name,path, data, dimof, t0=0, one=False):
+def write_data_async(path, data, dimof, t0=0, one=False,name=None):
     # path=Path, data=numpy.array, dimof=numpy.array
-    if not isinstance(data, _np.ndarray):
-        raise Exception('write_data: data must be numpy.ndarray')
-    dimof = _np.array(dimof)
-    if dimof.dtype in ['float64','float32','float16']:
-        dimof = (dimof*1E9+t0).astype('uint64')
-    if dimof.ndim == 0:  # we need to add one level
-        dimof = [dimof.tolist()]
-        data  = data.reshape(list(data.shape)+[1])
-    else:
-        dimof = dimof.tolist()
+    data,dimof = _prep_data(data, dimof, t0)
     if data.ndim > (1 if one else 2):
         return(_write_vector_async(name,_base.Path(path), data, dimof))
     else:
@@ -107,8 +101,9 @@ def _write_scalar_async(name, path, data, dimof):
     res = _prc.Worker(name).put(post, path.url_datastream(), headers={'content-type':'application/json'}, data=data)
     return res
 
-def writeH5(path,data,dimof):
+def writeH5(path,data,dimof,t0=0):
     stream = path.stream
+    data,dimof = _prep_data(data, dimof, t0)
     dtype = str(data.dtype)
     tmpfile = _ver.tmpdir+"archive_"+stream+'_'+str(dimof[0])+".h5"
     if data.ndim<3:
@@ -127,8 +122,11 @@ def uploadH5(path, h5file, delete=False):
     try:
         headers = {'Content-Type': 'application/x-hdf'}
         link = path.url_streamgroup()+'?dataPath=data/'+stream+'&timePath=data/timestamps'
-        with open(h5file, 'rb') as f:
+        f = open(h5file, 'rb')
+        try:
             result = post(link, headers=headers, data=f)
+        finally:
+            f.close()
     finally:
         if delete:
             try:
@@ -139,14 +137,14 @@ def uploadH5(path, h5file, delete=False):
                 pass
     return _sup.requeststr(result)
 
-def _write_vector(path, data, dimof):
+def _write_vector(path, data, dimof, t0=0):
     # path=Path, data=numpy.array, dimof=list of long
-    h5file = writeH5(path, data, dimof)
+    h5file = writeH5(path, data, dimof, t0=0)
     return uploadH5(path, h5file, True)
 
-def _write_vector_async(name,path, data, dimof):
+def _write_vector_async(name,path, data, dimof, t0=0):
     # path=Path, data=numpy.array, dimof=list of long
-    h5file = writeH5(path, data, dimof)
+    h5file = writeH5(path, data, dimof, t0=0)
     return _prc.Worker(name).put(uploadH5, path, h5file, True)
 
 def read_signal(path, time, **kwargs):
