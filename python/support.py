@@ -24,6 +24,31 @@ def version():
 def nowstr():
     return _time.strftime('%Y/%m/%d-%H:%M:%S')
 
+def fixTiming(shot,time,Tn=0,seg=0,force=False):
+    if isinstance(time, _ver.basestring) and time.startswith('XP:'):
+        time = getTimingXP(time,[Tn])[0][seg]
+    else:
+        time = _base.Time(time)
+    time = _mds.Uint64(time)
+    t = _mds.Tree('W7X',shot)
+    nids = t.getNodeWild('***.TIMING')
+    for nid in nids:
+        T = nid.getNode('T%d' % Tn)
+        try:
+            node = T.IDEAL_LOCAL
+        except AttributeError:
+            node = T.IDEAL
+        try:
+            node.record = time
+        except _mds.mdsExceptions.TreeNOOVERWRITE as e:
+            if force:
+                node.write_once = False
+                node.record = time
+                node.write_once = True
+            else:
+                raise e
+
+
 def requeststr(result):
     if isinstance(result,_ver.urllib.addinfourl):
         result = 'REST(%d, %s): %s' % (result.code,result.msg,result.read())
