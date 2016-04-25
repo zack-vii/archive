@@ -508,7 +508,7 @@ class Device(_mds.TreeNode):
             idx = 0;logs=[]
             while idx<length:
                 N = 1000000 if length-idx>1100000 else length-idx
-                logs.append(write_data(self.address, data[idx:idx+N].T, dimof[idx:idx+N]),name=join)
+                logs.append(write_data(self.address, data[idx:idx+N].T, dimof[idx:idx+N],name=join))
                 idx += N
                 _sup.debug(idx)
             logp = self.writeParLog(self.address,Tx,join)
