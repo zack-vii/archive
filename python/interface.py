@@ -59,7 +59,7 @@ def _prep_data(data, dimof, t0=0):
         dimof = (dimof*1e9+t0).astype('uint64')
     if dimof.ndim == 0:  # we need to add one level
         dimof = [dimof.tolist()]
-        data  = data.reshape(list(data.shape)+[1])
+        data  = data.reshape([1]+list(data.shape))
     else:
         dimof = dimof.tolist()
     return data,dimof
@@ -108,11 +108,14 @@ def writeH5(path,data,dimof,t0=0):
     tmpfile = _ver.tmpdir+"archive_"+stream+'_'+str(dimof[0])+".h5"
     if data.ndim<3:
         data = data.reshape(list(data.shape)+[1])
+    else:
+        data = data.transpose(range(1,data.ndim)+[0])
+    print(data.shape)
     with _h5.File(tmpfile, 'w') as f:
-        g = f.create_group('data')
+        g = f.create_group('data')  # requires [row,col,time]
         g.create_dataset('timestamps', data=list(dimof), dtype='uint64',
                          compression="gzip")
-        g.create_dataset(stream, data=data.T.tolist(), dtype=dtype,
+        g.create_dataset(stream, data=data.tolist(), dtype=dtype,
                          compression="gzip")
     return tmpfile
 
