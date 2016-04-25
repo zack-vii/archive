@@ -136,7 +136,7 @@ class Shot(_mds.Tree):
             devs+= subtree.getDevices()
         return devs
 
-    def upload(self, subtrees=_subtrees, force=False):
+    def uploadPoolSec(self, subtrees=_subtrees, force=False):
         secs = self.getSectionNids(subtrees)
         num = len(secs)
         param = [(self.tree,self.shot,self.T0,self.T1,self.prefix,force)]*num
@@ -151,6 +151,21 @@ class Shot(_mds.Tree):
             log = map(_uploadSec,zip(secs,param))
         return log
 
+    def uploadPoolDev(self, subtrees=_subtrees, force=False):
+        param = [(d.nid, d.channels, self.tree,self.shot,d.section.nid,self.T0,self.T1,self.prefix,force) for d in  self.getDevices(subtrees)]
+        num = len(param)
+        num = min(num,_prc.cpu_count()-1)
+        if num>1:
+            pool = _prc.Pool(num)
+            try:
+                log = pool.map(_uploadDev,param)
+            finally:
+                pool.close()
+        else:
+            log = map(_uploadDev,param)
+        clog = [(sec.path,sec.writeCfgLog()) for sec in self.getSections(subtrees)]
+        return log,clog
+
     def join(self):
         _prc.join(self._name)
 
@@ -163,6 +178,17 @@ def _uploadSub(args):
     except KeyboardInterrupt as ki: raise ki
     except _mds.mdsExceptions.TreeNNF: return (sub,'not included')
     except: return (sub,_sup.error())
+
+def _uploadDev(params):
+    devnid,channels,expt,shot,secnid,T0,T1,prefix,force = params
+    section = Section((expt,shot,secnid),T0=T0,T1=T1,prefix=prefix)
+    device = Device(devnid,channels,section)
+    sec = section.path
+    dev = device.path
+    try:
+        return (sec,dev,device.upload(force=force))
+    except KeyboardInterrupt as ki: raise ki
+    except: return (sec,_sup.error())
 
 def _uploadSec(args):
     secnid,param = args
