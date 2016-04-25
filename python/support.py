@@ -250,6 +250,10 @@ def getTimingXP(XP,T=_ver.range(7)):
     p = p["programs"][int(XP[1])-1]["trigger"]
     return [_base.Time(p[str(n)]) for n in T]
 
+
+def getShotDB(mode=3):
+    return _mds.Connection('mds-data-1').get('getShotDb("W7X",%d)' % mode).data()
+
 def getTimestampMDS(n=1):
     url = 'http://mds-data-1.ipp-hgw.mpg.de/operator/last_trigger/'+str(n)
     return(_base.Time(int(_ver.urllib.urlopen(url).read(20))))
