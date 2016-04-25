@@ -21,9 +21,16 @@ _subtrees  = 'included'
 _exclude   = {'usage':['ACTION', 'TASK', 'SIGNAL']}
 in_pool=not(__name__=='__main__')
 _pool = []
+
 def startPool(num):
-    min(num,_prc.cpu_count()-1)
-    _pool.append(_prc.Pool(num))
+    if not _pool:
+        num = min(num,_prc.cpu_count()-1)
+        _pool.append(_prc.Pool(num))
+
+def stopPools():
+    while _pool:
+        _pool[-1].close()
+        _pool.remove(_pool[-1])
 
 def write_data(*args,**kwarg):
     try:
