@@ -20,6 +20,10 @@ _treename  = 'W7X'
 _subtrees  = 'included'
 _exclude   = {'usage':['ACTION', 'TASK', 'SIGNAL']}
 in_pool=not(__name__=='__main__')
+_pool = []
+def startPool(num):
+    min(num,_prc.cpu_count()-1)
+    _pool.append(_prc.Pool(num))
 
 def write_data(*args,**kwarg):
     try:
@@ -137,30 +141,17 @@ class Shot(_mds.Tree):
         return devs
 
     def uploadPoolSec(self, subtrees=_subtrees, force=False):
-        secs = self.getSectionNids(subtrees)
-        num = len(secs)
-        param = [(self.tree,self.shot,self.T0,self.T1,self.prefix,force)]*num
-        num = min(num,_prc.cpu_count()-1)
-        if num>1:
-            pool = _prc.Pool(num)
-            try:
-                log = pool.map(_uploadSec,zip(secs,param))
-            finally:
-                pool.close()
+        param = [(sec,self.tree,self.shot,self.T0,self.T1,self.prefix,force) for sec in self.getSectionNids(subtrees)]
+        if _pool:
+            log = _pool[-1].map(_uploadSec,param)
         else:
-            log = map(_uploadSec,zip(secs,param))
+            log = map(_uploadSec,param)
         return log
 
     def uploadPoolDev(self, subtrees=_subtrees, force=False):
         param = [(d.nid, d.channels, self.tree,self.shot,d.section.nid,self.T0,self.T1,self.prefix,force) for d in  self.getDevices(subtrees)]
-        num = len(param)
-        num = min(num,_prc.cpu_count()-1)
-        if num>1:
-            pool = _prc.Pool(num)
-            try:
-                log = pool.map(_uploadDev,param)
-            finally:
-                pool.close()
+        if _pool:
+            log = _pool[-1].map(_uploadDev,param)
         else:
             log = map(_uploadDev,param)
         clog = [(sec.path,sec.writeCfgLog()) for sec in self.getSections(subtrees)]
@@ -190,9 +181,8 @@ def _uploadDev(params):
     except KeyboardInterrupt as ki: raise ki
     except: return (sec,_sup.error())
 
-def _uploadSec(args):
-    secnid,param = args
-    expt,shot,T0,T1,prefix,force = param
+def _uploadSec(param):
+    secnid,expt,shot,T0,T1,prefix,force = param
     section = Section((expt,shot,secnid),T0=T0,T1=T1,prefix=prefix)
     sec = section.path
     try:
