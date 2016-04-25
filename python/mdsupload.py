@@ -140,7 +140,7 @@ class Shot(_mds.Tree):
         secs = self.getSectionNids(subtrees)
         num = len(secs)
         param = [(self.tree,self.shot,self.T0,self.T1,self.prefix,force)]*num
-        num = 0#min(num,_prc.cpu_count()-1)
+        num = min(num,_prc.cpu_count()-1)
         if num>1:
             pool = _prc.Pool(num)
             try:
