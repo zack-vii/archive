@@ -110,7 +110,6 @@ def writeH5(path,data,dimof,t0=0):
         data = data.reshape(list(data.shape)+[1])
     else:
         data = data.transpose(range(1,data.ndim)+[0])
-    print(data.shape)
     with _h5.File(tmpfile, 'w') as f:
         g = f.create_group('data')  # requires [row,col,time]
         g.create_dataset('timestamps', data=list(dimof), dtype='uint64',
