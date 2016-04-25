@@ -123,6 +123,13 @@ class Shot(_mds.Tree):
             secs+= subtree.getSections()
         return secs
 
+    def getSectionNids(self, subtrees=_subtrees):
+        nids = []
+        for subtree in self.getSubTrees(subtrees):
+            nids+= subtree.getSectionNids()
+        return nids
+
+
     def getDevices(self, subtrees=_subtrees):
         devs = []
         for subtree in self.getSubTrees(subtrees):
@@ -130,10 +137,10 @@ class Shot(_mds.Tree):
         return devs
 
     def upload(self, subtrees=_subtrees, force=False):
-        secs = self.getSections(subtrees)
+        secs = self.getSectionNids(subtrees)
         num = len(secs)
         param = [(self.tree,self.shot,self.T0,self.T1,self.prefix,force)]*num
-        num = min(num,_prc.cpu_count()-1)
+        num = 0#min(num,_prc.cpu_count()-1)
         if num>1:
             pool = _prc.Pool(num)
             try:
@@ -191,6 +198,9 @@ class SubTree(_mds.TreeNode):
             secs.append(Section(sec, T0=self.T0, T1=self.T1, prefix=self.prefix))
         return secs
 
+    def getSectionNids(self):
+        return [node.nid for node in self.DATA.getDescendants()]
+
     def getDevices(self, subtrees=_subtrees):
         devs = []
         for section in self.getSections():
@@ -220,7 +230,7 @@ class Section(_mds.TreeNode):
                 tree = _mds.Tree(_treename, section[0], "Readonly")
                 kks = tree.getNode(section[1])
                 super(Section,self).__init__(kks.DATA.getDescendants()[section[2]].nid,tree)
-            self.kks = kks
+                self.kks = kks
         else:
             super(Section,self).__init__(section.nid,section.tree)
             self.kks = self.getParent().getParent()
@@ -229,7 +239,7 @@ class Section(_mds.TreeNode):
         self.T0 = _sup.getTiming(self.tree.shot, 0)[0] if T0 is None else _base.Time(T0)
         self.T1 = _sup.getTiming(self.tree.shot, 1)[0] if T1 is None else _base.Time(T1)
         self.address = _base.Path(_MDS_shotrt)
-        self.address.streamgroup = prefix + self.kks.node_name.upper() + '_'+getDataName(section)
+        self.address.streamgroup = prefix + self.kks.node_name.upper() + '_'+getDataName(self)
 
     def getDevices(self):
         HW = self.kks.HARDWARE
