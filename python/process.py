@@ -17,12 +17,14 @@ def process(on,task,res):
                 _sup.debug('task resv')
                 result = target(*args,**kwargs)
                 _sup.debug('task done')
+            except KeyboardInterrupt as ki: raise ki
             except Exception as result:
                 _sup.debug(str(result))
             try:
                 res.send(_sup.requeststr(result))
             except _ver.pickle.PicklingError:
                 res.send(str(result))
+        except KeyboardInterrupt as ki: raise ki
         except:
             _sup.error()
       else:
@@ -120,6 +122,7 @@ class Worker(_th.Thread):
                 _sup.debug('%s: %s-task done' % (str(self.name),target.__name__))
                 self._queue.task_done()
             except _ver.queue.Empty: continue
+            except KeyboardInterrupt as ki: raise ki
             except Exception as exc:
                 _sup.debug('%s: %s' % (str(self.name),str(exc)),0)
                 if result is not None:
@@ -163,6 +166,7 @@ def postprocess(waitlist,method,*va,**kv):
 def withresult(pipe,target,*args,**kwargs):
     try:
         pipe.send(target(*args,**kwargs))
+    except KeyboardInterrupt as ki: raise ki
     except Exception as exc:
         pipe.send(exc)
     pipe.close()
