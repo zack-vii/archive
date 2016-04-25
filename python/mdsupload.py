@@ -176,15 +176,15 @@ def _uploadSec(args):
 
 class SubTree(_mds.TreeNode):
     _index=0
-    def __init__(self, subtree, T0=None, T1=None, prefix=''):
+    def __new__(cls, subtree, T0=None, T1=None, prefix=''):
         if isinstance(subtree,tuple):
             if len(subtree)<3:
-                super(SubTree,self).__init__(subtree[1].getNode("\\%s::TOP" % subtree[0]).nid,subtree[1])
-            else:
-                tree = _mds.Tree(subtree[0],subtree[1],'Readonly')
-                super(SubTree,self).__init__(tree.getNode("\\%s::TOP" % subtree[2]).nid,tree)
-        else:
-            super(SubTree,self).__init__(subtree.nid,subtree.tree)
+                return super(SubTree,cls).__new__(cls,subtree[1].getNode("\\%s::TOP" % subtree[0]).nid,subtree[1])
+            tree = _mds.Tree(subtree[0],subtree[1],'Readonly')
+            return super(SubTree,cls).__new__(cls,tree.getNode("\\%s::TOP" % subtree[2]).nid,tree)
+        return super(SubTree,cls).__new__(cls,subtree.nid,subtree.tree)
+
+    def __init__(self, subtree, T0=None, T1=None, prefix=''):
         self.name = 'SubTree-'+str(SubTree._index)
         SubTree._index+=1
         self.T0 = _sup.getTiming(self.tree.shot, 0)[0] if T0 is None else _base.Time(T0)
@@ -220,20 +220,20 @@ class SubTree(_mds.TreeNode):
 
 class Section(_mds.TreeNode):
     _index=0
-    def __init__(self, section, T0=None, T1=None,prefix=''):
+    def __new__(cls, section, T0=None, T1=None, prefix=''):
         if isinstance(section,(tuple)):
             if isinstance(section[0],_ver.basestring):
                 tree = _mds.Tree(section[0], section[1], "Readonly")
-                super(Section,self).__init__(section[2],tree)
-                self.kks = self.getParent().getParent()
+                return super(Section,cls).__new__(cls,section[2],tree)
             else:
                 tree = _mds.Tree(_treename, section[0], "Readonly")
                 kks = tree.getNode(section[1])
-                super(Section,self).__init__(kks.DATA.getDescendants()[section[2]].nid,tree)
-                self.kks = kks
+                return super(Section,cls).__new__(cls,kks.DATA.getDescendants()[section[2]].nid,tree)
         else:
-            super(Section,self).__init__(section.nid,section.tree)
-            self.kks = self.getParent().getParent()
+            return super(Section,cls).__new__(cls,section.nid,section.tree)
+
+    def __init__(self, section, T0=None, T1=None,prefix=''):
+        self.kks = self.getParent().getParent()
         self.name = 'Section-'+str(Section._index)
         Section._index+=1
         self.T0 = _sup.getTiming(self.tree.shot, 0)[0] if T0 is None else _base.Time(T0)
@@ -363,6 +363,8 @@ class Section(_mds.TreeNode):
 
 class Device(_mds.TreeNode):
     _index=0
+    def __new__(cls,devnid,channels,section):
+        return super(Device,cls).__new__(cls,devnid,section.tree)
     def __init__(self,devnid,channels,section):
         super(Device,self).__init__(devnid,section.tree)
         self.name = 'Device-'+str(Device._index)
