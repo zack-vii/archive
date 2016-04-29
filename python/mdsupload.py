@@ -318,13 +318,13 @@ class Section(_mds.TreeNode):
                 if not c.getNodeName() in ['HARDWARE','DATA']:
                     kkslog = _sup.treeToDict(c, kkslog, _exclude)
             self._kkslog = kkslog
-        return self._kkslog
+        return self._kkslog.copy()
     kkslog = property(_getKksLog)
 
     def _getCfgLog(self):
         if not self.__dict__.has_key('_cfglog'):
-            self._cfglog = _sup.treeToDict(self,self.kkslog.copy(),_exclude,'')
-        return self._cfglog
+            self._cfglog = _sup.treeToDict(self,self.kkslog,_exclude,'')
+        return self._cfglog.copy()
     cfglog = property(_getCfgLog)
 
     def CfgLogUpto(self):
@@ -367,7 +367,7 @@ class Section(_mds.TreeNode):
             for signal in self.getDescendants():
                 signaldict = _signaldict(signal, signaldict)
             self._signaldict = signaldict
-        return self._signaldict
+        return self._signaldict.copy()
     signaldict = property(_getSignalDict)
 
     def _getChannelDict(self):
@@ -381,7 +381,7 @@ class Section(_mds.TreeNode):
                 device = HW.getNode(deviceName)
                 channeldict[device.nid].append(channel)
             self._channeldict = channeldict
-        return self._channeldict
+        return self._channeldict.copy()
     channeldict = property(_getChannelDict)
 
 class Device(_mds.TreeNode):
@@ -457,9 +457,8 @@ class Device(_mds.TreeNode):
         if Tx is None: Tx = self.ParLogUpto()
         T0 = self.section.T0
         if Tx<T0:
-            parlog = self.getMergeDict(self.chandescs)
-            if _sup.debuglevel>=4: print(('write_parlog',path.parlog,parlog))
-            return write_logurl(path.parlog, parlog, T0, join=join)
+            if _sup.debuglevel>=4: print(('write_parlog',path.parlog, self.parlog))
+            return write_logurl(path.parlog, self.parlog, T0, join=join)
         return "parlog already written"
 
 
@@ -548,7 +547,7 @@ class Device(_mds.TreeNode):
                 if len(signals)==1: signals[0][0] = node
                 return signals
             self._allsignals = _searchSignals(self)
-        return self._allsignals
+        return list(self._allsignals)
     allsignals = property(_getAllSignals)
 
     def _getDeviceDict(self):
@@ -565,25 +564,31 @@ class Device(_mds.TreeNode):
             self._chandescs = chandescs
             self._signals = signals
             self._devicedict = _sup.treeToDict(self,{},exclude,'')
-        return self._devicedict
+        return self._devicedict.copy()
     devicedict = property(_getDeviceDict)
 
     def _getSignals(self):
         if not self.__dict__.has_key('_signals'):
             self._getDeviceDict()
-        return self._signals
+        return list(self._signals)
     signals = property(_getSignals)
 
     def _getChanDescs(self):
         if not self.__dict__.has_key('_chandescs'):
             self._getDeviceDict()
-        return self._chandescs
+        return list(self._chandescs)
     chandescs = property(_getChanDescs)
 
-    def getMergeDict(self,chanDescs):
-        dic = self.devicedict.copy()
-        dic['chanDescs'] = chanDescs
-        return dic
+    def _getParlog(self):
+        if not self.__dict__.has_key('_parlog'):
+            parlog = self.devicedict
+            parlog['chanDescs'] = self.chandescs
+            self._parlog = parlog
+        return self._parlog.copy()
+    parlog = property(_getParlog)
+
+    def _getMergeDict(self):
+        return self.getMergeDict()
 
     def _chanDesc(self,signalset):
         """generates the channel descriptor for a given channel"""
