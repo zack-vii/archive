@@ -374,6 +374,16 @@ def setTIME(tree,shot):
     for i in range(7):
         setT(i)
 
+def printList(val,prefix=''):
+    if isinstance(val,(list,tuple)):
+        for i,v in enumerate(val):
+            printList(v, prefix+"{:<20}".format(i))
+    elif isinstance(val,(dict)):
+        for k, v in val.iteritems():
+            printList(v, prefix+"{:<20}".format(k))
+    else:
+        print(prefix+str(val))
+
 def debug(msg, lv=1):
     if lv<=debuglevel:
         import inspect
