@@ -23,11 +23,11 @@ in_pool=not(__name__=='__main__')
 _pool = []
 
 def startPool(num):
-    if not _pool:
+    if __name__=='__main__' and not _pool: # only if not already slave
         num = min(num,_prc.cpu_count()-1)
         _pool.append(_prc.Pool(num))
 
-def stopPools():
+def stopPool():
     while _pool:
         _pool[-1].close()
         _pool.remove(_pool[-1])
