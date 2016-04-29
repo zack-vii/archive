@@ -604,9 +604,10 @@ class Device(_mds.TreeNode):
             channelDict['name'] = getDataName(signalroot)
             channelDict["active"] = int(signalroot.isOn())
             channelDict["physicalQuantity"] = {'type': 'unknown'}
-            for sibling in signalroot.getDescendants():
-                if not sibling.Nid == nid:  # in case: DEVICE.STRUCTURE:SIGNAL
-                    channelDict = _sup.treeToDict(sibling, channelDict, _exclude)
+            if not self.nid==signalroot.nid:  # in case: DEVICE.STRUCTURE:SIGNAL
+                for sibling in signalroot.getDescendants():
+                    if not sibling.Nid == nid:
+                        channelDict = _sup.treeToDict(sibling, channelDict, _exclude)
             return channelDict
         def mergeSignalDict(chanDesc):
             if self.section.signaldict.has_key(nid):
