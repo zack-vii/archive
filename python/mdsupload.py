@@ -155,6 +155,12 @@ class Shot(_mds.Tree):
             log = map(_uploadSec,param)
         return log
 
+    def upload(self, subtrees=_subtrees, force=False):
+        log = {}
+        for sub in self.getSubTrees(subtrees):
+            log[sub.node_name] = sub.upload(force)
+        return log
+
     def uploadPoolDev(self, subtrees=_subtrees, force=False):
         param = [(d.nid, d.channels, self.tree,self.shot,d.section.nid,self.T0,self.T1,self.prefix,force) for d in  self.getDevices(subtrees)]
         if _pool:
