@@ -14,16 +14,18 @@ from . import interface as _if
 from . import support as _sup
 from . import version as _ver
 from . import process as _prc
+_MDS_shotdb_arc = '/ArchiveDB/raw/W7X/MDSplus/Shots'  # raw/W7X/MDSplus/Shots
+_MDS_shotrt_arc = '/ArchiveDB/raw/W7X'  # raw/W7X
 _MDS_shotdb = '/Test/raw/W7X/MDSplus/Shots'  # raw/W7X/MDSplus/Shots
 _MDS_shotrt = '/Test/raw/W7X'  # raw/W7X
 _treename  = 'W7X'
 _subtrees  = 'included'
 _exclude   = {'usage':['ACTION', 'TASK', 'SIGNAL']}
-in_pool=not(__name__=='__main__')
 _pool = []
 
+print(globals())
 def startPool(num):
-    if __name__=='__main__' and not _pool: # only if not already slave
+    if not _pool:
         num = min(num,_prc.cpu_count()-1)
         _pool.append(_prc.Pool(num))
 
@@ -34,7 +36,7 @@ def stopPool():
 
 def write_data(*args,**kwarg):
     try:
-        if in_pool:
+        if _pool:
             if 'name' in kwarg.keys():
                 del(kwarg['name'])
             return _if.write_data(*args,**kwarg)
@@ -44,7 +46,7 @@ def write_data(*args,**kwarg):
 
 def write_logurl(url,log,T0,join=None):
     try:
-        if in_pool:
+        if _pool:
             return _if.write_logurl(url,log,T0)
         return _prc.Worker(join).put(_if.write_logurl,url,log,T0)
     except KeyboardInterrupt as ki: raise ki
@@ -213,7 +215,7 @@ def _uploadSec(param):
 
 class SubTree(_mds.TreeNode):
     _index=0
-    def __new__(cls, subtree, T0=None, T1=None, prefix=''):
+    def __new__(cls, subtree, *args):
         if isinstance(subtree,tuple):
             if len(subtree)<3:
                 return super(SubTree,cls).__new__(cls,subtree[1].getNode("\\%s::TOP" % subtree[0]).nid,subtree[1])
@@ -257,7 +259,7 @@ class SubTree(_mds.TreeNode):
 
 class Section(_mds.TreeNode):
     _index=0
-    def __new__(cls, section, T0=None, T1=None, prefix=''):
+    def __new__(cls, section, *args):
         if isinstance(section,(tuple)):
             if isinstance(section[0],_ver.basestring):
                 tree = _mds.Tree(section[0], section[1], "Readonly")
@@ -275,7 +277,7 @@ class Section(_mds.TreeNode):
         Section._index+=1
         self.T0 = _sup.getTiming(self.tree.shot, 0)[0] if T0 is None else _base.Time(T0)
         self.T1 = _sup.getTiming(self.tree.shot, 1)[0] if T1 is None else _base.Time(T1)
-        self.address = _base.Path(_MDS_shotrt)
+        self.address = _base.Path(_MDS_shotrt_arc if prefix=='' else _MDS_shotrt)
         self.address.streamgroup = prefix + self.kks.node_name.upper() + '_'+getDataName(self)
 
     def getDevices(self):
