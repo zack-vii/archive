@@ -122,10 +122,18 @@ class Shot(_mds.Tree):
         return subs
 
     def _getSubTreeList(self,subtrees):
+        if isinstance(subtrees,(dict,)):
+            exclude = subtrees.get('exclude',[])
+            if isinstance(exclude, _ver.basestring):
+                exclude = [exclude]
+            subtrees = subtrees.get('include','all')
+        else:
+            exclude = []
         if isinstance(subtrees,_ver.basestring):
             if subtrees=='included':    subtrees = [str(st.node_name) for st in _sup.getIncluded(self.tree,self.shot)]
             elif subtrees=='all':       subtrees = [str(st.node_name) for st in _sup.getSubTrees(self.tree,self.shot)]
             else:                       subtrees = [subtrees]
+        subtrees = [sub for sub in subtrees if sub not in exclude]
         return subtrees
 
     def getSections(self, subtrees=_subtrees):
