@@ -299,13 +299,13 @@ class Time(_ver.long):
             if time.startswith('now'):  # now
                 time = time.split('_')
                 if len(time)<2 or time[1]=='ms':
-                    return super(Time, cls).__new__(cls, int(_time.time()*1000)*1000000)
+                    return super(Time, cls).__new__(cls, int(_time.time()*1000)*Time._ms2ns)
                 if time[1]=='s':
-                    return super(Time, cls).__new__(cls, int(_time.time())*cls._s2ns)
+                    return super(Time, cls).__new__(cls, int(_time.time())*Time._s2ns)
                 if time[1]=='m':
-                    return super(Time, cls).__new__(cls, int(_time.time()/60)*60*cls._s2ns)
+                    return super(Time, cls).__new__(cls, int(_time.time()/60)*Time._m2ns)
                 if time[1]=='h':
-                    return super(Time, cls).__new__(cls, int(_time.time()/3600)*3600*cls._s2ns)
+                    return super(Time, cls).__new__(cls, int(_time.time()/3600)*Time._h2ns)
             else:  # '2009-02-13T23:31:30.123456789Z'
                 time = _re.findall('[0-9]+', time)
                 if len(time) == 7:  # we have subsecond precision
@@ -327,17 +327,17 @@ class Time(_ver.long):
             if units =='ns':
                 pass
             elif units =='us':
-                time = time*cls._us2ns
+                time = time*Time._us2ns
             elif units =='ms':
-                time = time*cls._ms2ns
+                time = time*Time._ms2ns
             elif units =='s':
-                time = time*cls._s2ns
+                time = time*Time._s2ns
             elif units =='m':
-                time = time*cls._m2ns
+                time = time*Time._m2ns
             elif units =='h':
-                time = time*cls._h2ns
+                time = time*Time._h2ns
             elif units =='d':
-                time = time*cls._d2ns
+                time = time*Time._d2ns
         return super(Time, cls).__new__(cls, time)
 
 
@@ -365,18 +365,18 @@ class Time(_ver.long):
 
     def _ns(self): return _ver.long(self)
 
-    def _s(self): return self.ns * 1E-9
+    def _s(self): return self.ns / Time._s2ns
 
-    def _subsec(self): return self.ns % self._s2ns
+    def _subsec(self): return self.ns % Time._s2ns
 
     def _utc(self):
         import time as _time
-        values = tuple(list(_time.gmtime((self.ns % (1<<64))/1000000000L)[0:6]) + [self.subsec])
+        values = tuple(list(_time.gmtime((self.ns % (1<<64))/Time._s2ns)[0:6]) + [self.subsec])
         return '%04d-%02d-%02dT%02d:%02d:%02d.%09dZ' % values
 
     def _local(self):
         import time as _time
-        return _time.ctime((self.ns % (1<<64))/1000000000L)
+        return _time.ctime((self.ns % (1<<64))/Time._s2ns)
     ns = property(_ns)
     s = property(_s)
     utc = property(_utc)
