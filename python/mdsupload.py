@@ -30,7 +30,8 @@ def startPool(num):
 
 def stopPool():
     while _pool:
-        _pool[-1].close()
+        _pool[-1].terminate()
+        _pool[-1].join()
         _pool.remove(_pool[-1])
 
 def write_data(*args,**kwarg):
