@@ -23,7 +23,6 @@ _subtrees  = 'included'
 _exclude   = {'usage':['ACTION', 'TASK', 'SIGNAL']}
 _pool = []
 
-print(globals())
 def startPool(num):
     if not _pool:
         num = min(num,_prc.cpu_count()-1)
