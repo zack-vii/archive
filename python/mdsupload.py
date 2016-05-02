@@ -215,7 +215,7 @@ def _uploadSec(param):
 
 class SubTree(_mds.TreeNode):
     _index=0
-    def __new__(cls, subtree, *args):
+    def __new__(cls, subtree, *a, **kv):
         if isinstance(subtree,tuple):
             if len(subtree)<3:
                 return super(SubTree,cls).__new__(cls,subtree[1].getNode("\\%s::TOP" % subtree[0]).nid,subtree[1])
@@ -259,7 +259,7 @@ class SubTree(_mds.TreeNode):
 
 class Section(_mds.TreeNode):
     _index=0
-    def __new__(cls, section, *args):
+    def __new__(cls, section, *a, **kv):
         if isinstance(section,(tuple)):
             if isinstance(section[0],_ver.basestring):
                 tree = _mds.Tree(section[0], section[1], "Readonly")
