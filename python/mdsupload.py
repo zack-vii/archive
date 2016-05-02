@@ -159,7 +159,7 @@ class Shot(_mds.Tree):
     def uploadPoolSec(self, subtrees=_subtrees, force=False):
         param = [(sec,self.tree,self.shot,self.T0,self.T1,self.prefix,force) for sec in self.getSectionNids(subtrees)]
         if _pool:
-            log = _pool[-1].map(_uploadSec,param)
+            log = _pool[-1].pool.map_async(_uploadSec,param).get(1<<31)
         else:
             log = map(_uploadSec,param)
         return log
@@ -173,7 +173,7 @@ class Shot(_mds.Tree):
     def uploadPoolDev(self, subtrees=_subtrees, force=False):
         param = [(d.nid, d.channels, self.tree,self.shot,d.section.nid,self.T0,self.T1,self.prefix,force) for d in  self.getDevices(subtrees)]
         if _pool:
-            log = _pool[-1].map(_uploadDev,param)
+            log = _pool[-1].map_async(_uploadDev,param).get(1<<31)
         else:
             log = map(_uploadDev,param)
         clog = [(sec.path,sec.writeCfgLog()) for sec in self.getSections(subtrees)]
