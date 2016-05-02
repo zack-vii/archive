@@ -123,7 +123,7 @@ def uploadH5(path, h5file, delete=False):
     stream = path.stream
     try:
         headers = {'Content-Type': 'application/x-hdf'}
-        link = path.url_streamgroup()+'/?dataPath=data'+stream+'/&timePath=data/timestamps'
+        link = path.url_streamgroup()+'/?dataPath=data/'+stream+'/&timePath=data/timestamps'
         f = open(h5file, 'rb')
         try:
             result = post(link, headers=headers, data=f)
