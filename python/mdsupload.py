@@ -22,6 +22,7 @@ _treename  = 'W7X'
 _subtrees  = 'included'
 _exclude   = {'usage':['ACTION', 'TASK', 'SIGNAL']}
 _pool = []
+_threads = False
 
 def startPool(num):
     if not _pool:
@@ -30,25 +31,29 @@ def startPool(num):
 
 def stopPool():
     while _pool:
-        _pool[-1].terminate()
-        _pool[-1].join()
+        _pool[-1].close()
+        try:
+            _pool[-1].join(3)
+        except:
+            _pool[-1].terminate()
+            _pool[-1].join()
         _pool.remove(_pool[-1])
 
 def write_data(*args,**kwarg):
     try:
-        if _pool:
-            if 'name' in kwarg.keys():
-                del(kwarg['name'])
-            return _if.write_data(*args,**kwarg)
-        return _if.write_data_async(*args,**kwarg)
+        if _threads:
+            return _if.write_data_async(*args,**kwarg)
+        if 'name' in kwarg.keys():
+            del(kwarg['name'])
+        return _if.write_data(*args,**kwarg)
     except KeyboardInterrupt as ki: raise ki
     except Exception as exc:  return _sup.requeststr(exc)
 
 def write_logurl(url,log,T0,join=None):
     try:
-        if _pool:
-            return _if.write_logurl(url,log,T0)
-        return _prc.Worker(join).put(_if.write_logurl,url,log,T0)
+        if _threads:
+            return _prc.Worker(join).put(_if.write_logurl,url,log,T0)
+        return _if.write_logurl(url,log,T0)
     except KeyboardInterrupt as ki: raise ki
     except Exception as exc:  return _sup.requeststr(exc)
 
