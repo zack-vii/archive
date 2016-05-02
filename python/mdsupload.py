@@ -126,7 +126,7 @@ class Shot(_mds.Tree):
             exclude = subtrees.get('exclude',[])
             if isinstance(exclude, _ver.basestring):
                 exclude = [exclude]
-            subtrees = subtrees.get('include','all')
+            subtrees = subtrees.get('include',_subtrees)
         else:
             exclude = []
         if isinstance(subtrees,_ver.basestring):
