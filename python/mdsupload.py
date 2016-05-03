@@ -162,8 +162,8 @@ class Shot(_mds.Tree):
             devs+= subtree.getDevices()
         return devs
 
-    def uploadPoolSec(self, subtrees=_subtrees, force=False):
-        param = [(sec,self.tree,self.shot,self.T0,self.T1,self.prefix,force) for sec in self.getSectionNids(subtrees)]
+    def uploadPoolSec(self, subtrees=_subtrees, force=False, excludeSec=[]):
+        param = [(s,self.tree,self.shot,self.T0,self.T1,self.prefix,force) for s in self.getSectionNids(subtrees) if s.nid not in excludeSec]
         if _pool:
             log = _pool[-1].pool.map_async(_uploadSec,param).get(1<<31)
         else:
@@ -176,8 +176,8 @@ class Shot(_mds.Tree):
             log[sub.node_name] = sub.upload(force)
         return log
 
-    def uploadPoolDev(self, subtrees=_subtrees, force=False):
-        param = [(d.nid, d.channels, self.tree,self.shot,d.section.nid,self.T0,self.T1,self.prefix,force) for d in  self.getDevices(subtrees)]
+    def uploadPoolDev(self, subtrees=_subtrees, force=False, excludeDev=[]):
+        param = [(d.nid, d.channels, self.tree,self.shot,d.section.nid,self.T0,self.T1,self.prefix,force) for d in self.getDevices(subtrees) if d.nid not in excludeDev]
         if _pool:
             log = _pool[-1].map_async(_uploadDev,param).get(1<<31)
         else:
