@@ -64,7 +64,7 @@ def _prep_data(data, dimof, t0=0):
         dimof = dimof.tolist()
     return data,dimof
 
-def write_data(path, data, dimof, t0=0, one=False,name=None):
+def write_data(path, data, dimof, t0=0, one=False,name=None, timeout=None):
     # path=Path, data=numpy.array, dimof=numpy.array
     data,dimof = _prep_data(data, dimof, t0)
     if data.ndim > (1 if one else 2):
@@ -72,13 +72,13 @@ def write_data(path, data, dimof, t0=0, one=False,name=None):
     else:
         return(_write_scalar(_base.Path(path), data, dimof))
 
-def write_data_async(path, data, dimof, t0=0, one=False,name=None):
+def write_data_async(path, data, dimof, t0=0, one=False,name=None, timeout=None, retry=0):
     # path=Path, data=numpy.array, dimof=numpy.array
     data,dimof = _prep_data(data, dimof, t0)
     if data.ndim > (1 if one else 2):
-        return(_write_vector_async(name,_base.Path(path), data, dimof))
+        return(_write_vector_async(name,_base.Path(path), data, dimof, timeout=timeout, retry=retry))
     else:
-        return(_write_scalar_async(name,_base.Path(path), data, dimof))
+        return(_write_scalar_async(name,_base.Path(path), data, dimof, timeout=timeout, retry=retry))
 
 
 def mapDType(data):
@@ -89,16 +89,16 @@ def mapDType(data):
     if dtype in ['float16','float32']:                    return 'float'
     else:                                                 return 'double'
 
-def _write_scalar(path, data, dimof):
+def _write_scalar(path, data, dimof, timeout=None, retry=0):
     # path=Path, data=numpy.array, dimof=list of long
     jdict = {'values': data.tolist(), 'datatype':mapDType(data), 'dimensions': dimof}
-    result = post(path.url_datastream(), json=jdict)
+    result = post(path.url_datastream(), json=jdict, timeout=timeout, retry=retry)
     return _sup.requeststr(result)
 
-def _write_scalar_async(name, path, data, dimof):
+def _write_scalar_async(name, path, data, dimof, timeout=None, retry=0):
     # path=Path, data=numpy.array, dimof=list of long
     data = _json.dumps({'values': data.tolist(), 'datatype':mapDType(data), 'dimensions': dimof})
-    res = _prc.Worker(name).put(post, path.url_datastream(), headers={'content-type':'application/json'}, data=data)
+    res = _prc.Worker(name).put(post, path.url_datastream(), headers={'content-type':'application/json'}, data=data, timeout=timeout, retry=retry)
     return res
 
 def writeH5(path,data,dimof,t0=0):
@@ -335,7 +335,7 @@ def getLast(path, time=[1,-1]):
     last = dict((s[0],int(s[1])) for s in last)
     return last
 
-def post(url, headers={}, data=None, json=None):
+def post(url, headers={}, data=None, json=None, timeout=None, retry=0):
     if json is not None:
         data = _json.dumps(json)
         headers['content-type'] = 'application/json'
@@ -346,7 +346,16 @@ def post(url, headers={}, data=None, json=None):
         _sup.debug(data,5)
         data = _ver.tobytes(data)
     _sup.debug(url)
-    result = get(url, headers, data)
+    for i in range(max(retry,0)+1):
+        try:
+            result = get(url, headers, data, timeout=timeout)
+        except KeyboardInterrupt as ki: raise ki
+        except _ver.urllib.socket.timeout as result:
+            print('timeout: %d'%(i,))
+            continue
+        break
+    if isinstance(result,(_ver.urllib.socket.timeout,)):
+        raise result
     #if json is not None:
     #   _json.dump(json,data)
     if isinstance(data,(_mmap.mmap)):
