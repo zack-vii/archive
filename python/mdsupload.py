@@ -52,8 +52,8 @@ def write_data(*args,**kwarg):
 def write_logurl(url,log,T0,join=None):
     try:
         if _threads:
-            return _prc.Worker(join).put(_if.write_logurl,url,log,T0)
-        return _if.write_logurl(url,log,T0)
+            return _prc.Worker(join).put(_if.write_logurl,url,log,T0, timeout=5, retry=99)
+        return _if.write_logurl(url,log,T0, timeout=5, retry=99)
     except KeyboardInterrupt as ki: raise ki
     except Exception as exc:  return _sup.requeststr(exc)
 
@@ -89,7 +89,7 @@ def uploadModel(shot, subtrees=_subtrees, T0=None):
     else:           T0 = _base.Time(T0)
     cfglog = getModel()
     result = (_MDS_shotdb.url_cfglog(), cfglog, T0)
-    result = _if.write_logurl(_MDS_shotdb.url_cfglog(), cfglog, T0)
+    result = _if.write_logurl(_MDS_shotdb.url_cfglog(), cfglog, T0, timeout=10, retry=3)
     print(result.msg)
     return result,cfglog
 

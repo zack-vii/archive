@@ -35,7 +35,7 @@ class URLException(Exception):
     def __init__(self,value):
         return value
 
-def write_logurl(url, parms, Tfrom, Tupto=-1):
+def write_logurl(url, parms, Tfrom, Tupto=-1, timeout=None, retry=0):
     if url.endswith('CFGLOG'):
         label = 'configuration'
     elif url.endswith('PARLOG'):
@@ -47,7 +47,7 @@ def write_logurl(url, parms, Tfrom, Tupto=-1):
            'dimensions': [max(0,_base.Time(Tfrom).ns),_base.Time(Tupto).ns]
            }
     try:
-        result = post(url, json=log)
+        result = post(url, json=log, timeout=None, retry=0)
     except _ver.urllib.HTTPError as result:
         _sup.debug(result)
     return _sup.requeststr(result)
@@ -64,13 +64,13 @@ def _prep_data(data, dimof, t0=0):
         dimof = dimof.tolist()
     return data,dimof
 
-def write_data(path, data, dimof, t0=0, one=False,name=None, timeout=None):
+def write_data(path, data, dimof, t0=0, one=False,name=None, timeout=None, retry=0):
     # path=Path, data=numpy.array, dimof=numpy.array
     data,dimof = _prep_data(data, dimof, t0)
     if data.ndim > (1 if one else 2):
-        return(_write_vector(_base.Path(path), data, dimof))
+        return(_write_vector(_base.Path(path), data, dimof, timeout=timeout, retry=retry))
     else:
-        return(_write_scalar(_base.Path(path), data, dimof))
+        return(_write_scalar(_base.Path(path), data, dimof, timeout=timeout, retry=retry))
 
 def write_data_async(path, data, dimof, t0=0, one=False,name=None, timeout=None, retry=0):
     # path=Path, data=numpy.array, dimof=numpy.array
