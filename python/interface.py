@@ -300,7 +300,7 @@ def _get_json(url, timeout=None, retry=0, **kwargs):
             handler = get(url, headers, timeout=timeout)
         except KeyboardInterrupt as ki: raise ki
         except _ver.urllib.socket.timeout as handler:
-            print('timeout: %d'%(i,))
+            _sup.debug('timeout: %d (%s)'%(i,url))
             continue
         break
     if isinstance(handler,(_ver.urllib.socket.timeout,)):
@@ -351,7 +351,7 @@ def post(url, headers={}, data=None, json=None, timeout=None, retry=0):
             result = get(url, headers, data, timeout=timeout)
         except KeyboardInterrupt as ki: raise ki
         except _ver.urllib.socket.timeout as result:
-            print('timeout: %d'%(i,))
+            _sup.debug('timeout: %d (%s)'%(i,url))
             continue
         break
     if isinstance(result,(_ver.urllib.socket.timeout,)):
