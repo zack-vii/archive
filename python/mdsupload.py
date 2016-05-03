@@ -494,9 +494,9 @@ class Device(_mds.TreeNode):
         if Tx<T0 or force:
             signal = self.signals[0]
             if _sup.debuglevel>=2: print('one signal',signal)
-            if signal.isSegmented():
+            nSeg = signal.getNumSegments()
+            if nSeg>1:
                 logs = []
-                nSeg = signal.getNumSegments()
                 if _sup.debuglevel>=2: print('is segmented',nSeg)
                 for segment in _ver.xrange(nSeg):
                     seg = signal.getSegment(segment)
@@ -510,7 +510,7 @@ class Device(_mds.TreeNode):
                 try:     data = signal.data()
                 except _mds.mdsExceptions.TreeNODATA: return 'nodata'
                 except: return {'signal',_sup.error()}
-                dimof = (seg.dim_of().data()*1E9+self.section.T0).astype('uint64')
+                dimof = (signal.dim_of().data()*1E9+self.section.T0).astype('uint64')
                 logs = write_data(self.address, data, dimof, one=True,name=join)
             logp = self.writeParLog(self.address,Tx,join)
             if join is None: _prc.join()
