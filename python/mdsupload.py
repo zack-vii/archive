@@ -267,7 +267,7 @@ class Section(_mds.TreeNode):
     def __new__(cls, section, *a, **kv):
         if isinstance(section,(tuple)):
             if isinstance(section[0],_ver.basestring):
-                if section[0].upper=='W7X':
+                if section[0].upper()=='W7X':
                     tree = _mds.Tree(section[0], section[1], "Readonly")
                     return super(Section,cls).__new__(cls,tree.getNode(section[2]).nid,tree)
                 else:
