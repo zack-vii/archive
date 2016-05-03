@@ -167,7 +167,7 @@ class Shot(_mds.Tree):
         if _pool:
             log = _pool[-1].pool.map_async(_uploadSec,param).get(1<<31)
         else:
-            log = map(_uploadSec,param)
+                log = [_uploadSec(p) for p in param]
         return log
 
     def upload(self, subtrees=_subtrees, force=False):
@@ -181,7 +181,7 @@ class Shot(_mds.Tree):
         if _pool:
             log = _pool[-1].map_async(_uploadDev,param).get(1<<31)
         else:
-            log = map(_uploadDev,param)
+            log = [_uploadDev(p) for p in param]
         clog = [(sec.path,sec.writeCfgLog()) for sec in self.getSections(subtrees)]
         return log,clog
 
@@ -495,7 +495,7 @@ class Device(_mds.TreeNode):
             signal = self.signals[0]
             if _sup.debuglevel>=2: print('one signal',signal)
             nSeg = signal.getNumSegments()
-            if nSeg>1:
+            if nSeg>0:
                 logs = []
                 if _sup.debuglevel>=2: print('is segmented',nSeg)
                 for segment in _ver.xrange(nSeg):
