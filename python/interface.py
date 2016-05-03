@@ -291,11 +291,20 @@ def get_json(url, **kwargs):
     handler = _get_json(url, **kwargs)
     return _json.load(reader(handler), strict=False)
 
-def _get_json(url, **kwargs):
+def _get_json(url, timeout=None, retry=0, **kwargs):
     url = _base.parms(url, **kwargs)
     _sup.debug(url,5)
     headers = {'Accept': 'application/json'}
-    handler = get(url, headers)
+    for i in range(max(retry,0)+1):
+        try:
+            handler = get(url, headers, timeout=timeout)
+        except KeyboardInterrupt as ki: raise ki
+        except _ver.urllib.socket.timeout as handler:
+            print('timeout: %d'%(i,))
+            continue
+        break
+    if isinstance(handler,(_ver.urllib.socket.timeout,)):
+        raise handler
     if handler.getcode() != 200:
         raise Exception('request failed: code '+str(handler.getcode()))
     if handler.headers.get('content-type') != 'application/json':
