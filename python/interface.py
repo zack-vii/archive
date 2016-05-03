@@ -370,7 +370,7 @@ def get(url, headers={}, *data, **kv):
     try:
         handler = _ver.urllib.urlopen(req, *data, **kv)
     except _ver.urllib.HTTPError as err:
-        _sup.debug(err.errno)
+        _sup.debug(err.getcode())
         _sup.debug(err.reason,2)
         _sup.debug(err.read(),3)
         raise(err)
