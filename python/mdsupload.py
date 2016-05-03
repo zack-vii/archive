@@ -100,7 +100,7 @@ def uploadTiming(shot):
     dim = data[0]
     if dim<0:   raise Exception('T0 must not be turned off.')
     data[0] = int(shot)
-    result = _if.write_data(_MDS_shotdb, data, dim)
+    result = _if.write_data(_MDS_shotdb, data, dim, timeout=3, retry=3)
     print(result.msg)
     return result
 
@@ -503,7 +503,7 @@ class Device(_mds.TreeNode):
                     data = seg.data()
                     dimof = (seg.dim_of().data()*1E9+self.section.T0).astype('uint64')
                     if _sup.debuglevel>=2: print(('image',self.address, data.shape, data.dtype, dimof.shape, dimof[0], T0))
-                    log = write_data(self.address, data, dimof, one=True,name=join)
+                    log = write_data(self.address, data, dimof, one=True,name=join, timeout=10, retry=99)
                     logs.append({"segment": segment, "log": log})
             else:
                 if _sup.debuglevel>=3: print('is not segmented')
@@ -511,7 +511,7 @@ class Device(_mds.TreeNode):
                 except _mds.mdsExceptions.TreeNODATA: return 'nodata'
                 except: return {'signal',_sup.error()}
                 dimof = (signal.dim_of().data()*1E9+self.section.T0).astype('uint64')
-                logs = write_data(self.address, data, dimof, one=True,name=join)
+                logs = write_data(self.address, data, dimof, one=True,name=join, timeout=10, retry=99)
             logp = self.writeParLog(self.address,Tx,join)
             if join is None: _prc.join()
             return {'signal':logs,'parlog':logp,"path":self.address.path()}
@@ -529,7 +529,7 @@ class Device(_mds.TreeNode):
             idx = 0;logs=[]
             while idx<length:
                 N = 1000000 if length-idx>1100000 else length-idx
-                logs.append(write_data(self.address, data[idx:idx+N].T, dimof[idx:idx+N],name=join))
+                logs.append(write_data(self.address, data[idx:idx+N].T, dimof[idx:idx+N],name=join, timeout=10, retry=99))
                 idx += N
                 _sup.debug(idx)
             logp = self.writeParLog(self.address,Tx,join)
@@ -550,7 +550,7 @@ class Device(_mds.TreeNode):
                 dimof = _np.array(image[1])
                 print(data.shape,dimof.shape)
                 if _sup.debuglevel>=3: print(('image',imagepath, data.shape, data.dtype, dimof.shape, dimof[0], T0))
-                logs.append(write_data(imagepath, data, dimof,name=join))
+                logs.append(write_data(imagepath, data, dimof,name=join, timeout=10, retry=99))
                 logp.append(self.writeParLog(imagepath,Tx,join))
             else:
                 logs.append('already there')
@@ -661,11 +661,11 @@ def checkLogUpto(path,Tfrom):
     try:
         filterstop = 2000000000000000000
         filterstart = filterstop-1 #Tfrom.ns-1
-        p = _if.get_json(path,time=[filterstart,filterstop],Nsamples=2)
+        p = _if.get_json(path,time=[filterstart,filterstop],Nsamples=2,timeout=3,retry=99)
         t = p['dimensions']
         return t[0]
-    except:
-        return 0
+    except KeyboardInterrupt as ki: raise ki
+    except: return 0
 
 def extractNid(obj):
     if isinstance(obj,(_mds.TreeNode)):
