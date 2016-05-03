@@ -118,7 +118,7 @@ def writeH5(path,data,dimof,t0=0):
                          compression="gzip")
     return tmpfile
 
-def uploadH5(path, h5file, delete=False):
+def uploadH5(path, h5file, delete=False, timeout=None, retry=0):
     # path=Path, h5file=h5-file
     stream = path.stream
     try:
@@ -126,7 +126,7 @@ def uploadH5(path, h5file, delete=False):
         link = path.url_streamgroup()+'/?dataPath=data/'+stream+'/&timePath=data/timestamps'
         f = open(h5file, 'rb')
         try:
-            result = post(link, headers=headers, data=f)
+            result = post(link, headers=headers, data=f, timeout=timeout, retry=retry)
         finally:
             f.close()
     finally:
@@ -141,15 +141,15 @@ def uploadH5(path, h5file, delete=False):
     _sup.debug(result,3)
     return result
 
-def _write_vector(path, data, dimof, t0=0):
+def _write_vector(path, data, dimof, t0=0, timeout=None, retry=0):
     # path=Path, data=numpy.array, dimof=list of long
     h5file = writeH5(path, data, dimof, t0=0)
-    return uploadH5(path, h5file, True)
+    return uploadH5(path, h5file, True, timeout=timeout, retry=retry)
 
-def _write_vector_async(name,path, data, dimof, t0=0):
+def _write_vector_async(name,path, data, dimof, t0=0, timeout=None, retry=0):
     # path=Path, data=numpy.array, dimof=list of long
     h5file = writeH5(path, data, dimof, t0=0)
-    return _prc.Worker(name).put(uploadH5, path, h5file, True)
+    return _prc.Worker(name).put(uploadH5, path, h5file, True, timeout=timeout, retry=retry)
 
 def read_signal(path, time, **kwargs):
     path = _base.Path(path)
@@ -364,6 +364,8 @@ def post(url, headers={}, data=None, json=None, timeout=None, retry=0):
 
 
 def get(url, headers={}, *data, **kv):
+    if 'timeout' not in kv.keys():
+        print(url)
     req = _ver.urllib.Request(url)
     for k, v in headers.items():
         req.add_header(k, v)
