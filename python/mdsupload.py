@@ -8,7 +8,7 @@ lev  0       1        2       3       4      5      6      7
 import MDSplus as _mds
 import numpy as _np
 import re as _re
-from . import base as _base
+from . import base as _b
 from . import diff as _diff
 from . import interface as _if
 from . import support as _sup
@@ -86,7 +86,7 @@ def uploadModel(shot, subtrees=_subtrees, T0=None):
             model[key]=_diff.treeToDict(w7x.getNode(key))
         return model
     if T0 is None:  T0 = _sup.getTiming(shot, 0)[0]
-    else:           T0 = _base.Time(T0)
+    else:           T0 = _b.Time(T0)
     cfglog = getModel()
     result = (_MDS_shotdb.url_cfglog(), cfglog, T0)
     result = _if.write_logurl(_MDS_shotdb.url_cfglog(), cfglog, T0, timeout=10, retry=3)
@@ -117,8 +117,8 @@ class Shot(_mds.Tree):
         super(Shot,self).__init__(_treename, shot, "Readonly")
         self._name = 'Shot-'+str(Shot._index)
         Shot._index+=1
-        self.T0 = _sup.getTiming(shot, 0)[0] if T0 is None else _base.Time(T0)
-        self.T1 = _sup.getTiming(shot, 1)[0] if T1 is None else _base.Time(T1)
+        self.T0 = _sup.getTiming(shot, 0)[0] if T0 is None else _b.Time(T0)
+        self.T1 = _sup.getTiming(shot, 1)[0] if T1 is None else _b.Time(T1)
         self.prefix = prefix;
 
     def getSubTrees(self, subtrees=_subtrees):
@@ -231,8 +231,8 @@ class SubTree(_mds.TreeNode):
     def __init__(self, subtree, T0=None, T1=None, prefix=''):
         self.name = 'SubTree-'+str(SubTree._index)
         SubTree._index+=1
-        self.T0 = _sup.getTiming(self.tree.shot, 0)[0] if T0 is None else _base.Time(T0)
-        self.T1 = _sup.getTiming(self.tree.shot, 1)[0] if T1 is None else _base.Time(T1)
+        self.T0 = _sup.getTiming(self.tree.shot, 0)[0] if T0 is None else _b.Time(T0)
+        self.T1 = _sup.getTiming(self.tree.shot, 1)[0] if T1 is None else _b.Time(T1)
         self.prefix = prefix;
 
     def getSections(self):
@@ -284,9 +284,9 @@ class Section(_mds.TreeNode):
         self.kks = self.getParent().getParent()
         self.name = 'Section-'+str(Section._index)
         Section._index+=1
-        self.T0 = _sup.getTiming(self.tree.shot, 0)[0] if T0 is None else _base.Time(T0)
-        self.T1 = _sup.getTiming(self.tree.shot, 1)[0] if T1 is None else _base.Time(T1)
-        self.address = _base.Path(_MDS_shotrt_arc if prefix=='' else _MDS_shotrt)
+        self.T0 = _sup.getTiming(self.tree.shot, 0)[0] if T0 is None else _b.Time(T0)
+        self.T1 = _sup.getTiming(self.tree.shot, 1)[0] if T1 is None else _b.Time(T1)
+        self.address = _b.Path(_MDS_shotrt_arc if prefix=='' else _MDS_shotrt)
         self.address.streamgroup = prefix + self.kks.node_name.upper() + '_'+getDataName(self)
 
     def getDevices(self):
@@ -417,7 +417,7 @@ class Device(_mds.TreeNode):
         super(Device,self).__init__(devnid,section.tree)
         self.name = 'Device-'+str(Device._index)
         Device._index+=1
-        self.address = _base.Path(section.address.path())
+        self.address = _b.Path(section.address.path())
         self.address.stream = getDataName(self)
         self.channels = channels
         self.section = section
@@ -455,14 +455,14 @@ class Device(_mds.TreeNode):
             except _mds.mdsExceptions.TreeNODATA:
                 continue
             try:
-                units = _base.Units(signal, 1)
+                units = _b.Units(signal, 1)
                 if units != 'unknown':
                     self.chandescs[i]["physicalQuantity"]['type'] = units
             except KeyboardInterrupt as ki: raise ki
             except: pass
             sigdata = signal.data()
             ndims = len(sigdata.shape)
-            sigdimof = (signal.dim_of().data()*1E9+self.section.T0).astype('uint64')
+            sigdimof = (signal.dim_of().data()*1E9).astype('int64')+self.section.T0
             if ndims==1:
                 scalar[0].append(sigdata)
                 scalar[2].append(self.chandescs[i])
@@ -496,12 +496,18 @@ class Device(_mds.TreeNode):
             if _sup.debuglevel>=2: print('one signal',signal)
             nSeg = signal.getNumSegments()
             if nSeg>0:
+                url = getCheckURL_seg(signal,self.section.T0,self.address)
                 logs = []
                 if _sup.debuglevel>=2: print('is segmented',nSeg)
                 for segment in _ver.xrange(nSeg):
+                    try:
+                        url = checkURL_seg(signal,T0,url,segment)
+                    except:
+                        logs.append({"segment": segment, "log": "already presend"})
+                        continue
                     seg = signal.getSegment(segment)
+                    dimof = (seg.dim_of().data()*1E9).astype('int64')+self.section.T0
                     data = seg.data()
-                    dimof = (seg.dim_of().data()*1E9+self.section.T0).astype('uint64')
                     if _sup.debuglevel>=2: print(('image',self.address, data.shape, data.dtype, dimof.shape, dimof[0], T0))
                     log = write_data(self.address, data, dimof, one=True,name=join, timeout=10, retry=9)
                     logs.append({"segment": segment, "log": log})
@@ -510,7 +516,7 @@ class Device(_mds.TreeNode):
                 try:     data = signal.data()
                 except _mds.mdsExceptions.TreeNODATA: return 'nodata'
                 except: return {'signal',_sup.error()}
-                dimof = (signal.dim_of().data()*1E9+self.section.T0).astype('uint64')
+                dimof = (signal.dim_of().data()*1E9).astype('int64')+self.section.T0
                 logs = write_data(self.address, data, dimof, one=True,name=join, timeout=10, retry=9)
             logp = self.writeParLog(self.address,Tx,join)
             if join is None: _prc.join()
@@ -525,11 +531,18 @@ class Device(_mds.TreeNode):
         if Tx<T0 or force:
             data = _np.array(scalars[0]).T
             dimof = _np.array(scalars[1])
+            url = getCheckURL_arr(dimof,self.address)
             length= len(dimof)
             idx = 0;logs=[]
             while idx<length:
                 N = 1000000 if length-idx>1100000 else length-idx
-                logs.append(write_data(self.address, data[idx:idx+N].T, dimof[idx:idx+N],name=join, timeout=10, retry=9))
+                dim  = dimof[idx:idx+N]
+                try:
+                    url = checkURL_arr(dim,url)
+                except:
+                    logs.append({"idx": idx, "log": "already presend"})
+                    continue
+                logs.append(write_data(self.address, data[idx:idx+N].T, dim,name=join, timeout=10, retry=9))
                 idx += N
                 _sup.debug(idx)
             logp = self.writeParLog(self.address,Tx,join)
@@ -540,7 +553,7 @@ class Device(_mds.TreeNode):
     def _write_images(self, images, force=False, join=None):
         logs=[];logp=[];paths=[]
         for image in images:
-            imagepath = _base.Path(self.address.path())
+            imagepath = _b.Path(self.address.path())
             imagepath.stream = self.address.stream+"_"+image[2]['name'].split('_',2)[1];
             T0 = self.section.T0
             Tx = checkLogUpto(imagepath.parlog,T0)
@@ -635,7 +648,7 @@ class Device(_mds.TreeNode):
             return chanDesc
         def substituteUnits():
             if 'units' in chanDesc.keys():
-                chanDesc["physicalQuantity"]['type'] = _base.Units(chanDesc["units"], 1)
+                chanDesc["physicalQuantity"]['type'] = _b.Units(chanDesc["units"], 1)
                 del(chanDesc["units"])
             return chanDesc
 
@@ -676,3 +689,37 @@ def extractNid(obj):
             nid = extractNid(arg)
             if nid is not None:
                 return nid
+
+def getCheckURL_seg(signal,T0,path):
+    tstart = int(signal.getSegmentStart(0)*1E9)+T0
+    tend   = int(signal.getSegmentEnd(signal.getNumSegments()-1)*1E9)+T0
+    try:
+        return str(_if.get_json('%s/?filterstart=%d&filterstop=%d'%(path.url_datastream(),tstart,tend))['_links']['children'][0]['href'].split('?')[0])
+    except:
+        return None
+
+def checkURL_seg(signal,T0,url,segment):
+    if url is None: return
+    tend = int(signal.getSegmentEnd(segment)*1E9)+T0
+    try:
+        _if.get_json('%s?filterstart=%d&filterstop=%d'%(url,tend-500,tend+5000))
+    except:
+        return None
+    raise Exception()
+
+def getCheckURL_arr(dim,path):
+    tstart = dim[0]
+    tend   = dim[-1]
+    try:
+        return str(_if.get_json('%s/?filterstart=%d&filterstop=%d'%(path.url_datastream(),tstart,tend))['_links']['children'][0]['href'].split('?')[0])
+    except:
+        return None
+
+def checkURL_arr(dim,url,segment):
+    if url is None: return
+    tend = dim[-1]
+    try:
+        _if.get_json('%s?filterstart=%d&filterstop=%d'%(url,tend-500,tend+5000))
+    except:
+        return None
+    raise Exception()

@@ -5,7 +5,7 @@ archive.accessArchiveDB
 data rooturl database view    project strgrp stream idx    channel
 lev  0       1        2       3       4      5      6      7
 """
-from . import base as _base
+from . import base as _b
 from . import interface as _if
 from . import support as _sup
 from . import version as _ver
@@ -13,7 +13,7 @@ from . import version as _ver
 def mds_signal(url, time, help=None, channel=None, value=None, scaling=None, cache=None):
     print('mds_signal',url,time,help,channel,value,scaling,cache)
     try:
-        time = _base.TimeInterval(time)
+        time = _b.TimeInterval(time)
         kwargs = {}
         try:    channel = channel.data()
         except: pass

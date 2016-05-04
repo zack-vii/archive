@@ -11,7 +11,7 @@ import numpy as _np
 import re as _re
 import time as _time
 import os as _os
-from . import base as _base
+from . import base as _b
 from . import version as _ver
 
 debuglevel = int(_os.getenv('DEBUG_ARCHIVE','0'))
@@ -28,7 +28,7 @@ def fixTiming(shot,time,Tn=0,seg=0,force=False):
     if isinstance(time, _ver.basestring) and time.startswith('XP:'):
         time = getTimingXP(time,[Tn])[0][seg]
     else:
-        time = _base.Time(time)
+        time = _b.Time(time)
     time = _mds.Uint64(time)
     t = _mds.Tree('W7X',shot)
     nids = t.getNodeWild('***.TIMING')
@@ -135,13 +135,13 @@ def getTimeInserted_old(node):
     try:
         time = list(_re.findall('([0-9]{2})-([A-Z]{3})-([0-9]{4}) ([0-9]{2}):([0-9]{2}):([0-9]{2}).([0-9]{2})', timestr)[0])
     except:
-        return _base.Time(0)
+        return _b.Time(0)
     time[1] = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'].index(time[1])+1
     time = [int(t) for t in time]
-    return _base.Time([time[2]]+[time[1]]+[time[0]]+time[3:-1]+[time[-1]*10], local=True)
+    return _b.Time([time[2]]+[time[1]]+[time[0]]+time[3:-1]+[time[-1]*10], local=True)
 
 def getTimeInserted(node):
-    return _base.Time(100*(int(_mds.TdiExecute('GETNCI($,"TIME_INSERTED")', (node,)))-35067240000000000), local=True)
+    return _b.Time(100*(int(_mds.TdiExecute('GETNCI($,"TIME_INSERTED")', (node,)))-35067240000000000), local=True)
 
 class Flags(int):
     _STATE             =0x00000001
@@ -231,7 +231,7 @@ def getTimingMDS(shot, n=_ver.range(7)):
     def getTn(n):
         node = time.getNode('T%d:IDEAL' % n)
         if node.on:
-            return [_base.Time(int(node.record))]
+            return [_b.Time(int(node.record))]
         else:
             return []
     time = _mds.Tree('W7X', shot).TIMING
@@ -244,11 +244,11 @@ def getTimingXP(XP,T=_ver.range(7)):
     from . import interface
     XP = XP.split(":")[-1]
     XP = XP.split('.')
-    f  = _base.Time("%c%c%c%c/%c%c/%c%c" % tuple(XP[0]))
-    u  = f + _base.Time._d2ns # + 1 day
-    p = interface.get_json("http://archive-webapi.ipp-hgw.mpg.de/programs.json?"+str(_base.TimeInterval([f,u])))
+    f  = _b.Time("%c%c%c%c/%c%c/%c%c" % tuple(XP[0]))
+    u  = f + _b.Time._d2ns # + 1 day
+    p = interface.get_json("http://archive-webapi.ipp-hgw.mpg.de/programs.json?"+str(_b.TimeInterval([f,u])))
     p = p["programs"][int(XP[1])-1]["trigger"]
-    return [_base.Time(p[str(n)]) for n in T]
+    return [_b.Time(p[str(n)]) for n in T]
 
 
 def getShotDB(mode=3):
@@ -256,7 +256,7 @@ def getShotDB(mode=3):
 
 def getTimestampMDS(n=1):
     url = 'http://mds-data-1.ipp-hgw.mpg.de/operator/last_trigger/'+str(n)
-    return(_base.Time(int(_ver.urllib.urlopen(url).read(20))))
+    return(_b.Time(int(_ver.urllib.urlopen(url).read(20))))
 
 def getTimestamp(n=1):
     return getTimestampMDS(n)

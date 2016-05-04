@@ -6,7 +6,7 @@ transient
 import MDSplus as _mds
 import numpy as _np
 import time as _time
-from . import base as _base
+from . import base as _b
 from . import diff as _diff
 from . import support as _sup
 from . import interface as _if
@@ -16,7 +16,7 @@ from . import version as _ver
 class client(object):
     mdsarray = _mds.mdsarray
     _tree = 'TRANSIENT'
-    def __init__(self, stream, hostspec=_base._server):
+    def __init__(self, stream, hostspec=_b._server):
         self._con = _mds.Connection(hostspec)
         if len(stream)>12:
             raise Exception('The name of the stream cannot be longer than 12 charaters. '+stream)
@@ -141,7 +141,7 @@ class client(object):
             self._con.get('SETEVENT($,$)', self._tree, self.mdsarray.Uint8Array(list(map(ord,self._stream))))
 
     def _setUnits(self, units):
-        self._addConfig({'UNITS': _base.Units(units)})
+        self._addConfig({'UNITS': _b.Units(units)})
 
     def _getUnits(self):
         return self._con.get('IF_ERROR(EXECUTE($),"unknown")',self._path+':'+'UNITS').tolist()
@@ -202,7 +202,7 @@ class client(object):
             data = self.mdsarray.makeArray(data)
         if not isinstance(dim, self.mdsarray.Array):
             dim = self.mdsarray.makeArray(dim)
-        dim = self.mdsarray.Uint64Array(list(map(lambda t: _base.Time(t).ns, dim)))
+        dim = self.mdsarray.Uint64Array(list(map(lambda t: _b.Time(t).ns, dim)))
         end = len(dim)-1
         putexpr = 'makeSegment(Compile($),$,$,Build_Dim(*,$),$,-1,-1)'
         chkexpr = 'GetNumSegments(Compile($))'
@@ -226,7 +226,7 @@ class client(object):
 
 class server(object):
     _tree = 'TRANSIENT'
-    _path = _base.Path("raw/W7X/MDS_transient/")
+    _path = _b.Path("raw/W7X/MDS_transient/")
     mds = _mds
     tdi = _mds.TdiExecute
     upload_as_block = True
@@ -337,7 +337,7 @@ class server(object):
             node = self.Tree(self.last).getNode(node)
         url = node.getNodeWild('$URL')
         if len(url):
-            return _base.Path(str(url[0].data()))
+            return _b.Path(str(url[0].data()))
         else:
             return self._path._set_stream(str(node.getNodeName()).lower())
 

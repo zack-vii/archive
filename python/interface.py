@@ -24,7 +24,7 @@ try:
     import h5py as _h5
 except:
     print('WARNING: "h5py" package not found.\nImage upload will not be available')
-from . import base as _base
+from . import base as _b
 from . import cache as _cache
 from . import support as _sup
 from . import png as _png
@@ -44,7 +44,7 @@ def write_logurl(url, parms, Tfrom, Tupto=-1, timeout=None, retry=0):
         raise Exception('write_logurl: URL must refer to either a CFGLOG or a PARLOG.')
     log = {'label' : label,
            'values': [parms],
-           'dimensions': [max(0,_base.Time(Tfrom).ns),_base.Time(Tupto).ns]
+           'dimensions': [max(0,_b.Time(Tfrom).ns),_b.Time(Tupto).ns]
            }
     try:
         result = post(url, json=log, timeout=None, retry=0)
@@ -68,17 +68,17 @@ def write_data(path, data, dimof, t0=0, one=False,name=None, timeout=None, retry
     # path=Path, data=numpy.array, dimof=numpy.array
     data,dimof = _prep_data(data, dimof, t0)
     if data.ndim > (1 if one else 2):
-        return(_write_vector(_base.Path(path), data, dimof, timeout=timeout, retry=retry))
+        return(_write_vector(_b.Path(path), data, dimof, timeout=timeout, retry=retry))
     else:
-        return(_write_scalar(_base.Path(path), data, dimof, timeout=timeout, retry=retry))
+        return(_write_scalar(_b.Path(path), data, dimof, timeout=timeout, retry=retry))
 
 def write_data_async(path, data, dimof, t0=0, one=False,name=None, timeout=None, retry=0):
     # path=Path, data=numpy.array, dimof=numpy.array
     data,dimof = _prep_data(data, dimof, t0)
     if data.ndim > (1 if one else 2):
-        return(_write_vector_async(name,_base.Path(path), data, dimof, timeout=timeout, retry=retry))
+        return(_write_vector_async(name,_b.Path(path), data, dimof, timeout=timeout, retry=retry))
     else:
-        return(_write_scalar_async(name,_base.Path(path), data, dimof, timeout=timeout, retry=retry))
+        return(_write_scalar_async(name,_b.Path(path), data, dimof, timeout=timeout, retry=retry))
 
 
 def mapDType(data):
@@ -173,8 +173,8 @@ def _write_vector_async(name,path, data, dimof, t0=0, timeout=None, retry=0):
     return result
 
 def read_signal(path, time, **kwargs):
-    path = _base.Path(path)
-    time = _base.TimeInterval(time)
+    path = _b.Path(path)
+    time = _b.TimeInterval(time)
     cache = kwargs.pop('cache', _defaultCache)
     if cache:
         _cache.cache().clean()
@@ -188,7 +188,7 @@ def read_signal(path, time, **kwargs):
         _sup.debug('get web-archive: '+path.path())
         rawset = _readraw(path, time, **kwargs)
     if rawset is None: return None
-    return _base.createSignal(rawset[0], rawset[1], time.t0T, rawset[2],**kwargs)
+    return _b.createSignal(rawset[0], rawset[1], time.t0T, rawset[2],**kwargs)
 
 
 def _readraw(path, time, **kwargs):
@@ -209,7 +209,7 @@ def _readraw_json(path, time, **kwargs):
     except _ver.urllib.HTTPError as exc:
         _sup.debug(exc,2)
         return [[],[],str(exc)]
-    data = _base.tonumpy(stream['values'])
+    data = _b.tonumpy(stream['values'])
     if len(data.shape)==2:  # multichannel
         data = data.T.copy()
     return [data,_np.array(stream['dimensions']),str(stream.get('unit', 'unknown'))]
@@ -217,9 +217,9 @@ def _readraw_json(path, time, **kwargs):
 
 def _readchunks(path, time, **kwargs):
     SQcache = _cache.cache()
-    path = _base.Path(path)
+    path = _b.Path(path)
     hsh = _cache.gethash(path, **kwargs)
-    time = _base.TimeInterval(time).ns[0:2]
+    time = _b.TimeInterval(time).ns[0:2]
     def task(out, times, idxs, idx, i):
         while i<len(idxs):
             out[idxs[i]] = _readraw(path, times[i], **kwargs)
@@ -313,7 +313,7 @@ def get_json(url, **kwargs):
     return _json.load(reader(handler), strict=False)
 
 def _get_json(url, timeout=None, retry=0, **kwargs):
-    url = _base.parms(url, **kwargs)
+    url = _b.parms(url, **kwargs)
     _sup.debug(url,5)
     headers = {'Accept': 'application/json'}
     for i in range(max(retry,0)+1):
@@ -342,15 +342,15 @@ def get_program(time=None):
         return {
         'id':list(map(int,str(j['id']).split('.'))),
         'name':str(j['name']),
-        'time':_base.TimeInterval([j['from'],j['upto'],j['trigger']['1'][0]]),
+        'time':_b.TimeInterval([j['from'],j['upto'],j['trigger']['1'][0]]),
         'description':str(j['description']),
-        'trigger':_base.TimeArray(trigger)}
-    time = _base.TimeInterval(time)
-    jlist = get_json(_base._rooturl+'/programs.json?'+str(time))
+        'trigger':_b.TimeArray(trigger)}
+    time = _b.TimeInterval(time)
+    jlist = get_json(_b._rooturl+'/programs.json?'+str(time))
     return [convertProgram(j) for j in jlist.get('programs',[])]
 
 def getLast(path, time=[1,-1]):
-    j = get_json(_base.filter(path, time))
+    j = get_json(_b.filter(path, time))
     last = _ver.tostr(j['_links']['children'][0]['href']).split('?')[1].split('&')
     last = [s.split('=') for s in last]
     last = dict((s[0],int(s[1])) for s in last)
@@ -452,7 +452,7 @@ def read_parlog(path, time=[-1, 0], **kwargs):
                 if v is not None:
                     chans[i][k] = _sup.cp(v)
         return chans
-    path =  _base.Path(path)
+    path =  _b.Path(path)
     par = get_json(path.url_parlog(), time=time, **kwargs)
     if not isinstance(par, dict):
         raise Exception('parlog not found!')
@@ -469,7 +469,7 @@ def read_parlog(path, time=[-1, 0], **kwargs):
 
 
 def read_cfglog(path, time=[-1, 0], **kwargs):
-    path =  _base.Path(path)
+    path =  _b.Path(path)
     par = get_json(path.url_cfglog(), time=time, **kwargs)
     if not isinstance(par, dict):
         raise Exception('cfglog not found!')
@@ -477,14 +477,14 @@ def read_cfglog(path, time=[-1, 0], **kwargs):
 
 
 def read_jpg_url(url, time, skip=0):
-    time = _base.TimeInterval(time)
+    time = _b.TimeInterval(time)
     link = url + '/_signal.jpg?' + str(time) + '&skip=' + str(skip)
     _sup.debug(link)
     return get(link)
 
 
 def read_png_url(url, time, skip=0):
-    time = _base.TimeInterval(time)
+    time = _b.TimeInterval(time)
     link = url + '/_signal.png?' + str(time) + '&skip=' + str(skip)
     _sup.debug(link)
     return _png.Reader(get(link)).read()
@@ -495,11 +495,11 @@ def read_pngs_url(url,time,ntreads=3):
         while True:
             try:
                 i = idx[0];idx[0]+=1
-                time = _base.TimeInterval([dim[i]]*2)
+                time = _b.TimeInterval([dim[i]]*2)
                 S[i] = read_png_url(url,time,0)[2]
             except KeyboardInterrupt as ki: raise ki
             except: break
-    time = _base.TimeInterval(time)
+    time = _b.TimeInterval(time)
     par = get_json(url+'/_signal.json?'+time.filter())['_links']['children']
     dim = [int(_re.search('(?<=from=)([0-9]+)',str(p['href'])).group()) for p in par]
     dim.reverse()
@@ -508,11 +508,11 @@ def read_pngs_url(url,time,ntreads=3):
     threads = [_th.Thread(target=task, args=(S, url, dim, idx)) for i in range(ntreads)]
     for thread in threads: thread.start()
     for thread in threads: thread.join()
-    return _base.createSignal(_np.array([s for s in S if s is not None]),dim,time.t0T,'unknown')
+    return _b.createSignal(_np.array([s for s in S if s is not None]),dim,time.t0T,'unknown')
 
 
 def read_raw_url(url, time, skip=0):
-    time = _base.TimeInterval(time)
+    time = _b.TimeInterval(time)
     link = url + '/_signal.json?' + str(time) + '&skip=' + str(skip)
     _sup.debug(link)
     r = get(link)

@@ -7,7 +7,7 @@ lev  0       1        2       3       4      5      6      7
 """
 import MDSplus as _mds
 import re as _re
-from . import base as _base
+from . import base as _b
 from . import classes as _cls
 from . import interface as _if
 from . import support as _sup
@@ -236,10 +236,10 @@ def build(tree='archive', shot=-1, T='now', rootpath='/ArchiveDB/codac/W7X',tags
         pn.addNode('$NAME','TEXT').record = name
 
     name = "codac"
-    path = _base.Path(rootpath).url()
+    path = _b.Path(rootpath).url()
     with _mds.Tree(tree, shot, 'new') as arc:
         arc.getNode('\TOP').setIncludeInPulse(False)
-        T = _base.Time(T)
+        T = _b.Time(T)
         sys = arc.addNode('$SYSTEM','STRUCTURE')
         sys.addNode('VERSION','TEXT').putData(T.utc)
         sys.addNode('FUN_URL','TEXT').putData('archive_url')

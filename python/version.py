@@ -28,14 +28,14 @@ ispy2 = pyver < (3,)
 try:
     has_long = 'long' in __builtins__#.__dict__.keys()
     has_unicode = 'unicode' in __builtins__#.__dict__.keys()
-    has_basestring = 'basestring' in __builtins__#.__dict__.keys()
+    has_bstring = 'basestring' in __builtins__#.__dict__.keys()
     has_bytes = 'bytes' in __builtins__#.__dict__.keys()
     has_buffer = 'buffer' in __builtins__#.__dict__.keys()
     has_xrange = 'xrange' in __builtins__#.__dict__.keys()
 except:
     has_long = 'long' in __builtins__.__dict__.keys()
     has_unicode = 'unicode' in __builtins__.__dict__.keys()
-    has_basestring = 'basestring' in __builtins__.__dict__.keys()
+    has_bstring = 'basestring' in __builtins__.__dict__.keys()
     has_bytes = 'bytes' in __builtins__.__dict__.keys()
     has_buffer = 'buffer' in __builtins__.__dict__.keys()
     has_xrange = 'xrange' in __builtins__.__dict__.keys()
@@ -46,7 +46,7 @@ if has_long:
     long = long  # analysis:ignore
 else:
     long = int
-if has_basestring:
+if has_bstring:
     basestring = basestring  # analysis:ignore
 elif has_bytes:
     basestring = (str, bytes)
