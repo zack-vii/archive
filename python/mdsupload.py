@@ -694,7 +694,7 @@ def getCheckURL_seg(signal,T0,path):
     tstart = _b.dimof2w7x(signal.getSegmentEnd(0),T0)
     tend   = _b.dimof2w7x(signal.getSegmentEnd(signal.getNumSegments()-1),T0)
     try:
-        return str(_if.get_json('%s/?filterstart=%d&filterstop=%d'%(path.url_datastream(),tstart,tend))['_links']['children'][0]['href'].split('?')[0])
+        return str(_if.get_json('%s/?filterstart=%d&filterstop=%d'%(path.url_datastream(),tstart,tend), timeout=3, retry=9)['_links']['children'][0]['href'].split('?')[0])
     except:
         return None
 
@@ -702,7 +702,7 @@ def checkURL_seg(signal,T0,url,segment):
     if url is None: return
     tend = _b.dimof2w7x(signal.getSegmentEnd(segment),T0)
     try:
-        _if.get_json('%s?filterstart=%d&filterstop=%d'%(url,tend-500,tend+5000))
+        _if.get_json('%s?filterstart=%d&filterstop=%d'%(url,tend-500,tend+5000), timeout=3, retry=9)
     except:
         return None
     raise Exception()
@@ -711,7 +711,7 @@ def getCheckURL_arr(dim,path):
     tstart = dim[0]
     tend   = dim[-1]
     try:
-        return str(_if.get_json('%s/?filterstart=%d&filterstop=%d'%(path.url_datastream(),tstart,tend))['_links']['children'][0]['href'].split('?')[0])
+        return str(_if.get_json('%s/?filterstart=%d&filterstop=%d'%(path.url_datastream(),tstart,tend), timeout=3, retry=9)['_links']['children'][0]['href'].split('?')[0])
     except:
         return None
 
@@ -719,7 +719,7 @@ def checkURL_arr(dim,url,segment):
     if url is None: return
     tend = dim[-1]
     try:
-        _if.get_json('%s?filterstart=%d&filterstop=%d'%(url,tend-500,tend+5000))
+        _if.get_json('%s?filterstart=%d&filterstop=%d'%(url,tend-500,tend+5000), timeout=3, retry=9)
     except:
         return None
     raise Exception()
