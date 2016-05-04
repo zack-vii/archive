@@ -101,11 +101,13 @@ def _write_scalar_async(name, path, data, dimof, timeout=None, retry=0):
     res = _prc.Worker(name).put(post, path.url_datastream(), headers={'content-type':'application/json'}, data=data, timeout=timeout, retry=retry)
     return res
 
-def writeH5(path,data,dimof,t0=0):
+def writeH5(path,data,dimof,t0=0,idx=None):
     stream = path.stream
     data,dimof = _prep_data(data, dimof, t0)
     dtype = str(data.dtype)
-    tmpfile = _ver.tmpdir+"archive_"+stream+'_'+str(dimof[0])+".h5"
+    tmpfile = _ver.tmpdir+"archive_"+stream+'_'+str(dimof[0])
+    if idx:  tmpfile += '_%d'%(idx,)
+    tmpfile += ".h5"
     if data.ndim<3:
         data = data.reshape(list(data.shape)+[1])
     else:
@@ -143,13 +145,32 @@ def uploadH5(path, h5file, delete=False, timeout=None, retry=0):
 
 def _write_vector(path, data, dimof, t0=0, timeout=None, retry=0):
     # path=Path, data=numpy.array, dimof=list of long
-    h5file = writeH5(path, data, dimof, t0=0)
-    return uploadH5(path, h5file, True, timeout=timeout, retry=retry)
-
+    for i in range(max(retry,0)+1):
+        try:
+            h5file = writeH5(path, data, dimof, t0=0, idx=i)
+            result = uploadH5(path, h5file, True, timeout=timeout)
+        except KeyboardInterrupt as ki: raise ki
+        except _ver.urllib.socket.timeout as result:
+            _sup.debug('timeout: %d (%s)'%(i,path))
+            continue
+        break
+    if isinstance(result,(_ver.urllib.socket.timeout,)):
+        raise result
+    return result
 def _write_vector_async(name,path, data, dimof, t0=0, timeout=None, retry=0):
     # path=Path, data=numpy.array, dimof=list of long
-    h5file = writeH5(path, data, dimof, t0=0)
-    return _prc.Worker(name).put(uploadH5, path, h5file, True, timeout=timeout, retry=retry)
+    for i in range(max(retry,0)+1):
+        try:
+            h5file = writeH5(path, data, dimof, t0=0, idx=i)
+            result = _prc.Worker(name).put(uploadH5, path, h5file, True, timeout=timeout)
+        except KeyboardInterrupt as ki: raise ki
+        except _ver.urllib.socket.timeout as result:
+            _sup.debug('timeout: %d (%s)'%(i,path))
+            continue
+        break
+    if isinstance(result,(_ver.urllib.socket.timeout,)):
+        raise result
+    return result
 
 def read_signal(path, time, **kwargs):
     path = _base.Path(path)
