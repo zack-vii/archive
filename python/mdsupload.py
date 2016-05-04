@@ -462,7 +462,7 @@ class Device(_mds.TreeNode):
             except: pass
             sigdata = signal.data()
             ndims = len(sigdata.shape)
-            sigdimof = (signal.dim_of().data()*1E9).astype('int64')+self.section.T0
+            sigdimof = _b.dimof2w7x(signal.dim_of().data(),self.section.T0)
             if ndims==1:
                 scalar[0].append(sigdata)
                 scalar[2].append(self.chandescs[i])
@@ -506,7 +506,7 @@ class Device(_mds.TreeNode):
                         logs.append({"segment": segment, "log": "already presend"})
                         continue
                     seg = signal.getSegment(segment)
-                    dimof = (seg.dim_of().data()*1E9).astype('int64')+self.section.T0
+                    dimof =  _b.dimof2w7x(seg.dim_of().data(),self.section.T0)
                     data = seg.data()
                     if _sup.debuglevel>=2: print(('image',self.address, data.shape, data.dtype, dimof.shape, dimof[0], T0))
                     log = write_data(self.address, data, dimof, one=True,name=join, timeout=10, retry=9)
@@ -516,7 +516,7 @@ class Device(_mds.TreeNode):
                 try:     data = signal.data()
                 except _mds.mdsExceptions.TreeNODATA: return 'nodata'
                 except: return {'signal',_sup.error()}
-                dimof = (signal.dim_of().data()*1E9).astype('int64')+self.section.T0
+                dimof = _b.dimof2w7x(signal.dim_of().data(),self.section.T0)
                 logs = write_data(self.address, data, dimof, one=True,name=join, timeout=10, retry=9)
             logp = self.writeParLog(self.address,Tx,join)
             if join is None: _prc.join()
@@ -691,8 +691,8 @@ def extractNid(obj):
                 return nid
 
 def getCheckURL_seg(signal,T0,path):
-    tstart = int(signal.getSegmentStart(0)*1E9)+T0
-    tend   = int(signal.getSegmentEnd(signal.getNumSegments()-1)*1E9)+T0
+    tstart = _b.dimof2w7x(signal.getSegmentEnd(0),T0)
+    tend   = _b.dimof2w7x(signal.getSegmentEnd(signal.getNumSegments()-1),T0)
     try:
         return str(_if.get_json('%s/?filterstart=%d&filterstop=%d'%(path.url_datastream(),tstart,tend))['_links']['children'][0]['href'].split('?')[0])
     except:
@@ -700,7 +700,7 @@ def getCheckURL_seg(signal,T0,path):
 
 def checkURL_seg(signal,T0,url,segment):
     if url is None: return
-    tend = int(signal.getSegmentEnd(segment)*1E9)+T0
+    tend = _b.dimof2w7x(signal.getSegmentEnd(segment),T0)
     try:
         _if.get_json('%s?filterstart=%d&filterstop=%d'%(url,tend-500,tend+5000))
     except:

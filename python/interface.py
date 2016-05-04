@@ -56,7 +56,7 @@ def _prep_data(data, dimof, t0=0):
         raise Exception('write_data: data must be numpy.ndarray')
     dimof = _np.array(dimof)
     if dimof.dtype in ['float64','float32','float16']:
-        dimof = (dimof*1e9+t0).astype('uint64')
+        dimof = _b.dimof2w7x(dimof,t0)
     if dimof.ndim == 0:  # we need to add one level
         dimof = [dimof.tolist()]
         data  = data.reshape([1]+list(data.shape))

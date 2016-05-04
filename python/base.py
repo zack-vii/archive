@@ -660,3 +660,6 @@ def tonumpy(dat):
         else:
             nptype = 'uint8'
     return _np.array(dat,nptype)
+
+def dimof2w7x(dimof,t0):
+    return _np.int64(dimof*1e9)+t0
