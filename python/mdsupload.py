@@ -125,7 +125,10 @@ class Shot(_mds.Tree):
         subtrees = self._getSubTreeList(subtrees)
         subs = []
         for subtree in subtrees:
-            subs.append(SubTree((subtree,self), T0=self.T0, T1=self.T1, prefix=self.prefix))
+            try:
+                subs.append(SubTree((subtree,self), T0=self.T0, T1=self.T1, prefix=self.prefix))
+            except _mds.mdsExceptions.treeshrExceptions.TreeNNF:
+                _sup.debug('Node not found: %s'%(subtree,))
         return subs
 
     def _getSubTreeList(self,subtrees):
@@ -146,20 +149,29 @@ class Shot(_mds.Tree):
     def getSections(self, subtrees=_subtrees):
         secs = []
         for subtree in self.getSubTrees(subtrees):
-            secs+= subtree.getSections()
+            try:
+                secs+= subtree.getSections()
+            except _mds.mdsExceptions.treeshrExceptions.TreeNNF:
+                _sup.debug('Node not found: %s'%(subtree,))
         return secs
 
     def getSectionNids(self, subtrees=_subtrees):
         nids = []
         for subtree in self.getSubTrees(subtrees):
-            nids+= subtree.getSectionNids()
+            try:
+                nids+= subtree.getSectionNids()
+            except _mds.mdsExceptions.treeshrExceptions.TreeNNF:
+                _sup.debug('Node not found: %s'%(subtree,))
         return nids
 
 
     def getDevices(self, subtrees=_subtrees):
         devs = []
         for subtree in self.getSubTrees(subtrees):
-            devs+= subtree.getDevices()
+            try:
+                devs+= subtree.getDevices()
+            except _mds.mdsExceptions.treeshrExceptions.TreeNNF:
+                _sup.debug('Node not found: %s'%(subtree,))
         return devs
 
     def uploadPoolSec(self, subtrees=_subtrees, force=False, excludeSec=[]):
