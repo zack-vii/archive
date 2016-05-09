@@ -35,6 +35,72 @@ class URLException(Exception):
     def __init__(self,value):
         return value
 
+
+def write_signals(data,dimof,program,group,project,names,units=None,parms={},one=False):
+    """
+    write_signal(data,dimof,program,name,project,unit='unknown',parms={})
+    (numpy.array) data:     [TxN]-array N signals of the desired datatype (preferably signed)
+    (numpy.array) dimof:    time vector in uint64 ns, of length T
+    (str)         program:  string of format: YYYYMMDD.PPP
+    (str)         group:    name of the signal group (e.g. CuII)
+    (str)         project:  name of the project (e.g. HEXOS)
+    (list,tuple)  names:    a list of channel names (e.g. ['Intensity','Width'])
+    (list,tuple)  units:    a list of valid units (optional)
+    (dict)        parms:    additional metadata (optional)
+    """
+    def chanDesc(name, unit=None, cd={}):
+        """collects the parameters of a channel"""
+        chanDesc = {}
+        chanDesc['name'] = name
+        chanDesc["active"] = 1
+        chanDesc["physicalQuantity"] = {'type': 'unknown' if unit is None else _b.Units(unit)}
+        return chanDesc
+
+    path = _b.Path('/Test/raw')
+    path.project = project
+    path.streamgroup = group
+    try:
+        x,p = program.split('.',2)
+        if len(x)!=8: raise Exception()
+        path.datastream = '%08d.03d'%(int(x),int(p))
+    except:
+         raise Exception('program must be a string of format: YYYYMMDD.PPP, (e.g. 20160210.007)')
+    if units is None or isinstance(units, _ver.basestring): units = [units]*len(names)
+    if 'chanDescs' in parms.keys():
+        parms['chanDescs'] = [chanDesc(n,u) for n,u in zip(names,units)]
+    else:
+        parms['chanDescs'] = [chanDesc(n,u,c) for n,u,c in zip(names,units,parms['chanDescs'])]
+    write_logurl(path.url_parlog,parms,dimof[0],dimof[-1],timeout=3,retry=3)
+    write_data(path, data, dimof, one=one, timeout=10, retry=10)
+
+def write_signal(data,dimof,program,name,project,unit='unknown',parms={}):
+    """
+    write_signal(data,dimof,program,name,project,unit='unknown',parms={})
+    (numpy.array) data:     data vector of desired datatype (preferably signed)
+    (numpy.array) dimof:    time vector in uint64 ns, same length as data
+    (str)         program:  string of format: YYYYMMDD.PPP
+    (str)         name:     name of the signal (e.g. CuII-Intensity)
+    (str)         project:  name of the project (e.g. HEXOS)
+    (str)         unit:     a valid unit (optional)
+    (dict)        parms:    additional metadata (optional)
+    """
+    write_signals(data,dimof,program,name,project,['values'],unit=[unit],parms=parms,one=True)
+
+def write_images(data,dimof,program,name,project,unit='unknown',parms={}):
+    """
+    write_signal(data,dimof,program,name,project,unit='unknown',parms={})
+    (numpy.array) data:     [T,H,W] data array of desired datatype (preferably signed)
+    (numpy.array) dimof:    time vector in uint64 ns, same length as data
+    (str)         program:  string of format: YYYYMMDD.PPP
+    (str)         name:     name of the signal (e.g. CuII-Intensity)
+    (str)         project:  name of the project (e.g. HEXOS)
+    (str)         unit:     a valid unit (optional)
+    (dict)        parms:    additional metadata (optional)
+    """
+    write_signals(data,dimof,program,name,project,['values'],unit=[unit],parms=parms,one=True)
+
+
+
 def write_logurl(url, parms, Tfrom, Tupto=-1, timeout=None, retry=0):
     if url.endswith('CFGLOG'):
         label = 'configuration'
