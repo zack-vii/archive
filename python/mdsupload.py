@@ -539,10 +539,9 @@ class Device(_mds.TreeNode):
                 dim  = dimof[idx:idx+N]
                 try:
                     url = checkURL_arr(dim,url)
+                    logs.append(write_data(self.address, data[idx:idx+N].T, dim,name=join, timeout=10, retry=9))
                 except:
                     logs.append({"idx": idx, "log": "already presend"})
-                    continue
-                logs.append(write_data(self.address, data[idx:idx+N].T, dim,name=join, timeout=10, retry=9))
                 idx += N
                 _sup.debug(idx)
             logp = self.writeParLog(self.address,Tx,join)
