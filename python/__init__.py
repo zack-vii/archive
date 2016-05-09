@@ -5,7 +5,7 @@ archive
 @copyright: 2015
 @license: GNU GPL
 """
-__version__ = "2015.09.10.11"
+__version__ = "2016.05.09.14"
 import MDSplus as _mds  # analysis:ignore
 import numpy as _np  # analysis:ignore
 import os as _os  # analysis:ignore

@@ -462,7 +462,7 @@ class Device(_mds.TreeNode):
             except: pass
             sigdata = signal.data()
             ndims = len(sigdata.shape)
-            sigdimof = _b.dimof2w7x(signal.dim_of().data(),self.section.T0)
+            sigdimof = _b.dimof2w7x(signal.dim_of(),self.section.T0)
             if ndims==1:
                 scalar[0].append(sigdata)
                 scalar[2].append(self.chandescs[i])
@@ -506,7 +506,7 @@ class Device(_mds.TreeNode):
                         logs.append({"segment": segment, "log": "already presend"})
                         continue
                     seg = signal.getSegment(segment)
-                    dimof =  _b.dimof2w7x(seg.dim_of().data(),self.section.T0)
+                    dimof =  _b.dimof2w7x(seg.dim_of(),self.section.T0)
                     data = seg.data()
                     if _sup.debuglevel>=2: print(('image',self.address, data.shape, data.dtype, dimof.shape, dimof[0], T0))
                     log = write_data(self.address, data, dimof, one=True,name=join, timeout=10, retry=9)
@@ -516,7 +516,7 @@ class Device(_mds.TreeNode):
                 try:     data = signal.data()
                 except _mds.mdsExceptions.TreeNODATA: return 'nodata'
                 except: return {'signal',_sup.error()}
-                dimof = _b.dimof2w7x(signal.dim_of().data(),self.section.T0)
+                dimof = _b.dimof2w7x(signal.dim_of(),self.section.T0)
                 logs = write_data(self.address, data, dimof, one=True,name=join, timeout=10, retry=9)
             logp = self.writeParLog(self.address,Tx,join)
             if join is None: _prc.join()
