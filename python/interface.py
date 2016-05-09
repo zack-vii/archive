@@ -97,7 +97,7 @@ def write_images(data,dimof,program,name,project,unit='unknown',parms={}):
     (str)         unit:     a valid unit (optional)
     (dict)        parms:    additional metadata (optional)
     """
-    write_signals(data,dimof,program,name,project,['values'],unit=[unit],parms=parms,one=True)
+    write_signals(data,dimof,program,name,project,['values'],units=[unit],parms=parms,one=True)
 
 
 
