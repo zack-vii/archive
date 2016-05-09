@@ -101,7 +101,7 @@ def write_images(data,dimof,program,name,project,unit='unknown',parms={},version
     (dict)        parms:    additional metadata (optional)
     (int)         version:  version number
     """
-    write_signals(data,dimof,program,name,project,['values'],units=[unit],parms=parms,version=version,one=True)
+    write_signals(data,dimof,program,name,project,['images'],units=[unit],parms=parms,version=version,one=True)
 
 
 
@@ -123,6 +123,11 @@ def write_logurl(url, parms, Tfrom, Tupto=-1, timeout=None, retry=0):
     return _sup.requeststr(result)
 
 def _prep_data(data, dimof, t0=0):
+    """
+    data=numpy.array, dimof=numpy.array t0=int[ns]
+    data.shape = (width,height,time) or (channels,time)
+    data.shape = (width,height) or (channels) if dimof is scalar
+    """
     if not isinstance(data, _np.ndarray):
         raise Exception('write_data: data must be numpy.ndarray')
     dimof = _np.array(dimof)
@@ -138,7 +143,10 @@ def _prep_data(data, dimof, t0=0):
     return data,dimof
 
 def write_data(path, data, dimof, t0=0, one=False, name=None, timeout=None, retry=0):
-    # path=Path, data=numpy.array, dimof=numpy.array
+    """
+    path=Path, data=numpy.array, dimof=numpy.array
+    data.shape = (width,height,time) or (channels,time)
+    """
     data,dimof = _prep_data(data, dimof, t0)
     if data.ndim > (1 if one else 2):
         return(_write_vector(_b.Path(path), data, dimof, timeout=timeout, retry=retry))
@@ -146,7 +154,10 @@ def write_data(path, data, dimof, t0=0, one=False, name=None, timeout=None, retr
         return(_write_scalar(_b.Path(path), data, dimof, timeout=timeout, retry=retry))
 
 def write_data_async(path, data, dimof, t0=0, one=False, name=None, timeout=None, retry=0):
-    # path=Path, data=numpy.array, dimof=numpy.array
+    """
+    path=Path, data=numpy.array, dimof=numpy.array
+    data.shape = (width,height,time) or (channels,time)
+    """
     data,dimof = _prep_data(data, dimof, t0)
     if data.ndim > (1 if one else 2):
         return(_write_vector_async(name,_b.Path(path), data, dimof, timeout=timeout, retry=retry))
@@ -163,28 +174,36 @@ def mapDType(data):
     else:                                                 return 'double'
 
 def _write_scalar(path, data, dimof, timeout=None, retry=0):
-    # path=Path, data=numpy.array, dimof=list of long
+    """
+    path=Path, data=numpy.array, dimof=list of long
+    data.shape = (channels,time)
+    """
     jdict = {'values': data.tolist(), 'datatype':mapDType(data), 'dimensions': dimof}
     result = post(path.url_datastream(), json=jdict, timeout=timeout, retry=retry)
     return _sup.requeststr(result)
 
 def _write_scalar_async(name, path, data, dimof, timeout=None, retry=0):
-    # path=Path, data=numpy.array, dimof=list of long
+    """
+    path=Path, data=numpy.array, dimof=list of long
+    data.shape = (channels,time)
+    """
     data = _json.dumps({'values': data.tolist(), 'datatype':mapDType(data), 'dimensions': dimof})
     res = _prc.Worker(name).put(post, path.url_datastream(), headers={'content-type':'application/json'}, data=data, timeout=timeout, retry=retry)
     return res
 
-def writeH5(path,data,dimof,t0=0,idx=None):
+def writeH5(path,data,dimof,idx=None):
+    """
+    path=Path, data=numpy.array, dimof=list of long
+    data.shape = (width,height,time) or (width,height) if len(dim)==1
+    """
     stream = path.stream
-    data,dimof = _prep_data(data, dimof, t0)
     dtype = str(data.dtype)
     tmpfile = _ver.tmpdir+"archive_"+stream+'_'+str(dimof[0])
     if idx:  tmpfile += '_%d'%(idx,)
     tmpfile += ".h5"
     if data.ndim<3:
         data = data.reshape(list(data.shape)+[1])
-    else:
-        data = data.transpose(range(1,data.ndim)+[0])
+    data = data.swapaxes(0,1) # (width,height,time) -> (row,col,time)
     with _h5.File(tmpfile, 'w') as f:
         g = f.create_group('data')  # requires [row,col,time]
         g.create_dataset('timestamps', data=list(dimof), dtype='uint64',
@@ -216,11 +235,14 @@ def uploadH5(path, h5file, delete=False, timeout=None, retry=0):
     _sup.debug(result,3)
     return result
 
-def _write_vector(path, data, dimof, t0=0, timeout=None, retry=0):
-    # path=Path, data=numpy.array, dimof=list of long
+def _write_vector(path, data, dimof, timeout=None, retry=0):
+    """
+    path=Path, data=numpy.array, dimof=list of long
+    data.shape = (width,height,time)
+    """
     for i in range(max(retry,0)+1):
         try:
-            h5file = writeH5(path, data, dimof, t0=0, idx=i)
+            h5file = writeH5(path, data, dimof, idx=i)
             result = uploadH5(path, h5file, True, timeout=timeout)
         except KeyboardInterrupt as ki: raise ki
         except _ver.urllib.socket.timeout as result:
@@ -230,11 +252,14 @@ def _write_vector(path, data, dimof, t0=0, timeout=None, retry=0):
     if isinstance(result,(_ver.urllib.socket.timeout,)):
         raise result
     return result
-def _write_vector_async(name,path, data, dimof, t0=0, timeout=None, retry=0):
-    # path=Path, data=numpy.array, dimof=list of long
+def _write_vector_async(name,path, data, dimof, timeout=None, retry=0):
+    """
+    path=Path, data=numpy.array, dimof=list of long
+    data.shape = (width,height,time)
+    """
     for i in range(max(retry,0)+1):
         try:
-            h5file = writeH5(path, data, dimof, t0=0, idx=i)
+            h5file = writeH5(path, data, dimof, idx=i)
             result = _prc.Worker(name).put(uploadH5, path, h5file, True, timeout=timeout)
         except KeyboardInterrupt as ki: raise ki
         except _ver.urllib.socket.timeout as result:

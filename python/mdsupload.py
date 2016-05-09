@@ -39,13 +39,13 @@ def stopPool():
             _pool[-1].join()
         _pool.remove(_pool[-1])
 
-def write_data(*args,**kwarg):
+def write_data(pth,dat,dim,**kwarg):
     try:
         if _threads:
-            return _if.write_data_async(*args,**kwarg)
+            return _if.write_data_async(pth,dat.T,dim,**kwarg) # time,height,width -> width,height,time
         if 'name' in kwarg.keys():
             del(kwarg['name'])
-        return _if.write_data(*args,**kwarg)
+        return _if.write_data(pth,dat.T,dim,**kwarg) # time,height,width -> width,height,time
     except KeyboardInterrupt as ki: raise ki
     except Exception as exc:  return _sup.requeststr(exc)
 
@@ -460,11 +460,11 @@ class Device(_mds.TreeNode):
                     self.chandescs[i]["physicalQuantity"]['type'] = units
             except KeyboardInterrupt as ki: raise ki
             except: pass
-            sigdata = signal.data()
+            sigdata = signal.data() # time,*
             ndims = len(sigdata.shape)
             sigdimof = _b.dimof2w7x(signal.dim_of(),self.section.T0)
             if ndims==1:
-                scalar[0].append(sigdata)
+                scalar[0].append(sigdata) #  channels,time
                 scalar[2].append(self.chandescs[i])
                 if scalar[1] is None:
                     scalar[1] = sigdimof
@@ -509,7 +509,7 @@ class Device(_mds.TreeNode):
                     dimof =  _b.dimof2w7x(seg.dim_of(),self.section.T0)
                     data = seg.data()
                     if _sup.debuglevel>=2: print(('image',self.address, data.shape, data.dtype, dimof.shape, dimof[0], T0))
-                    log = write_data(self.address, data, dimof, one=True,name=join, timeout=10, retry=9)
+                    log = write_data(self.address, data, dimof, one=True,name=join, timeout=10, retry=9) # time,*
                     logs.append({"segment": segment, "log": log})
             else:
                 if _sup.debuglevel>=3: print('is not segmented')
@@ -517,7 +517,7 @@ class Device(_mds.TreeNode):
                 except _mds.mdsExceptions.TreeNODATA: return 'nodata'
                 except: return {'signal',_sup.error()}
                 dimof = _b.dimof2w7x(signal.dim_of(),self.section.T0)
-                logs = write_data(self.address, data, dimof, one=True,name=join, timeout=10, retry=9)
+                logs = write_data(self.address, data, dimof, one=True,name=join, timeout=10, retry=9) # time,height,width
             logp = self.writeParLog(self.address,Tx,join)
             if join is None: _prc.join()
             return {'signal':logs,'parlog':logp,"path":self.address.path()}
@@ -529,7 +529,7 @@ class Device(_mds.TreeNode):
         if scalars[1] is None:
             return  {'signal':'empty','parlog':'empty',"path":self.address.path()}
         if Tx<T0 or force:
-            data = _np.array(scalars[0]).T
+            data = _np.array(scalars[0]).T # channels,time -> time,channels
             dimof = _np.array(scalars[1])
             url = getCheckURL_arr(dimof,self.address)
             length= len(dimof)
@@ -539,7 +539,7 @@ class Device(_mds.TreeNode):
                 dim  = dimof[idx:idx+N]
                 try:
                     url = checkURL_arr(dim,url)
-                    logs.append(write_data(self.address, data[idx:idx+N].T, dim,name=join, timeout=10, retry=9))
+                    logs.append(write_data(self.address, data[idx:idx+N], dim,name=join, timeout=10, retry=9)) #  time,channels
                 except:
                     logs.append({"idx": idx, "log": "already presend"})
                 idx += N
@@ -562,7 +562,7 @@ class Device(_mds.TreeNode):
                 dimof = _np.array(image[1])
                 print(data.shape,dimof.shape)
                 if _sup.debuglevel>=3: print(('image',imagepath, data.shape, data.dtype, dimof.shape, dimof[0], T0))
-                logs.append(write_data(imagepath, data, dimof,name=join, timeout=10, retry=9))
+                logs.append(write_data(imagepath, data, dimof,name=join, timeout=10, retry=9)) # time,height,width
                 logp.append(self.writeParLog(imagepath,Tx,join))
             else:
                 logs.append('already there')
