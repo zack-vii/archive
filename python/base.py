@@ -664,4 +664,7 @@ def tonumpy(dat):
 def dimof2w7x(dimof,t0):
     if isinstance(dimof,_mds.Data):
         dimof = dimof.data()
-    return _np.int64(dimof*1e9)+t0
+    if isinstance(dimof, _np.ScalarType):
+        return _np.int64(dimof*1e9)+t0
+    return _np.array(dimof*1e9,'int64')+t0
+
