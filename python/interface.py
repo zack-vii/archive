@@ -64,7 +64,7 @@ def _prep_data(data, dimof, t0=0):
         dimof = dimof.tolist()
     return data,dimof
 
-def write_data(path, data, dimof, t0=0, one=False,name=None, timeout=None, retry=0):
+def write_data(path, data, dimof, t0=0, one=False, name=None, timeout=None, retry=0):
     # path=Path, data=numpy.array, dimof=numpy.array
     data,dimof = _prep_data(data, dimof, t0)
     if data.ndim > (1 if one else 2):
@@ -72,7 +72,7 @@ def write_data(path, data, dimof, t0=0, one=False,name=None, timeout=None, retry
     else:
         return(_write_scalar(_b.Path(path), data, dimof, timeout=timeout, retry=retry))
 
-def write_data_async(path, data, dimof, t0=0, one=False,name=None, timeout=None, retry=0):
+def write_data_async(path, data, dimof, t0=0, one=False, name=None, timeout=None, retry=0):
     # path=Path, data=numpy.array, dimof=numpy.array
     data,dimof = _prep_data(data, dimof, t0)
     if data.ndim > (1 if one else 2):
@@ -285,6 +285,7 @@ def _readchunks(path, time, **kwargs):
         try:
             dat = _np.concatenate(tuple(b[0] for b in blck))
             dim = _np.concatenate(tuple(b[1] for b in blck))
+        except KeyboardInterrupt as ki: raise ki
         except:
             dat = dim = _np.array([])
             return [dat, dim, 'NoData']
@@ -319,7 +320,6 @@ def _get_json(url, timeout=None, retry=0, **kwargs):
     for i in range(max(retry,0)+1):
         try:
             handler = get(url, headers, timeout=timeout)
-        except KeyboardInterrupt as ki: raise ki
         except _ver.urllib.socket.timeout as handler:
             _sup.debug('timeout: %d (%s)'%(i,url))
             continue
@@ -370,7 +370,6 @@ def post(url, headers={}, data=None, json=None, timeout=None, retry=0):
     for i in range(max(retry,0)+1):
         try:
             result = get(url, headers, data, timeout=timeout)
-        except KeyboardInterrupt as ki: raise ki
         except _ver.urllib.socket.timeout as result:
             _sup.debug('timeout: %d (%s)'%(i,url))
             continue
@@ -386,12 +385,24 @@ def post(url, headers={}, data=None, json=None, timeout=None, retry=0):
 
 def get(url, headers={}, *data, **kv):
     if 'timeout' not in kv.keys():
-        print(url)
+        print('NO TIMEOUT: %s' % (url,))
+        kv['timeout'] = 99
+        retry = 1
+    else:
+        retry = 0
     req = _ver.urllib.Request(url)
     for k, v in headers.items():
         req.add_header(k, v)
     try:
-        handler = _ver.urllib.urlopen(req, *data, **kv)
+        while True:
+            try:
+                handler = _ver.urllib.urlopen(req, *data, **kv)
+            except _ver.urllib.socket.timeout as err:
+                if retry==0: raise err
+                _sup.debug('timeout: %d (%s)'%(retry,url))
+                retry += 1
+                continue
+            break
     except _ver.urllib.HTTPError as err:
         _sup.debug(err.getcode())
         _sup.debug(err.reason,2)
