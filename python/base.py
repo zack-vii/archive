@@ -226,6 +226,11 @@ class Path(object):
     cfglog = property(url_cfglog)
     parlog = property(url_parlog)
 
+def checkPathElemnent(element):
+    pattern = '[A-Za-z][A-Za-z0-9._-]*'
+    if not _re.match(pattern,element):
+        raise Exception('%s does not match %s!' %(element,pattern) )
+
 
 def parms(url, **kwargs):
     if 'time' in kwargs.keys():
