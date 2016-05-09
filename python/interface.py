@@ -34,12 +34,13 @@ from . import process as _prc
 class URLException(Exception):
     def __init__(self,value):
         return value
+# data[M,N] -> {"datatype": "short", "values": [[<N>]<M>[<N>]], "dimensions": [<N>]} -> M channels with N samples
+# data[N,M] -> {"datatype": "short", "values": [[<M>]<N>[<M>]], "dimensions": [<N>]} -> 1 channels with N samples and M elements
 
-
-def write_signals(data,dimof,program,group,project,names,units=None,parms={},one=False):
+def write_signals(data,dimof,program,group,project,names,units=None,parms={},version=1,one=False):
     """
     write_signal(data,dimof,program,name,project,unit='unknown',parms={})
-    (numpy.array) data:     [TxN]-array N signals of the desired datatype (preferably signed)
+    (numpy.array) data:     [NxTxE]-array N signals with E elements of the desired datatype (preferably signed)
     (numpy.array) dimof:    time vector in uint64 ns, of length T
     (str)         program:  string of format: YYYYMMDD.PPP
     (str)         group:    name of the signal group (e.g. CuII)
@@ -47,6 +48,7 @@ def write_signals(data,dimof,program,group,project,names,units=None,parms={},one
     (list,tuple)  names:    a list of channel names (e.g. ['Intensity','Width'])
     (list,tuple)  units:    a list of valid units (optional)
     (dict)        parms:    additional metadata (optional)
+    (int)         version:  version number
     """
     def chanDesc(name, unit=None, cd={}):
         """collects the parameters of a channel"""
@@ -62,18 +64,18 @@ def write_signals(data,dimof,program,group,project,names,units=None,parms={},one
     try:
         x,p = program.split('.',2)
         if len(x)!=8: raise Exception()
-        path.datastream = '%08d.03d'%(int(x),int(p))
+        path.stream = 'XP_%08d_%03d_v%d'%(int(x),int(p),int(version))
     except:
-         raise Exception('program must be a string of format: YYYYMMDD.PPP, (e.g. 20160210.007)')
+        raise Exception('program must be a string of format: YYYYMMDD.PPP, (e.g. 20160210.007)')
     if units is None or isinstance(units, _ver.basestring): units = [units]*len(names)
     if 'chanDescs' in parms.keys():
-        parms['chanDescs'] = [chanDesc(n,u) for n,u in zip(names,units)]
-    else:
         parms['chanDescs'] = [chanDesc(n,u,c) for n,u,c in zip(names,units,parms['chanDescs'])]
-    write_logurl(path.url_parlog,parms,dimof[0],dimof[-1],timeout=3,retry=3)
+    else:
+        parms['chanDescs'] = [chanDesc(n,u) for n,u in zip(names,units)]
+    write_logurl(path.url_parlog(),parms,1,-1,timeout=3,retry=3)
     write_data(path, data, dimof, one=one, timeout=10, retry=10)
 
-def write_signal(data,dimof,program,name,project,unit='unknown',parms={}):
+def write_signal(data,dimof,program,name,project,unit='unknown',parms={},version=1):
     """
     write_signal(data,dimof,program,name,project,unit='unknown',parms={})
     (numpy.array) data:     data vector of desired datatype (preferably signed)
@@ -83,10 +85,11 @@ def write_signal(data,dimof,program,name,project,unit='unknown',parms={}):
     (str)         project:  name of the project (e.g. HEXOS)
     (str)         unit:     a valid unit (optional)
     (dict)        parms:    additional metadata (optional)
+    (int)         version:  version number
     """
-    write_signals(data,dimof,program,name,project,['values'],units=[unit],parms=parms,one=True)
+    write_signals(data,dimof,program,name,project,['values'],units=[unit],parms=parms,version=version,one=True)
 
-def write_images(data,dimof,program,name,project,unit='unknown',parms={}):
+def write_images(data,dimof,program,name,project,unit='unknown',parms={},version=1):
     """
     write_signal(data,dimof,program,name,project,unit='unknown',parms={})
     (numpy.array) data:     [T,H,W] data array of desired datatype (preferably signed)
@@ -96,8 +99,9 @@ def write_images(data,dimof,program,name,project,unit='unknown',parms={}):
     (str)         project:  name of the project (e.g. HEXOS)
     (str)         unit:     a valid unit (optional)
     (dict)        parms:    additional metadata (optional)
+    (int)         version:  version number
     """
-    write_signals(data,dimof,program,name,project,['values'],units=[unit],parms=parms,one=True)
+    write_signals(data,dimof,program,name,project,['values'],units=[unit],parms=parms,version=version,one=True)
 
 
 
@@ -117,6 +121,7 @@ def write_logurl(url, parms, Tfrom, Tupto=-1, timeout=None, retry=0):
     except _ver.urllib.HTTPError as result:
         _sup.debug(result)
     return _sup.requeststr(result)
+
 def _prep_data(data, dimof, t0=0):
     if not isinstance(data, _np.ndarray):
         raise Exception('write_data: data must be numpy.ndarray')
@@ -125,9 +130,11 @@ def _prep_data(data, dimof, t0=0):
         dimof = _b.dimof2w7x(dimof,t0)
     if dimof.ndim == 0:  # we need to add one level
         dimof = [dimof.tolist()]
-        data  = data.reshape([1]+list(data.shape))
+        data  = data.reshape(list(data.shape)+[1])
     else:
         dimof = dimof.tolist()
+    if data.ndim==2 and data.shape[1]!=len(dimof):
+        raise Exception('data must be of shape (NxT): Number of channels and Time')
     return data,dimof
 
 def write_data(path, data, dimof, t0=0, one=False, name=None, timeout=None, retry=0):
