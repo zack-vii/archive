@@ -714,7 +714,7 @@ def getCheckURL_arr(dim,path):
     except:
         return None
 
-def checkURL_arr(dim,url,segment):
+def checkURL_arr(dim,url):
     if url is None: return
     tend = dim[-1]
     try:
