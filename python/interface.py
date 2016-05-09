@@ -12,7 +12,7 @@ import numpy as _np
 import re as _re
 import threading as _th
 try:  # the java interface for the archive
-    import archive_java as _aj
+    import archive_java.signal as _aj
     _use_threads  = False
     _defaultCache = False
 except:
@@ -198,7 +198,7 @@ def _readraw_java(path, time, **kwargs):
     try:
         path = path.path_data(**kwargs)
         if path.startswith('/ArchiveDB'): path = path[10:]
-        return list(_aj.signal.readfull(path, time[0], time[1], 0x7FFFFFFF))
+        return list(_aj.readfull(path, time[0], time[1], 0x7FFFFFFF))
     except KeyboardInterrupt as ki: raise ki
     except Exception as exc:
         print(exc)
@@ -385,7 +385,7 @@ def post(url, headers={}, data=None, json=None, timeout=None, retry=0):
 
 def get(url, headers={}, *data, **kv):
     if 'timeout' not in kv.keys():
-        print('NO TIMEOUT: %s' % (url,))
+        _sup.debug('NO TIMEOUT: %s' % (url,))
         kv['timeout'] = 99
         retry = 1
     else:
