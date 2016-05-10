@@ -1,40 +1,5 @@
-import MDSplus as _mds
 from . import support as _sup
 from . import version as _ver
-
-
-def difftree(treename1, shot1, treename2, shot2, exclude):
-    """
-    dd = difftree('W7X', -1, 'W7X', 100, '\ARCHIVE::TOP')
-    pprint(dd[0])
-    """
-    treedict1 = treeToDict(_mds.Tree(treename1, shot1), exclude)
-    treedict2 = treeToDict(_mds.Tree(treename2, shot2), exclude)
-    treediff = DeepDiff(treedict1, treedict2)
-    return treediff, _sup.obj(treedict1), _sup.obj(treedict2)
-
-def treeToDict(tree, exclude={}):
-    def nodeToDict(node, exclude):
-        dic = {}
-        dic["usage"] = str(node.usage)
-        if dic["usage"] == "SIGNAL":
-            if node.nid_reference or node.path_reference:
-                dic["record"] = _mds.TdiDecompile(node.record).replace('\\','\\\\')
-        else:
-            try:
-                dic["record"] = _mds.TdiDecompile(node.record).replace('\\','\\\\')
-            except:
-                pass
-        dic["flags"] = _sup.Flags(node)
-        dic["tags"] = list(map(str,node.tags))
-        for desc in node.getDescendants():
-            if not str(desc.getPath()) in exclude:
-                dic[str(desc.getNodeName())] = nodeToDict(desc, exclude)
-        return dic
-    if isinstance(tree, _mds.Tree):
-        tree = tree.getNode('\TOP')
-    return nodeToDict(tree, exclude)
-
 
 class _ListItemRemovedOrAdded(object):
     pass
@@ -282,3 +247,38 @@ class DeepDiff(object):
             self.__diff_obj(t1, t2, parent, parents_ids)
 
         return
+
+if _ver.has_mds:
+    import MDSplus as _mds
+    def difftree(treename1, shot1, treename2, shot2, exclude):
+        import MDSplus as _mds
+        """
+        dd = difftree('W7X', -1, 'W7X', 100, '\ARCHIVE::TOP')
+        pprint(dd[0])
+        """
+        treedict1 = treeToDict(_mds.Tree(treename1, shot1), exclude)
+        treedict2 = treeToDict(_mds.Tree(treename2, shot2), exclude)
+        treediff = DeepDiff(treedict1, treedict2)
+        return treediff, _sup.obj(treedict1), _sup.obj(treedict2)
+
+    def treeToDict(tree, exclude={}):
+        def nodeToDict(node, exclude):
+            dic = {}
+            dic["usage"] = str(node.usage)
+            if dic["usage"] == "SIGNAL":
+                if node.nid_reference or node.path_reference:
+                    dic["record"] = _mds.TdiDecompile(node.record).replace('\\','\\\\')
+            else:
+                try:
+                    dic["record"] = _mds.TdiDecompile(node.record).replace('\\','\\\\')
+                except:
+                    pass
+            dic["flags"] = _sup.Flags(node)
+            dic["tags"] = list(map(str,node.tags))
+            for desc in node.getDescendants():
+                if not str(desc.getPath()) in exclude:
+                    dic[str(desc.getNodeName())] = nodeToDict(desc, exclude)
+            return dic
+        if isinstance(tree, _mds.Tree):
+            tree = tree.getNode('\TOP')
+        return nodeToDict(tree, exclude)

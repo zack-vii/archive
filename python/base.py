@@ -5,13 +5,14 @@ codac.baseclasses
 data rooturl database view    project strgrp stream idx    channel
 lev  0       1        2       3       4      5      6      7
 """
-import MDSplus as _mds
-import MDSplus.tdibuiltins as _tdi
+from . import version as _ver
+if _ver.has_mds:
+    import MDSplus as _mds
+    import MDSplus.tdibuiltins as _tdi
 import numpy as _np
 import os as _os
 import re as _re
 import time as _time
-from . import version as _ver
 _defreadpath = 'codac/W7X/MDSplus'
 _rooturl = 'http://archive-webapi.ipp-hgw.mpg.de'
 _database = 'ArchiveDB'
@@ -281,10 +282,11 @@ class Time(_ver.long):
     def __new__(cls, time='now', units=None, local=False):
         if type(time) is Time:
             return time
-        if isinstance(time, (_mds.treenode.TreeNode)):
-            return Time(time.evaluate(),units,local)
-        if isinstance(time, (list,_np.ndarray)):
-            return [Time(e,units,local) for e in time]
+        if _ver.has_mds:
+            if isinstance(time, (_mds.treenode.TreeNode)):
+                return Time(time.evaluate(),units,local)
+            if isinstance(time, (list,_np.ndarray)):
+                return [Time(e,units,local) for e in time]
         if isinstance(time, (_mds.mdsarray.Array, _mds.Dimension)):
             if units is None:
                 units = time.units
@@ -319,7 +321,7 @@ class Time(_ver.long):
                 return listtovalue(time)
         if isinstance(time, (_time.struct_time,)):
             return listtovalue(list(time)[0:6])
-        if isinstance(time, (_mds.Scalar)):
+        if _ver.has_mds and isinstance(time, (_mds.Scalar)):
             if units is None:
                 units = time.units
             time = time.data()
@@ -394,7 +396,7 @@ class TimeArray(list):
         if type(arg) is TimeArray:
             return arg
         else:
-            if isinstance(arg, _mds.Dimension): arg = arg.data()
+            if _ver.has_mds and isinstance(arg, _mds.Dimension): arg = arg.data()
             newarr = super(TimeArray, cls).__new__(cls)
             for i in arg:
                 if i is None:
@@ -445,11 +447,11 @@ class TimeInterval(TimeArray):
         if type(arg) is TimeInterval:
             newti = arg  # short cut
         else:
-            if isinstance(arg, (_mds.Array, _mds.Ident, _mds.treenode.TreeNode, _tdi.VECTOR)):
+            if _ver.has_mds and isinstance(arg, (_mds.Array, _mds.Ident, _mds.treenode.TreeNode, _tdi.VECTOR)):
                 arg = arg.data()
             if isinstance(arg, (_np.ndarray,)):
                 arg = arg.tolist()
-            if isinstance(arg, (_ver.npscalar,_ver.numbers)):
+            if _ver.has_mds and isinstance(arg, (_ver.npscalar,_ver.numbers)):
                 try: arg = _mds.Tree('W7X',int(arg)).TIMING.data().tolist()
                 except:
                     raise Exception('Parameter is treated as MDS shot number. Invalid shot number: '+str(arg))
@@ -572,102 +574,103 @@ def Units(units=None, force=False):
     raise Exception("Units must be one of '"+"', '".join(_units)+"'")
 
 
-def createSignal(dat, dim, t0, unit=None, addim=[], units=[], help=None, value=None, scaling=None,**kwargs):
-    def _dim(time,t0):
-        if len(time):
-            t0 = _mds.Int64(t0)
-            time = _mds.Int64Array(time)
-            if t0==0:
-                unit = 'ns'
+if _ver.has_mds:
+    def createSignal(dat, dim, t0, unit=None, addim=[], units=[], help=None, value=None, scaling=None,**kwargs):
+        def _dim(time,t0):
+            if len(time):
+                t0 = _mds.Int64(t0)
+                time = _mds.Int64Array(time)
+                if t0==0:
+                    unit = 'ns'
+                else:
+                    time = _mds.Float64(time-t0)*1E-9
+                    unit = 's'
+                wind = _mds.Window(time[0], time[time.shape[0]-1], t0)
+                dim = _mds.Dimension(wind, time)
+                dim.setUnits(unit)
+                return dim
             else:
-                time = _mds.Float64(time-t0)*1E-9
-                unit = 's'
-            wind = _mds.Window(time[0], time[time.shape[0]-1], t0)
-            dim = _mds.Dimension(wind, time)
-            dim.setUnits(unit)
-            return dim
-        else:
-            return _mds.EmptyData()
+                return _mds.EmptyData()
 
-    def _addim(dim, units='unknown'):
-        if len(dim):
-            dim  = _mds.Dimension(None, tonumpy(dim))
-            dim.setUnits(Units(units))#
-            return dim
-        else:
-            return None
+        def _addim(dim, units='unknown'):
+            if len(dim):
+                dim  = _mds.Dimension(None, tonumpy(dim))
+                dim.setUnits(Units(units))#
+                return dim
+            else:
+                return None
 
-    if isinstance(dat, (list,)):
-        dat = tonumpy(dat)
-    dat = _mds.makeArray(dat)
-    dim = _dim(dim,t0)
-    for i in _ver.xrange(len(addim)):
-        addim[i] = _addim(addim[i], units[i])
-    if unit is not None:
-        dat.setUnits(unit)
-    if scaling is None and value is None:
-        value = dat
-        dat = None
-    else:
-        if value is None: value='$VALUE'
-        if scaling is None:
-            if isinstance(value, _ver.basestring):
-                value = _mds.Data.compile(value)
+        if isinstance(dat, (list,)):
+            dat = tonumpy(dat)
+        dat = _mds.makeArray(dat)
+        dim = _dim(dim,t0)
+        for i in _ver.xrange(len(addim)):
+            addim[i] = _addim(addim[i], units[i])
+        if unit is not None:
+            dat.setUnits(unit)
+        if scaling is None and value is None:
+            value = dat
+            dat = None
         else:
-            if not isinstance(value, _ver.basestring):
-                value = value.decompile()
-            value = _mds.Data.compile(value.replace('$VALUE',' polyval($VALUE,'+_mds.makeArray(scaling).decompile()+') '))
-    sig = _mds.Signal(value, dat, dim, *addim)
-    if help:
-        sig.setHelp(help)
-    return sig
+            if value is None: value='$VALUE'
+            if scaling is None:
+                if isinstance(value, _ver.basestring):
+                    value = _mds.Data.compile(value)
+            else:
+                if not isinstance(value, _ver.basestring):
+                    value = value.decompile()
+                value = _mds.Data.compile(value.replace('$VALUE',' polyval($VALUE,'+_mds.makeArray(scaling).decompile()+') '))
+        sig = _mds.Signal(value, dat, dim, *addim)
+        if help:
+            sig.setHelp(help)
+        return sig
 
-def tonumpy(dat):
-    def _datr(dat, m=0, n=0):
-        if len(dat) == 0 or (n > 1 and m+n > 64):
-            return m, n
-        if isinstance(dat[0], (list,)):
-            for x in dat:  # recursive
-                m, n = _datr(x, m, n)
-            return m, n
-        else:
-            n = n or any([x < 0 for x in dat])
-            try:
-                m = max(map(int.bit_length, dat)+[m])
-            except:
-                # print(error())
-                # if any([isinstance(x, (complex,)) for x in dat]):
-                # return 0, 3
-                # if any([isinstance(x, (float,)) for x in dat]):
-                return 0, 2
-            return m, n
+    def tonumpy(dat):
+        def _datr(dat, m=0, n=0):
+            if len(dat) == 0 or (n > 1 and m+n > 64):
+                return m, n
+            if isinstance(dat[0], (list,)):
+                for x in dat:  # recursive
+                    m, n = _datr(x, m, n)
+                return m, n
+            else:
+                n = n or any([x < 0 for x in dat])
+                try:
+                    m = max(map(int.bit_length, dat)+[m])
+                except:
+                    # print(error())
+                    # if any([isinstance(x, (complex,)) for x in dat]):
+                    # return 0, 3
+                    # if any([isinstance(x, (float,)) for x in dat]):
+                    return 0, 2
+                return m, n
 
-    if len(dat) == 0:
-        return _np.array([],'uint8')
-    m, n = _datr(dat)
-    if   n == 3:       nptype = 'complex128'
-    elif n == 2:       nptype = 'float64'
-    elif n == 1:
-        if   m+1 > 64: nptype = 'int128'
-        elif m+1 > 32: nptype = 'int64'
-        elif m+1 > 16: nptype = 'int32'
-        elif m+1 > 8:  nptype = 'int16'
-        elif m+1 > 0:  nptype = 'int8'
+        if len(dat) == 0:
+            return _np.array([],'uint8')
+        m, n = _datr(dat)
+        if   n == 3:       nptype = 'complex128'
+        elif n == 2:       nptype = 'float64'
+        elif n == 1:
+            if   m+1 > 64: nptype = 'int128'
+            elif m+1 > 32: nptype = 'int64'
+            elif m+1 > 16: nptype = 'int32'
+            elif m+1 > 8:  nptype = 'int16'
+            elif m+1 > 0:  nptype = 'int8'
 
-    else:  # n == 0
-        if   m > 64:   nptype = 'uint128'
-        elif m > 32:   nptype = 'uint64'
-        elif m > 16:   nptype = 'uint32'
-        elif m > 8:    nptype = 'uint16'
-        elif m > 0:    nptype = 'uint8'
-            # else:
-            # return MDSplus.BoolArray(dat==1)
-        else:
-            nptype = 'uint8'
-    return _np.array(dat,nptype)
+        else:  # n == 0
+            if   m > 64:   nptype = 'uint128'
+            elif m > 32:   nptype = 'uint64'
+            elif m > 16:   nptype = 'uint32'
+            elif m > 8:    nptype = 'uint16'
+            elif m > 0:    nptype = 'uint8'
+                # else:
+                # return MDSplus.BoolArray(dat==1)
+            else:
+                nptype = 'uint8'
+        return _np.array(dat,nptype)
 
 def dimof2w7x(dimof,t0):
-    if isinstance(dimof,_mds.Data):
+    if _ver.has_mds and isinstance(dimof,_mds.Data):
         dimof = dimof.data()
     if isinstance(dimof, _np.ScalarType):
         return _np.int64(dimof*1e9)+t0

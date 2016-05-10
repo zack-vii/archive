@@ -40,6 +40,11 @@ except:
     has_buffer = 'buffer' in __builtins__.__dict__.keys()
     has_xrange = 'xrange' in __builtins__.__dict__.keys()
 
+try:
+    import MDSplus as has_mds
+    has_mds = True  # analysis:ignore
+except ImportError:
+    has_mds = False
 
 # substitute missing builtins
 if has_long:
