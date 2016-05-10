@@ -673,6 +673,6 @@ def dimof2w7x(dimof,t0):
     if _ver.has_mds and isinstance(dimof,_mds.Data):
         dimof = dimof.data()
     if isinstance(dimof, _np.ScalarType):
-        return _np.int64(dimof*1e9)+t0
-    return _np.array(dimof*1e9,'int64')+t0
-
+        return _np.int64(_np.around(dimof*1e9,-3))+t0
+    arnd = -3 if len(dimof)==1 else int(-_np.log10(dimof[1]-dimof[0])-9)
+    return _np.array(_np.around(dimof*1e9,arnd),'int64')+t0
