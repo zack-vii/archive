@@ -38,7 +38,7 @@ def uploadSection(shotfrom,shotupto,kks,section,pool=0,force=False,prefix=''):
     if pool>0:
         startPool(pool)
     elif pool<0:
-        startPool(len(Section((kks,-1,section)).getDevices()))
+        startPool(len(Section((-1,kks,section),0,0).getDevices()))
     log,clog = [],[]
     try:
         for shot in shots:
