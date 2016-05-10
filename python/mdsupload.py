@@ -53,10 +53,10 @@ def uploadSection(shotfrom,shotupto,kks,section,pool=0,force=False,prefix=''):
             print('shot %d to %s_%s' % (shot,kks,section))
             params = [(d.toParams(),force) for d in sec.getDevices()]
             if _pool:
-                log += _pool[-1].map_async(_uploadDev,params).get(1<<31)
+                log.append(_pool[-1].map_async(_uploadDev,params).get(1<<31))
             else:
-                log += [_uploadDev(p) for p in params]
-            clog += sec.writeCfgLog()
+                log.append([_uploadDev(p) for p in params])
+            clog.append(sec.writeCfgLog())
             ti = _time.time()
             print((log[-1],clog[-1]))
             print('shot %d in %.1f sec - total %.f' % (shot, ti-t, ti-tt))
