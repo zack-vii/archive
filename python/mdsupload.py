@@ -39,25 +39,30 @@ def uploadSection(shotfrom,shotupto,kks,section,pool=0,force=False,prefix=''):
         startPool(pool)
     elif pool<0:
         startPool(len(Section((kks,-1,section)).getDevices()))
+    log,clog = [],[]
     try:
         for shot in shots:
             if shot<shotfrom: continue
             if shot>shotupto: break
             t = _time.time()
             try:
-                S = Section((shot,kks,section),prefix=prefix)
+                sec = Section((shot,kks,section),prefix=prefix)
             except _mds.mdsExceptions.TreeNNF:
                 print('shot %d: %s in %s not found' % (shot,section,kks))
                 continue
             print('shot %d to %s_%s' % (shot,kks,section))
-            D = [(d.toParams(),force) for d in S.getDevices()]
-            log = map(_uploadDev,D)
+            params = [(d.toParams(),force) for d in sec.getDevices()]
+            if _pool:
+                log += _pool[-1].map_async(_uploadDev,params).get(1<<31)
+            else:
+                log += [_uploadDev(p) for p in params]
+            clog += sec.writeCfgLog()
             ti = _time.time()
-            print(log)
+            print((log[-1],clog[-1]))
             print('shot %d in %.1f sec - total %.f' % (shot, ti-t, ti-tt))
     finally:
         stopPool()
-
+    return log,clog
 
 def startPool(num):
     if not _pool:
@@ -249,11 +254,11 @@ class Shot(_mds.Tree):
         return devs
 
     def uploadPoolSec(self, subtrees=_subtrees, force=False, excludeSec=[]):
-        param = [((self.shot,s,self.T0,self.T1,self.prefix),force) for s in self.getSectionNids(subtrees) if s.nid not in excludeSec]
+        params = [((self.shot,s,self.T0,self.T1,self.prefix),force) for s in self.getSectionNids(subtrees) if s.nid not in excludeSec]
         if _pool:
-            log = _pool[-1].pool.map_async(_uploadSec,param).get(1<<31)
+            log = _pool[-1].pool.map_async(_uploadSec,params).get(1<<31)
         else:
-                log = [_uploadSec(p) for p in param]
+                log = [_uploadSec(p) for p in params]
         return log
 
     def upload(self, subtrees=_subtrees, force=False):
@@ -263,11 +268,11 @@ class Shot(_mds.Tree):
         return log
 
     def uploadPoolDev(self, subtrees=_subtrees, force=False, excludeDev=[]):
-        param = [(d.toParams(),force) for d in self.getDevices(subtrees) if d.nid not in excludeDev]
+        params = [(d.toParams(),force) for d in self.getDevices(subtrees) if d.nid not in excludeDev]
         if _pool:
-            log = _pool[-1].map_async(_uploadDev,param).get(1<<31)
+            log = _pool[-1].map_async(_uploadDev,params).get(1<<31)
         else:
-            log = [_uploadDev(p) for p in param]
+            log = [_uploadDev(p) for p in params]
         clog = [(sec.path,sec.writeCfgLog()) for sec in self.getSections(subtrees)]
         return log,clog
 
