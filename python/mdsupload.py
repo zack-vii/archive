@@ -8,6 +8,7 @@ lev  0       1        2       3       4      5      6      7
 import MDSplus as _mds
 import numpy as _np
 import re as _re
+import time as _time
 from . import base as _b
 from . import diff as _diff
 from . import interface as _if
@@ -23,6 +24,41 @@ _subtrees  = 'included'
 _exclude   = {'usage':['ACTION', 'TASK', 'SIGNAL']}
 _pool = []
 _threads = False
+
+
+def uploadSection(shotfrom,shotupto,kks,section,pool=0,force=False,prefix=''):
+    import socket
+    if socket.gethostname()=='mds-data-1':
+        from MDSplus import TdiExecute
+        shots = TdiExecute('getShotDb("W7X",3)').data()
+    else:
+        from archive.support import getShotDB
+        shots = getShotDB(3)
+    tt = _time.time()
+    if pool:
+        if isinstance(pool,int):
+            startPool(pool)
+        else:
+            startPool(len(Section((kks,-1,section)).getDevices()))
+    try:
+        for shot in shots:
+            if shot<shotfrom: continue
+            if shot>shotupto: break
+            t = _time.time()
+            try:
+                S = Section((shot,kks,section))
+            except _mds.mdsExceptions.TreeNNF:
+                print('shot %d: %s in %s not found' % (shot,section,kks))
+                continue
+            print('shot %d' % (shot,))
+            D = [(d.toParams(),force) for d in S.getDevices()]
+            log = map(_uploadDev,D)
+            ti = _time.time()
+            print(log)
+            print('shot %d in %.1f sec - total %.f' % (shot, ti-t, ti-tt))
+    finally:
+        stopPool()
+
 
 def startPool(num):
     if not _pool:
@@ -111,7 +147,46 @@ def uploadShot(shot, subtrees=_subtrees, T0=None, T1=None, force=False, prefix='
     S = Shot(shot, T0=T0, T1=T1, prefix=prefix)
     return S.upload(subtrees, force=force)
 
+def _uploadSub(args):
+    sub,param = args
+    shot,T0,T1,prefix,force = param
+    try:
+        subtree = SubTree((shot,sub),T0=T0,T1=T1,prefix=prefix)
+        return (sub,subtree.upload(force=force))
+    except KeyboardInterrupt as ki: raise ki
+    except _mds.mdsExceptions.TreeNNF: return (sub,'not included')
+    except: return (sub,_sup.error())
+
+def _uploadSec(param):
+    sec_params,force = param
+    section = Section.fromParams(sec_params)
+    sec = section.path
+    try:
+        return (sec,section.upload(force=force))
+    except KeyboardInterrupt as ki: raise ki
+    except: return (sec,_sup.error())
+
+def _uploadDev(params):
+    dev_params,force = params
+    device = Device.fromParams(dev_params)
+    sec = device.section.path
+    dev = device.path
+    try:
+        return (sec,dev,device.upload(force=force))
+    except KeyboardInterrupt as ki: raise ki
+    except: return (sec,_sup.error())
+
 class Shot(_mds.Tree):
+    """
+    Shot(shot, T0=None, T1=None, prefix='')
+    """
+    @staticmethod
+    def fromParams(params):
+        shot,T0,T1,prefix = params[0:4]
+        return Shot(shot,T0=T0,T1=T1,prefix=prefix)
+    def toParams(self):
+        return (self.shot,self.T0,self.T1,self.prefix)
+
     _index=0
     def __init__(self, shot, T0=None, T1=None, prefix=''):
         super(Shot,self).__init__(_treename, shot, "Readonly")
@@ -175,7 +250,7 @@ class Shot(_mds.Tree):
         return devs
 
     def uploadPoolSec(self, subtrees=_subtrees, force=False, excludeSec=[]):
-        param = [(s,self.tree,self.shot,self.T0,self.T1,self.prefix,force) for s in self.getSectionNids(subtrees) if s.nid not in excludeSec]
+        param = [((self.shot,s,self.T0,self.T1,self.prefix),force) for s in self.getSectionNids(subtrees) if s.nid not in excludeSec]
         if _pool:
             log = _pool[-1].pool.map_async(_uploadSec,param).get(1<<31)
         else:
@@ -189,7 +264,7 @@ class Shot(_mds.Tree):
         return log
 
     def uploadPoolDev(self, subtrees=_subtrees, force=False, excludeDev=[]):
-        param = [(d.nid, d.channels, self.tree,self.shot,d.section.nid,self.T0,self.T1,self.prefix,force) for d in self.getDevices(subtrees) if d.nid not in excludeDev]
+        param = [(d.toParams(),force) for d in self.getDevices(subtrees) if d.nid not in excludeDev]
         if _pool:
             log = _pool[-1].map_async(_uploadDev,param).get(1<<31)
         else:
@@ -200,44 +275,18 @@ class Shot(_mds.Tree):
     def join(self):
         _prc.join(self._name)
 
-def _uploadSub(args):
-    sub,param = args
-    expt,shot,T0,T1,prefix,force = param
-    try:
-        subtree = SubTree((expt,shot,sub),T0=T0,T1=T1,prefix=prefix)
-        return (sub,subtree.upload(force=force))
-    except KeyboardInterrupt as ki: raise ki
-    except _mds.mdsExceptions.TreeNNF: return (sub,'not included')
-    except: return (sub,_sup.error())
-
-def _uploadDev(params):
-    devnid,channels,expt,shot,secnid,T0,T1,prefix,force = params
-    section = Section((expt,shot,secnid),T0=T0,T1=T1,prefix=prefix)
-    device = Device(devnid,channels,section)
-    sec = section.path
-    dev = device.path
-    try:
-        return (sec,dev,device.upload(force=force))
-    except KeyboardInterrupt as ki: raise ki
-    except: return (sec,_sup.error())
-
-def _uploadSec(param):
-    secnid,expt,shot,T0,T1,prefix,force = param
-    section = Section((expt,shot,secnid),T0=T0,T1=T1,prefix=prefix)
-    sec = section.path
-    try:
-        return (sec,section.upload(force=force))
-    except KeyboardInterrupt as ki: raise ki
-    except: return (sec,_sup.error())
-
 class SubTree(_mds.TreeNode):
+    """
+    SubTree(subtree_tree, T0=None, T1=None, prefix='')
+    SubTree(subtree_node, T0=None, T1=None, prefix='')
+    SubTree((shot,kks), T0=None, T1=None, prefix='')
+    """
     _index=0
     def __new__(cls, subtree, *a, **kv):
-        if isinstance(subtree,tuple):
-            if len(subtree)<3:
-                return super(SubTree,cls).__new__(cls,subtree[1].getNode("\\%s::TOP" % subtree[0]).nid,subtree[1])
-            tree = _mds.Tree(subtree[0],subtree[1],'Readonly')
-            return super(SubTree,cls).__new__(cls,tree.getNode("\\%s::TOP" % subtree[2]).nid,tree)
+        if not isinstance(subtree,(_mds.TreeNode,)):
+            if isinstance(subtree,(_mds.Tree,)):
+                subtree = (subtree.shot,subtree.name)
+            subtree = _mds.Tree(_treename,subtree[0],'Readonly').getNode("\%s::TOP"%(subtree[1],))
         return super(SubTree,cls).__new__(cls,subtree.nid,subtree.tree)
 
     def __init__(self, subtree, T0=None, T1=None, prefix=''):
@@ -275,27 +324,39 @@ class SubTree(_mds.TreeNode):
         _prc.join(self.name)
 
 class Section(_mds.TreeNode):
+    """
+    Section(section_node, T0=None, T1=None, prefix='')
+    Section((shot,nid), T0=None, T1=None, prefix='')
+    Section((shot,path), T0=None, T1=None, prefix='')
+    Section((shot,kks,section), T0=None, T1=None, prefix='')
+    Section((shot,kks,section_idx), T0=None, T1=None, prefix='')
+    """
+    @staticmethod
+    def fromParams(params):
+        shot,secnid,T0,T1,prefix = params[0:5]
+        return Section((shot,secnid),T0=T0,T1=T1,prefix=prefix)
+    def toParams(self):
+        return (self.tree.shot,self.nid,self.T0,self.T1,self.prefix)
+
     _index=0
     def __new__(cls, section, *a, **kv):
-        if isinstance(section,(tuple)):
-            if isinstance(section[0],_ver.basestring):
-                if section[0].upper()=='W7X':
-                    tree = _mds.Tree(section[0], section[1], "Readonly")
-                    return super(Section,cls).__new__(cls,tree.getNode(section[2]).nid,tree)
-                else:
-                    tree = _mds.Tree('W7X', section[1], "Readonly")
-                    return super(Section,cls).__new__(cls,tree.getNode(section[0]).getNode(section[2]).nid,tree)
+        if not isinstance(section,(_mds.TreeNode)):
+            tree = _mds.Tree(_treename, section[0], "Readonly")
+            if len(section)<3:
+                section = tree.getNode(section[1])
             else:
-                tree = _mds.Tree(_treename, section[0], "Readonly")
-                kks = tree.getNode(section[1])
-                return super(Section,cls).__new__(cls,kks.DATA.getDescendants()[section[2]].nid,tree)
-        else:
-            return super(Section,cls).__new__(cls,section.nid,section.tree)
+                data = tree.getNode("\%s::TOP"%(section[1],)).DATA
+                if isinstance(section[2], int):
+                    section = data.getDescendants()[section[2]]
+                else:
+                    section = data.getNode(section[2])
+        return super(Section,cls).__new__(cls,section.nid,section.tree)
 
     def __init__(self, section, T0=None, T1=None,prefix=''):
+        self.prefix = prefix
         self.kks = self.getParent().getParent()
         self.name = 'Section-'+str(Section._index)
-        Section._index+=1
+        Section._index += 1
         self.T0 = _sup.getTiming(self.tree.shot, 0)[0] if T0 is None else _b.Time(T0)
         self.T1 = _sup.getTiming(self.tree.shot, 1)[0] if T1 is None else _b.Time(T1)
         self.address = _b.Path(_MDS_shotrt_arc if prefix=='' else _MDS_shotrt)
@@ -422,6 +483,16 @@ class Section(_mds.TreeNode):
     channeldict = property(_getChannelDict)
 
 class Device(_mds.TreeNode):
+    """
+    Device(devnid, channels, section)
+    """
+    @staticmethod
+    def fromParams(params):
+        devnid,channels,sec_params = params[0:3]
+        return Device(devnid,channels,Section.fromParams(sec_params))
+    def toParams(self):
+        return (self.nid,self.channels,self.section.toParams())
+
     _index=0
     def __new__(cls,devnid,channels,section):
         return super(Device,cls).__new__(cls,devnid,section.tree)
@@ -433,7 +504,6 @@ class Device(_mds.TreeNode):
         self.address.stream = getDataName(self)
         self.channels = channels
         self.section = section
-
     def upload(self, force=False,join=None):
         if join is None: join = self.name
         Tx = self.ParLogUpto()
