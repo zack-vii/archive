@@ -474,7 +474,7 @@ class Device(_mds.TreeNode):
             except: pass
             sigdata = signal.data() # time,*
             ndims = len(sigdata.shape)
-            sigdimof = _b.dimof2w7x(signal.dim_of(),self.section.T0)
+            sigdimof = _b.dimof2w7x(signal.dim_of(),self.section.T1)
             if ndims==1:
                 scalar[0].append(sigdata) #  channels,time
                 scalar[2].append(self.chandescs[i])
@@ -503,24 +503,25 @@ class Device(_mds.TreeNode):
         """prepares signal and uploads to webarchive"""
         if Tx is None: Tx = self.ParLogUpto()
         T0 = self.section.T0
+        T1 = self.section.T1
         if Tx<T0 or force:
             signal = self.signals[0]
             if _sup.debuglevel>=2: print('one signal',signal)
             nSeg = signal.getNumSegments()
             if nSeg>0:
-                url = getCheckURL_seg(signal,self.section.T0,self.address)
+                url = getCheckURL_seg(signal,T1,self.address)
                 logs = []
                 if _sup.debuglevel>=2: print('is segmented',nSeg)
                 for segment in _ver.xrange(nSeg):
                     try:
-                        url = checkURL_seg(signal,T0,url,segment)
+                        url = checkURL_seg(signal,T1,url,segment)
                     except:
                         logs.append({"segment": segment, "log": "already presend"})
                         continue
                     seg = signal.getSegment(segment)
-                    dimof =  _b.dimof2w7x(seg.dim_of(),self.section.T0)
+                    dimof =  _b.dimof2w7x(seg.dim_of(),T1)
                     data = seg.data()
-                    if _sup.debuglevel>=2: print(('image',self.address, data.shape, data.dtype, dimof.shape, dimof[0], T0))
+                    if _sup.debuglevel>=2: print(('image',self.address, data.shape, data.dtype, dimof.shape, dimof[0], T1))
                     log = write_data(self.address, data, dimof, one=True,name=join, timeout=10, retry=9) # time,*
                     logs.append({"segment": segment, "log": log})
             else:
@@ -528,7 +529,7 @@ class Device(_mds.TreeNode):
                 try:     data = signal.data()
                 except _mds.mdsExceptions.TreeNODATA: return 'nodata'
                 except: return {'signal',_sup.error()}
-                dimof = _b.dimof2w7x(signal.dim_of(),self.section.T0)
+                dimof = _b.dimof2w7x(signal.dim_of(),T1)
                 logs = write_data(self.address, data, dimof, one=True,name=join, timeout=10, retry=9) # time,height,width
             logp = self.writeParLog(self.address,Tx,join)
             if join is None: _prc.join()
@@ -567,13 +568,14 @@ class Device(_mds.TreeNode):
             imagepath = _b.Path(self.address.path())
             imagepath.stream = self.address.stream+"_"+image[2]['name'].split('_',2)[1];
             T0 = self.section.T0
+            T1 = self.section.T1
             Tx = checkLogUpto(imagepath.parlog,T0)
             paths.append(imagepath.path())
             if Tx<T0 or force:
                 data = _np.array(image[0])
                 dimof = _np.array(image[1])
                 print(data.shape,dimof.shape)
-                if _sup.debuglevel>=3: print(('image',imagepath, data.shape, data.dtype, dimof.shape, dimof[0], T0))
+                if _sup.debuglevel>=3: print(('image',imagepath, data.shape, data.dtype, dimof.shape, dimof[0], T1))
                 logs.append(write_data(imagepath, data, dimof,name=join, timeout=10, retry=9)) # time,height,width
                 logp.append(self.writeParLog(imagepath,Tx,join))
             else:
@@ -701,17 +703,17 @@ def extractNid(obj):
             if nid is not None:
                 return nid
 
-def getCheckURL_seg(signal,T0,path):
-    tstart = _b.dimof2w7x(signal.getSegmentEnd(0),T0)
-    tend   = _b.dimof2w7x(signal.getSegmentEnd(signal.getNumSegments()-1),T0)
+def getCheckURL_seg(signal,T1,path):
+    tstart = _b.dimof2w7x(signal.getSegmentEnd(0),T1)
+    tend   = _b.dimof2w7x(signal.getSegmentEnd(signal.getNumSegments()-1),T1)
     try:
         return str(_if.get_json('%s/?filterstart=%d&filterstop=%d'%(path.url_datastream(),tstart,tend), timeout=3, retry=9)['_links']['children'][0]['href'].split('?')[0])
     except:
         return None
 
-def checkURL_seg(signal,T0,url,segment):
+def checkURL_seg(signal,T1,url,segment):
     if url is None: return
-    tend = _b.dimof2w7x(signal.getSegmentEnd(segment),T0)
+    tend = _b.dimof2w7x(signal.getSegmentEnd(segment),T1)
     try:
         _if.get_json('%s?filterstart=%d&filterstop=%d'%(url,tend-500,tend+5000), timeout=3, retry=9)
     except:
