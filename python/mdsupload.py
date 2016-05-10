@@ -35,11 +35,10 @@ def uploadSection(shotfrom,shotupto,kks,section,pool=0,force=False,prefix=''):
         from archive.support import getShotDB
         shots = getShotDB(3)
     tt = _time.time()
-    if pool:
-        if isinstance(pool,int):
-            startPool(pool)
-        else:
-            startPool(len(Section((kks,-1,section)).getDevices()))
+    if pool>0:
+        startPool(pool)
+    elif pool<0:
+        startPool(len(Section((kks,-1,section)).getDevices()))
     try:
         for shot in shots:
             if shot<shotfrom: continue
