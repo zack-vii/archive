@@ -485,7 +485,7 @@ class Device(_mds.TreeNode):
                         raise(Exception('data types are not equal for all channels'))
                     # if not (len(scalar[1])==len(sigdimof) and scalar[1][0]==sigdimof[0] and scalar[1][-1]==sigdimof[-1]):
                     if not all(scalar[1]==sigdimof):
-                        raise(Exception('dimesions are not equal for all channels'))
+                        raise(Exception('dimensions are not equal for all channels'))
             elif ndims>1:
                 images.append((sigdata,sigdimof,self.chandescs[i]))
         return scalar,images
