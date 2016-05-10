@@ -46,11 +46,11 @@ def uploadSection(shotfrom,shotupto,kks,section,pool=0,force=False,prefix=''):
             if shot>shotupto: break
             t = _time.time()
             try:
-                S = Section((shot,kks,section))
+                S = Section((shot,kks,section),prefix=prefix)
             except _mds.mdsExceptions.TreeNNF:
                 print('shot %d: %s in %s not found' % (shot,section,kks))
                 continue
-            print('shot %d' % (shot,))
+            print('shot %d to %s_%s' % (shot,kks,section))
             D = [(d.toParams(),force) for d in S.getDevices()]
             log = map(_uploadDev,D)
             ti = _time.time()
