@@ -44,6 +44,7 @@ def uploadSection(shotfrom,shotupto,kks,section,pool=0,force=False,prefix=''):
         for shot in shots:
             if shot<shotfrom: continue
             if shot>shotupto: break
+            if shot % 1000>300: continue # no tests shots
             t = _time.time()
             try:
                 sec = Section((shot,kks,section),prefix=prefix)
