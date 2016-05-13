@@ -136,11 +136,20 @@ def _prep_data(data, dimof, t0=0):
     if dimof.ndim == 0:  # we need to add one level
         dimof = [dimof.tolist()]
         data  = data.reshape(list(data.shape)+[1])
+    elif data.ndim == 4:  # we need to convert RGB@[u8,u8,u8]->ARGB@u32
+        data = _rgb2int32(data)
     else:
         dimof = dimof.tolist()
     if data.ndim==2 and data.shape[1]!=len(dimof):
         raise Exception('data must be of shape (NxT): Number of channels and Time')
     return data,dimof
+
+def _rgb2int32(data):
+    """
+    data.shape = (width,height,3,time)
+    """
+    data = data.astype('uint8')
+    return (data[:,:,0,:]*0x10000+data[:,:,1,:]*0x100+data[:,:,2,:])
 
 def write_data(path, data, dimof, t0=0, one=False, name=None, timeout=None, retry=0):
     """
