@@ -26,18 +26,23 @@ class InsufficientPathException(Exception):
 
 class Path(object):
     _ROOTURL = _rooturl
+    _CFGLOG =  '_CFGLOG'
+    _PARLOG =  '_PARLOG'
+    _DATASTREAM =  '_DATASTREAM'
     def __new__(cls, path=_defreadpath):
         if type(path) is Path:
             return path
         else:
             newpath = super(Path,cls).__new__(cls)
+            newpath.isDataStream = False
+            newpath.isParLog = False
+            newpath.isCfgLog = False
             newpath.set_path(str(path))
             return newpath
 
     def __str__(self):
         return self.path(-1)
     __repr__ = __str__
-
 
     def __hash__(self):
         return hash(self.path_datastream()[:-11])
@@ -51,8 +56,23 @@ class Path(object):
             status = _os.system("%%WINDIR%%\System32\PING.EXE /n 1 /w %d %s >NUL" % (timeout, hostname))
         return status==0
 
+    def append(self,item):
+        self.set_path(self.path(),item)
+        return self
+
+    def copy(self):
+        cls = type(self)
+        newpath = super(Path,cls).__new__(cls)
+        newpath.isDataStream = self.isDataStream
+        newpath.isParLog = self.isParLog
+        newpath.isCfgLog = self.isCfgLog
+        newpath._path = list(self._path)
+        newpath._lev = self._lev
+        return newpath
+
     def set_path(self, *path):
         [self._path, self._lev] = self.path(-2, '/'.join(path))
+        return self
 
     def path(self, lev=-1, _path=None):
         if _path is None:
@@ -64,13 +84,22 @@ class Path(object):
                 else:
                     _path = _database + '/' + _path
             _path = _path.strip('/').split('/')
-            if len(_path) > 4:
-                if (_path[4].endswith('_PARLOG') or _path[4].endswith('_CFGLOG')):
-                    _path[4] = _path[4][:-7]
-                if not _path[4].endswith('_DATASTREAM'):
-                    _path[4] = _path[4] + '_DATASTREAM'
         if lev == -2:
+            if len(_path) > 4:
+                if _path[4].endswith(Path._DATASTREAM):
+                    self.isDataStream = True
+                    _path[4] = _path[4][0:-11]
+                elif _path[4].endswith(Path._PARLOG):
+                    self.isParLog = True
+                    _path[4] = _path[4][0:-7]
+                elif _path[4].endswith(Path._CFGLOG):
+                    self.isCfgLog = True
+                    _path[4] = _path[4][0:-7]
             return [_path, len(_path)]
+        if len(_path) > 4:
+            if self.isDataStream: _path[4]+Path._DATASTREAM
+            elif self.isParLog:   _path[4]+Path._PARLOG
+            elif self.isCfgLog:   _path[4]+Path._CFGLOG
         if lev == -1:
             return '/' + '/'.join(_path)
         else:
@@ -168,17 +197,17 @@ class Path(object):
         if self._lev < 4:
             raise InsufficientPathException
         streamgroup = self.path(4)
-        return streamgroup + '/' + streamgroup.split('/')[-1] + '_CFGLOG'
+        return streamgroup + '/' + streamgroup.split('/')[-1] + Path._CFGLOG
 
     def path_datastream(self, **kwargs):
         if self._lev < 5:
             raise InsufficientPathException
-        return buildpath(self.path(5), **kwargs)
+        return buildpath(self.path(5)+Path._DATASTREAM, **kwargs)
 
     def path_parlog(self):
         if self._lev < 5:
             raise InsufficientPathException
-        return self.path(5)[:-11]+'_PARLOG'
+        return self.path(5)+Path._PARLOG
 
     def path_channel(self, **kwargs):
         if self._lev < 6:
@@ -315,7 +344,12 @@ class Time(_ver.long):
                     return super(Time, cls).__new__(cls, int(_time.time()/3600)*Time._h2ns)
             else:  # '2009-02-13T23:31:30.123456789Z'
                 time = _re.findall('[0-9]+', time)
-                if len(time) == 7:  # we have subsecond precision
+                if len(time)==1:
+                    if len(time[0])==6:
+                        time = [time[0][0:2],time[0][2:4],time[0][4:6]]
+                    elif len(time[0])==8:
+                        time = [time[0][0:4],time[0][4:6],time[0][6:8]]
+                elif len(time) == 7:  # we have subsecond precision
                     time = time[0:6] + _re.findall('[0-9]{3}', time[6]+'00')
                 time = [int(t) for t in time]
                 return listtovalue(time)
@@ -457,6 +491,8 @@ class TimeInterval(TimeArray):
                     raise Exception('Parameter is treated as MDS shot number. Invalid shot number: '+str(arg))
             if not isinstance(arg, (list, tuple)):
                 arg = [-1, arg, 0]
+            elif isinstance(arg, (tuple,)):
+                arg = list(arg)
             if len(arg) < 3:
                 if len(arg) < 2:
                     if len(arg) == 0:
