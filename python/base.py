@@ -519,8 +519,14 @@ class TimeInterval(TimeArray):
         time = super(TimeInterval, self).__getitem__(idx)
         if idx == 0 and time < 0:
             return self[1] + time
-        elif idx == 1 and (time == 0 or time < -2):
-            return Time('now') + time
+        elif idx == 1:
+            if(time == 0 or time < -2):
+                return Time('now') + time
+            else:
+                time0 = super(TimeInterval, self).__getitem__(0)
+                if time<time0:
+                    return time+time0;
+                return time
         elif idx == 2 and time < 0:
             if super(TimeInterval, self).__getitem__(idx) < 0:
                 return self.uptoT
