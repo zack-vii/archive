@@ -47,11 +47,33 @@ def getTimingXP(XP,T=_ver.range(7)):
     from . import interface
     XP = XP.split(":")[-1]
     XP = XP.split('.')
-    f  = _b.Time("%c%c%c%c/%c%c/%c%c" % tuple(XP[0]))
-    u  = f + _b.Time._d2ns # + 1 day
-    p = interface.get_json("http://archive-webapi.ipp-hgw.mpg.de/programs.json?"+str(_b.TimeInterval([f,u])))
+    ti = getTimeInterval(XP[0])
+    p = interface.get_json("http://archive-webapi.ipp-hgw.mpg.de/programs.json?%s"%(ti,))
     p = p["programs"][int(XP[1])-1]["trigger"]
     return [_b.Time(p[str(n)]) for n in T]
+
+def getTimeInterval(XP):
+    """'XP:YYYMMDD.prg.Sce.seg'"""
+    def _getTimeInterval(value,name=None,ti=None):
+        """args = (name,_from,_upto)"""
+        if name is None: # YYYYMMDD
+            return _b.TimeInterval([value[0:8],_b.Time._d2ns-1])
+        url = 'http://archive-webapi.ipp-hgw.mpg.de/ArchiveDB/raw/W7X/ProjectDesc.1/SegmentLabelLog/parms/SegmentLogLabel/'+name
+        sig = interface.get_json(url,time=ti)
+        ids = _np.array(sig['values'])
+        dim = _np.array(sig['dimensions'])
+        dim = dim[ _np.where( ids == value ) ]
+        return _b.TimeInterval([dim[0],dim[-1]])
+
+    from . import interface
+    XP = XP.split(':',2)[-1]
+    nmlist = ['date','progId','scenId','segId']
+    xplist = XP.split( '.' )
+
+    ti = _getTimeInterval(xplist[0])
+    for ii in range(1,len(xplist)):
+        ti = _getTimeInterval(int(xplist[ii]),nmlist[ii],ti)
+    return ti
 
 def fixname(name):
     if not isinstance(name, (str)):

@@ -17,5 +17,6 @@ import re as _re  # analysis:ignore
 from . import base, interface, support  # analysis:ignore
 from . import diff, process  # analysis:ignore
 from .base import Time, TimeArray, TimeInterval, Units, Path  # analysis:ignore
+from .support import getTimeInterval, getTiming  # analysis:ignore
 from .interface import write_signal, write_signals, write_images, read_signal, read_cfglog, read_parlog  # analysis:ignore
 from .classes import datastream, browser  # analysis:ignore
